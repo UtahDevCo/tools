@@ -1,5 +1,5 @@
 
-# trikin.co Development Guidelines
+# Development Guidelines
 
 Canonical: true
 
@@ -147,3 +147,7 @@ TypeScript (repository uses Next.js and TypeScript under `web/`). Follow standar
 
 ## Shadcn MCP server
 - Use the `schadcn` mcp server to find and install new ui components as needed.
+
+# LLM Guidelines
+
+Be as concise as is reasonable.
