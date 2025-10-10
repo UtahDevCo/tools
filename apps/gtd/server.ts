@@ -1,7 +1,9 @@
+import { resolve } from 'path';
+
 const server = Bun.serve({
   port: 3010,
   async fetch(req) {
-    const url = new URL(req.url);k
+    const url = new URL(req.url);
     
     // Serve index.html for root path
     if (url.pathname === '/') {
@@ -9,28 +11,60 @@ const server = Bun.serve({
       return new Response(file);
     }
     
-    // Handle TypeScript/JSX files
-    if (url.pathname.endsWith('.tsx') || url.pathname.endsWith('.ts')) {
-      const filePath = `.${url.pathname}`;
-      const file = Bun.file(filePath);
-      
-      if (await file.exists()) {
-        const transpiled = await Bun.build({
-          entrypoints: [filePath],
+    // Bundle and serve the main entry point
+    if (url.pathname === '/src/index.tsx') {
+      try {
+        const result = await Bun.build({
+          entrypoints: ['./src/index.tsx'],
           format: 'esm',
+          splitting: true,
+          outdir: './dist',
+          minify: false,
+          sourcemap: 'inline',
         });
-        
-        if (transpiled.outputs[0]) {
-          return new Response(transpiled.outputs[0], {
+
+        if (result.success && result.outputs[0]) {
+          return new Response(result.outputs[0], {
             headers: {
               'Content-Type': 'application/javascript',
             },
           });
         }
+      } catch (error) {
+        console.error('Build error:', error);
+        return new Response(`Build error: ${error}`, { status: 500 });
+      }
+    }
+
+    // Handle CSS files
+    if (url.pathname.endsWith('.css')) {
+      const filePath = `.${url.pathname}`;
+      const file = Bun.file(filePath);
+      
+      if (await file.exists()) {
+        return new Response(file, {
+          headers: {
+            'Content-Type': 'text/css',
+          },
+        });
       }
     }
     
-    // Serve static files
+    // Serve static files from dist
+    if (url.pathname.startsWith('/dist/')) {
+      const filePath = `.${url.pathname}`;
+      const file = Bun.file(filePath);
+      
+      if (await file.exists()) {
+        return new Response(file, {
+          headers: {
+            'Content-Type': 'application/javascript',
+          },
+        });
+      }
+    }
+    
+    // Serve other static files
     const filePath = `.${url.pathname}`;
     const file = Bun.file(filePath);
     

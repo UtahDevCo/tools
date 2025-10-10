@@ -1,12 +1,13 @@
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
 import { App } from './app';
+import './styles/globals.css';
 
 const root = document.getElementById('root');
 if (root) {
-  root.innerHTML = `<div id="app"></div>`;
-  const appElement = document.getElementById('app');
-  if (appElement) {
-    const { createRoot } = await import('react-dom/client');
-    const reactRoot = createRoot(appElement);
-    reactRoot.render(<App />);
-  }
+  createRoot(root).render(
+    <StrictMode>
+      <App />
+    </StrictMode>
+  );
 }
