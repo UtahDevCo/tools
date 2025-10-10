@@ -1,0 +1,11 @@
+{
+  "servers": {
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["chrome-devtools-mcp@latest"]
+    },
+    "shadcn": {
+      "url": "https://www.shadcn.io/api/mcp"
+    }
+  }
+}
