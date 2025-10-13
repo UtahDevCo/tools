@@ -72,71 +72,52 @@ The GTD application will feature a clean, minimal interface inspired by Tweek.so
 
 ## Layout
 
-### Desktop Layout (≥1024px)
+### Desktop & Mobile Layout (Single-Column)
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Header                                             │
-├──────────┬──────────┬──────────┬──────────┬─────────┤
-│  Queue 1 │  Queue 2 │  Queue 3 │  Queue 4 │   +     │
-│          │          │          │          │         │
-│ Next     │ Next     │ Next     │ Next     │         │
-│ Actions  │ Actions  │ Actions  │ Actions  │         │
-│  • Task  │  • Task  │  • Task  │  • Task  │         │
-│  • Task  │  • Task  │  • Task  │  • Task  │         │
-│          │          │          │          │         │
-│ Waiting  │ Waiting  │ Waiting  │ Waiting  │         │
-│  • Task  │  • Task  │  • Task  │  • Task  │         │
-│          │          │          │          │         │
-│ Someday  │ Someday  │ Someday  │ Someday  │         │
-│  • Task  │  • Task  │  • Task  │  • Task  │         │
-│          │          │          │          │         │
-│ Archive  │ Archive  │ Archive  │ Archive  │         │
-│  • Task  │  • Task  │  • Task  │  • Task  │         │
-└──────────┴──────────┴──────────┴──────────┴─────────┘
+│  Queue Name [editable]          ⋮  ◀  ▶             │
+├─────────────────────────────────────────────────────┤
+│                                                      │
+│  Next Actions                                  +     │
+│  ⋮  Task 1                                      ☐   │
+│  ⋮  Task 2                                      ☑   │
+│  ⋮  Task 3                                      ☐   │
+│  ⋮  [empty]                                          │
+│  ⋮  [empty]                                          │
+│                                                      │
+│  Waiting On                                    +     │
+│  ⋮  Task 4                                      ☐   │
+│  ⋮  [empty]                                          │
+│  ⋮  [empty]                                          │
+│  ⋮  [empty]                                          │
+│  ⋮  [empty]                                          │
+│                                                      │
+│  Someday                                       +     │
+│  ⋮  Task 5                                      ☐   │
+│  ⋮  [empty]                                          │
+│  ⋮  [empty]                                          │
+│  ⋮  [empty]                                          │
+│  ⋮  [empty]                                          │
+│                                                      │
+│  Archive                                       +     │
+│  ⋮  [empty]                                          │
+│  ⋮  [empty]                                          │
+│  ⋮  [empty]                                          │
+│  ⋮  [empty]                                          │
+│  ⋮  [empty]                                          │
+└─────────────────────────────────────────────────────┘
 ```
 
 **Features**:
-- Horizontal scrolling for multiple queues
-- Fixed header with user menu
-- Each queue is a vertical column (280px width)
-- Drag-and-drop between categories and queues
-
-### Mobile Layout (<1024px)
-
-```
-┌─────────────────────────────────┐
-│  Header          ☰              │
-├─────────────────────────────────┤
-│  ┌───┬───┬───┬───┐             │
-│  │Q1 │Q2 │Q3 │Q4 │  + New      │
-│  └───┴───┴───┴───┘             │
-├─────────────────────────────────┤
-│                                 │
-│  Active Queue: Work             │
-│                                 │
-│  Next Actions                   │
-│  • Task 1                       │
-│  • Task 2                       │
-│  • Task 3                       │
-│                                 │
-│  Waiting On                     │
-│  • Task 4                       │
-│                                 │
-│  Someday                        │
-│  • Task 5                       │
-│                                 │
-│  Archive                        │
-│  • Task 6                       │
-│                                 │
-└─────────────────────────────────┘
-```
-
-**Features**:
-- Tab navigation between queues
-- Single column view
-- Collapsible categories
-- Swipe gestures for navigation
+- Single-column vertical layout for all screen sizes
+- Fixed header with editable queue name and navigation controls
+- Left/Right arrow buttons (◀ ▶) to switch between queues
+- Triple-dot menu (⋮) in header for queue actions
+- Minimum 5 list items per category section
+- Empty rows available for quick task creation
+- Drag handles (⋮) appear on hover/focus for reordering
+- Checkboxes appear on hover/focus on the right side
 
 ## Components
 
@@ -235,21 +216,84 @@ App
 </div>
 ```
 
+### Queue Header
+
+**Features**:
+- Queue name is editable using `contenteditable` attribute
+- Triple-dot dropdown menu with queue actions
+- Navigation buttons to switch between queues
+
+```tsx
+<header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur">
+  <div className="flex h-14 items-center px-4">
+    <h1
+      contentEditable
+      suppressContentEditableWarning
+      onBlur={handleQueueNameChange}
+      className="text-4xl font-bold outline-none focus:ring-2 focus:ring-ring rounded px-2"
+    >
+      {queueName}
+    </h1>
+
+    <div className="flex flex-1 items-center justify-end space-x-4">
+      <DropdownMenu>
+        <DropdownMenuTrigger>
+          <EllipsisVertical className="h-5 w-5" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem onSelect={handleAddQueue}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add New List
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={handleDeleteQueue} className="text-destructive">
+            <Trash className="mr-2 h-4 w-4" />
+            Delete List
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Button onClick={onPreviousQueue} disabled={isFirst}>
+        <ChevronLeft />
+      </Button>
+      <Button onClick={onNextQueue} disabled={isLast}>
+        <ChevronRight />
+      </Button>
+    </div>
+  </div>
+</header>
+```
+
 ### Task Card
+
+**Features**:
+- Click to edit task inline
+- Drag handle (⋮) visible on hover/focus
+- Checkbox visible on hover/focus
+- Smooth transitions for interactive elements
 
 ```tsx
 <Card
-  className="group cursor-pointer p-3 transition-colors hover:bg-accent"
+  className="group cursor-pointer p-3 transition-colors hover:bg-accent focus-within:bg-accent"
   onClick={onClick}
   draggable
+  tabIndex={0}
 >
   <div className="flex items-start space-x-2">
-    <Checkbox
-      checked={task.completed}
-      onCheckedChange={handleToggleComplete}
-      onClick={(e) => e.stopPropagation()}
-    />
-    <div className="flex-1 min-w-0">
+    <button
+      className="cursor-grab opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
+      draggable
+      aria-label="Drag to reorder"
+    >
+      <GripVertical className="h-4 w-4 text-muted-foreground" />
+    </button>
+
+    <div
+      contentEditable={isEditing}
+      suppressContentEditableWarning
+      onBlur={handleSave}
+      onKeyDown={handleKeyDown}
+      className="flex-1 min-w-0 outline-none"
+    >
       <p className={cn(
         "text-sm leading-tight",
         task.completed && "line-through text-muted-foreground"
@@ -257,6 +301,32 @@ App
         {task.title}
       </p>
     </div>
+
+    <Checkbox
+      checked={task.completed}
+      onCheckedChange={handleToggleComplete}
+      onClick={(e) => e.stopPropagation()}
+      className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
+    />
+  </div>
+</Card>
+```
+
+### Empty Task Card
+
+**Features**:
+- Click to create new task
+- Immediately becomes editable when clicked
+- Same minimum height as regular task cards
+
+```tsx
+<Card
+  className="group cursor-pointer p-3 transition-colors hover:bg-accent border-dashed"
+  onClick={handleCreateTask}
+>
+  <div className="flex items-start space-x-2">
+    <div className="h-4 w-4" /> {/* Spacer for drag handle */}
+    <div className="flex-1 min-w-0 h-5" /> {/* Empty content area */}
   </div>
 </Card>
 ```
@@ -312,6 +382,62 @@ App
 
 ## Interactions
 
+### Queue Header Interactions
+
+**Editable Queue Name**:
+- Click on queue name to focus and edit
+- Use `contenteditable` for inline editing
+- Save on blur or Enter key
+- Escape key cancels edit
+
+**Queue Actions Dropdown**:
+- Triple-dot menu (⋮) opens dropdown
+- Options:
+  - "Add New List" - Creates a new queue
+  - "Delete List" - Opens confirmation dialog
+
+**Delete Confirmation Dialog**:
+```tsx
+<AlertDialog>
+  <AlertDialogContent>
+    <AlertDialogHeader>
+      <AlertDialogTitle>Delete "{queueName}"?</AlertDialogTitle>
+      <AlertDialogDescription>
+        This action cannot be undone. All tasks in this queue will be permanently deleted.
+      </AlertDialogDescription>
+    </AlertDialogHeader>
+    <AlertDialogFooter>
+      <AlertDialogCancel>Cancel</AlertDialogCancel>
+      <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive">
+        Delete
+      </AlertDialogAction>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
+```
+
+### Task Card Interactions
+
+**Inline Editing**:
+- Click on task card to enable editing mode
+- Task text becomes contenteditable
+- Save on blur or Enter key
+- Escape key cancels edit
+- Tab key saves and moves to next task
+
+**Hover/Focus States**:
+- Drag handle (⋮) appears on left when hovering or focused
+- Checkbox appears on right when hovering or focused
+- Both elements fade in/out with smooth transitions
+- Card background changes to accent color
+
+**Empty Task Cards**:
+- Click on empty card to create new task
+- Immediately becomes editable
+- Focus is set to the content area
+- Escape key cancels and removes temporary card
+- Enter or blur saves the new task
+
 ### Drag and Drop
 
 Use `@dnd-kit` for drag-and-drop functionality:
@@ -321,12 +447,12 @@ npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities
 ```
 
 **Features**:
+- Drag handle (⋮) becomes visible on hover/focus
 - Drag tasks between categories
-- Drag tasks between queues
 - Reorder tasks within categories
-- Reorder queues
 - Visual feedback during drag
 - Smooth animations
+- Cursor changes to grab when hovering over handle
 
 ### Keyboard Shortcuts
 

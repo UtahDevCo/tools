@@ -19,12 +19,19 @@ export const mockQueues = [
   },
 ];
 
-type QueueListProps = {
-  currentQueueIndex: number;
+type Queue = {
+  id: string;
+  name: string;
+  color: string;
 };
 
-export function QueueList({ currentQueueIndex }: QueueListProps) {
-  const currentQueue = mockQueues[currentQueueIndex];
+type QueueListProps = {
+  currentQueueIndex: number;
+  queues: Queue[];
+};
+
+export function QueueList({ currentQueueIndex, queues }: QueueListProps) {
+  const currentQueue = queues[currentQueueIndex];
 
   if (!currentQueue) {
     return null;

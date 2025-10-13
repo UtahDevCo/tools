@@ -24,8 +24,14 @@ export function CategorySection({
   tasks,
   queueId,
 }: CategorySectionProps) {
+  function handleCreateTask(title: string) {
+    console.log("Create task in", category, "in queue", queueId, ":", title);
+    // TODO: Call API to create task
+  }
+
   function handleAddTask() {
     console.log("Add task to", category, "in queue", queueId);
+    // Focus on first empty task card
   }
 
   return (
@@ -43,7 +49,12 @@ export function CategorySection({
         ))}
         {Array.from({ length: Math.max(0, MIN_CARDS - tasks.length) }).map(
           (_, index) => (
-            <EmptyTaskCard key={index} onClick={handleAddTask} />
+            <EmptyTaskCard
+              key={`empty-${index}`}
+              onCreateTask={handleCreateTask}
+              queueId={queueId}
+              category={category}
+            />
           )
         )}
       </div>

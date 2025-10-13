@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Task = {
@@ -17,49 +18,175 @@ type TaskCardProps = {
 
 export function TaskCard({ task }: TaskCardProps) {
   const [isCompleted, setIsCompleted] = useState(task.completed);
+  const [isEditing, setIsEditing] = useState(false);
+  const [title, setTitle] = useState(task.title);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   function handleToggleComplete(checked: boolean) {
     setIsCompleted(checked as boolean);
     console.log("Toggle task", task.id, "to", checked);
   }
 
-  function handleClick() {
-    console.log("Open task", task.id);
+  function handleClick(e: React.MouseEvent) {
+    // Don't start editing if clicking on checkbox or drag handle
+    if (
+      (e.target as HTMLElement).closest('button[role="checkbox"]') ||
+      (e.target as HTMLElement).closest('button[aria-label="Drag to reorder"]')
+    ) {
+      return;
+    }
+    setIsEditing(true);
   }
+
+  function handleBlur() {
+    setIsEditing(false);
+    if (contentRef.current) {
+      const newTitle = contentRef.current.textContent || "";
+      if (newTitle.trim() !== title) {
+        setTitle(newTitle.trim());
+        console.log("Update task", task.id, "title to", newTitle.trim());
+      }
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      contentRef.current?.blur();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      if (contentRef.current) {
+        contentRef.current.textContent = title;
+      }
+      setIsEditing(false);
+    }
+  }
+
+  useEffect(() => {
+    if (isEditing && contentRef.current) {
+      contentRef.current.focus();
+      // Select all text when entering edit mode
+      const range = document.createRange();
+      range.selectNodeContents(contentRef.current);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    }
+  }, [isEditing]);
 
   return (
     <Card
-      className="group cursor-pointer py-2 transition-colors hover:bg-accent"
+      className="group cursor-pointer py-2 px-2 transition-colors hover:bg-accent focus-within:bg-accent"
       onClick={handleClick}
+      tabIndex={0}
     >
-      <div className="flex items-start">
-        <div className="flex-1 min-w-0">
-          <p
-            className={cn(
-              "text-sm leading-tight",
-              isCompleted && "line-through text-muted-foreground"
-            )}
-          >
-            {task.title}
-          </p>
+      <div className="flex items-start gap-2">
+        <button
+          className="cursor-grab opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity p-0.5"
+          aria-label="Drag to reorder"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </button>
+
+        <div
+          ref={contentRef}
+          contentEditable={isEditing}
+          suppressContentEditableWarning
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          className={cn(
+            "flex-1 min-w-0 outline-none text-sm leading-tight",
+            isCompleted && "line-through text-muted-foreground",
+            isEditing && "ring-2 ring-ring rounded px-1"
+          )}
+        >
+          {title}
         </div>
 
         <Checkbox
           checked={isCompleted}
           onCheckedChange={handleToggleComplete}
           onClick={(e) => e.stopPropagation()}
-          className="mt-0.5"
+          className="mt-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
         />
       </div>
     </Card>
   );
 }
 
-export function EmptyTaskCard({ onClick }: { onClick: () => void }) {
+type EmptyTaskCardProps = {
+  onCreateTask: (title: string) => void;
+  queueId: string;
+  category: string;
+};
+
+export function EmptyTaskCard({
+  onCreateTask,
+  queueId,
+  category,
+}: EmptyTaskCardProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  function handleClick() {
+    setIsEditing(true);
+  }
+
+  function handleBlur() {
+    if (contentRef.current) {
+      const title = contentRef.current.textContent?.trim() || "";
+      if (title) {
+        onCreateTask(title);
+        console.log("Create task in", category, "queue", queueId, ":", title);
+      }
+    }
+    setIsEditing(false);
+    if (contentRef.current) {
+      contentRef.current.textContent = "";
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      contentRef.current?.blur();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      if (contentRef.current) {
+        contentRef.current.textContent = "";
+      }
+      setIsEditing(false);
+    }
+  }
+
+  useEffect(() => {
+    if (isEditing && contentRef.current) {
+      contentRef.current.focus();
+    }
+  }, [isEditing]);
+
   return (
     <Card
-      className="group cursor-pointer py-4 transition-colors hover:bg-accent"
-      onClick={onClick}
-    />
+      className="group cursor-pointer py-2 px-2 transition-colors hover:bg-accent border-dashed focus-within:bg-accent"
+      onClick={handleClick}
+      tabIndex={0}
+    >
+      <div className="flex items-start gap-2">
+        <div className="h-4 w-4 p-0.5" /> {/* Spacer for drag handle */}
+        <div
+          ref={contentRef}
+          contentEditable={isEditing}
+          suppressContentEditableWarning
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          className={cn(
+            "flex-1 min-w-0 outline-none text-sm leading-tight h-5",
+            isEditing && "ring-2 ring-ring rounded px-1"
+          )}
+        />
+        <div className="h-4 w-4 mt-0.5" /> {/* Spacer for checkbox */}
+      </div>
+    </Card>
   );
 }
