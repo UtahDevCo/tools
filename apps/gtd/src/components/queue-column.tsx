@@ -58,18 +58,6 @@ export function QueueColumn({ queue }: QueueColumnProps) {
 
   return (
     <div className="flex h-full flex-1 flex-shrink-0 flex-col bg-card">
-      <div className="flex items-center justify-between p-4">
-        <div className="flex items-center space-x-2">
-          <h2 className="text-3xl font-semibold">{queue.name}</h2>
-          {/* <div
-            className="h-3 w-3 rounded-full"
-            style={{ backgroundColor: queue.color }}
-          /> */}
-        </div>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
-          <MoreVertical className="h-4 w-4" style={{ color: queue.color }} />
-        </Button>
-      </div>
       <ScrollArea className="flex-1 px-4">
         <div className="py-4 space-y-8">
           <CategorySection

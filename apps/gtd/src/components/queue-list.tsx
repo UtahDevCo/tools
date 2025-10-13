@@ -1,10 +1,7 @@
-import { useState } from 'react';
 import { QueueColumn } from './queue-column';
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
 
 // Mock data for initial development
-const mockQueues = [
+export const mockQueues = [
   {
     id: '1',
     name: 'Work',
@@ -22,20 +19,22 @@ const mockQueues = [
   },
 ];
 
-export function QueueList() {
-  const [queues] = useState(mockQueues);
+type QueueListProps = {
+  currentQueueIndex: number;
+};
+
+export function QueueList({ currentQueueIndex }: QueueListProps) {
+  const currentQueue = mockQueues[currentQueueIndex];
+
+  if (!currentQueue) {
+    return null;
+  }
 
   return (
-    <div className="flex overflow-x-auto gap-4">
-      {queues.map((queue) => (
-        <QueueColumn key={queue.id} queue={queue} />
-      ))}
-      {/* <div className="flex w-[280px] flex-shrink-0 items-start justify-center border-r p-4">
-        <Button variant="outline" className="w-full">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Queue
-        </Button>
-      </div> */}
+    <div className="flex h-full w-full justify-center">
+      <div className="w-full">
+        <QueueColumn queue={currentQueue} />
+      </div>
     </div>
   );
 }
