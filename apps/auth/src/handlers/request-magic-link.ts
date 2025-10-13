@@ -4,6 +4,7 @@ import { RequestMagicLinkSchema } from '../types/auth';
 import { checkRateLimit } from '../middleware/rate-limit';
 import { sendMagicLinkEmail } from '../lib/email';
 import { hashEmail } from '../lib/crypto';
+import { ZodError } from 'zod';
 
 export async function handleRequestMagicLink(c: Context<{ Bindings: Env }>) {
   try {
@@ -71,6 +72,18 @@ export async function handleRequestMagicLink(c: Context<{ Bindings: Env }>) {
     });
   } catch (error) {
     console.error('Error in handleRequestMagicLink:', error);
+
+    // Handle validation errors
+    if (error instanceof ZodError) {
+      return c.json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid request data',
+          details: error.errors
+        }
+      }, 400);
+    }
+
     return c.json({
       error: {
         code: 'INTERNAL_ERROR',

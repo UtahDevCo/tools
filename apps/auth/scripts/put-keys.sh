@@ -14,7 +14,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 # Choose .env file based on environment
 if [[ "$ENV_NAME" == "production" ]]; then
-  ENV_FILE="$ROOT_DIR/.env.production"
+  ENV_FILE="$ROOT_DIR/.env.production.local"
 else
   ENV_FILE="$ROOT_DIR/.env"
 fi
