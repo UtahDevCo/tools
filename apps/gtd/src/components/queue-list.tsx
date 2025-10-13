@@ -26,7 +26,7 @@ export function QueueList() {
   const [queues] = useState(mockQueues);
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] overflow-x-auto gap-4">
+    <div className="flex overflow-x-auto gap-4">
       {queues.map((queue) => (
         <QueueColumn key={queue.id} queue={queue} />
       ))}

@@ -29,7 +29,7 @@ export function TaskCard({ task }: TaskCardProps) {
 
   return (
     <Card
-      className="group cursor-pointer py-4 transition-colors hover:bg-accent"
+      className="group cursor-pointer py-2 transition-colors hover:bg-accent"
       onClick={handleClick}
     >
       <div className="flex items-start">
@@ -58,7 +58,7 @@ export function TaskCard({ task }: TaskCardProps) {
 export function EmptyTaskCard({ onClick }: { onClick: () => void }) {
   return (
     <Card
-      className="group cursor-pointer py-5 transition-colors hover:bg-accent"
+      className="group cursor-pointer py-4 transition-colors hover:bg-accent"
       onClick={onClick}
     />
   );

@@ -16,6 +16,8 @@ type CategorySectionProps = {
   queueId: string;
 };
 
+const MIN_CARDS = 5;
+
 export function CategorySection({
   category,
   label,
@@ -39,7 +41,11 @@ export function CategorySection({
         {tasks.map((task) => (
           <TaskCard key={task.id} task={task} />
         ))}
-        <EmptyTaskCard onClick={handleAddTask} />
+        {Array.from({ length: Math.max(0, MIN_CARDS - tasks.length) }).map(
+          (_, index) => (
+            <EmptyTaskCard key={index} onClick={handleAddTask} />
+          )
+        )}
       </div>
     </div>
   );
