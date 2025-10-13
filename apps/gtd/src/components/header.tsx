@@ -138,24 +138,27 @@ export function Header({
                   <span className="sr-only">Queue actions</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="bg-white">
                 <DropdownMenuItem onSelect={onAddQueue}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Add New List
+                  Add new list
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onSelect={handleDeleteQueue}
                   className="text-destructive focus:text-destructive"
                 >
                   <Trash className="mr-2 h-4 w-4" />
-                  Delete List
+                  Delete list
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
+
+
                 <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />
                   Settings
                 </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+
                 <DropdownMenuItem>
                   <LogOut className="mr-2 h-4 w-4" />
                   Sign out

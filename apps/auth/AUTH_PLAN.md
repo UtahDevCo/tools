@@ -38,7 +38,6 @@ apps/auth/
 ├── wrangler.toml                   # Cloudflare configuration
 ├── package.json
 ├── tsconfig.json
-├── vitest.config.ts
 └── README.md
 ```
 
@@ -641,7 +640,7 @@ export async function sendMagicLinkEmail(
 Test individual functions and utilities:
 
 ```typescript
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { generateAccessToken, verifyJWT } from './jwt';
 
 describe('JWT', () => {
@@ -666,7 +665,7 @@ describe('JWT', () => {
 Test Durable Object interactions:
 
 ```typescript
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import { env, createExecutionContext } from 'cloudflare:test';
 
 describe('AuthenticationDO', () => {

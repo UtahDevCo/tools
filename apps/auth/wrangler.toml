@@ -1,0 +1,68 @@
+name = "auth-service"
+main = "src/index.ts"
+compatibility_date = "2025-01-10"
+compatibility_flags = ["nodejs_compat"]
+account_id = "cc4c7fdc635749de34e3fa649b321055"
+
+[[durable_objects.bindings]]
+name = "AUTH_DO"
+class_name = "AuthenticationDO"
+
+[[durable_objects.bindings]]
+name = "USER_DO"
+class_name = "UserDO"
+
+[[durable_objects.bindings]]
+name = "RATE_LIMITER_DO"
+class_name = "RateLimiterDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["AuthenticationDO", "UserDO", "RateLimiterDO"]
+
+[env.development]
+name = "auth-service-dev"
+
+[[env.development.durable_objects.bindings]]
+name = "AUTH_DO"
+class_name = "AuthenticationDO"
+
+[[env.development.durable_objects.bindings]]
+name = "USER_DO"
+class_name = "UserDO"
+
+[[env.development.durable_objects.bindings]]
+name = "RATE_LIMITER_DO"
+class_name = "RateLimiterDO"
+
+[[env.development.migrations]]
+tag = "v1"
+new_sqlite_classes = ["AuthenticationDO", "UserDO", "RateLimiterDO"]
+
+[env.production]
+name = "auth-service-prod"
+
+[[env.production.durable_objects.bindings]]
+name = "AUTH_DO"
+class_name = "AuthenticationDO"
+
+[[env.production.durable_objects.bindings]]
+name = "USER_DO"
+class_name = "UserDO"
+
+[[env.production.durable_objects.bindings]]
+name = "RATE_LIMITER_DO"
+class_name = "RateLimiterDO"
+
+[[env.production.migrations]]
+tag = "v1"
+new_sqlite_classes = ["AuthenticationDO", "UserDO", "RateLimiterDO"]
+
+# Environment variables (set via wrangler secret for sensitive data)
+# RESEND_API_KEY - Set via: wrangler secret put RESEND_API_KEY
+# JWT_PRIVATE_KEY - Set via: wrangler secret put JWT_PRIVATE_KEY
+# JWT_PUBLIC_KEY - Set via: wrangler secret put JWT_PUBLIC_KEY
+# AUTH_URL - Auth service URL
+# DEFAULT_APP_URL - Default redirect URL after auth
+# APP_URLS - JSON object mapping appId to URLs
+# ALLOWED_ORIGINS - Comma-separated list of allowed origins

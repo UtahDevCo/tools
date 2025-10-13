@@ -82,12 +82,19 @@ export function TaskCard({ task }: TaskCardProps) {
     >
       <div className="flex items-start gap-2">
         <button
-          className="cursor-grab opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity p-0.5"
+          className="cursor-grab opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 -ml-7 group-hover:ml-0 group-focus-within:ml-0 transition-all duration-300 p-0.5 w-4 flex-shrink-0"
           aria-label="Drag to reorder"
           onClick={(e) => e.stopPropagation()}
         >
           <GripVertical className="h-4 w-4 text-muted-foreground" />
         </button>
+
+        <Checkbox
+          checked={isCompleted}
+          onCheckedChange={handleToggleComplete}
+          onClick={(e) => e.stopPropagation()}
+          className="mt-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 -ml-7 group-hover:ml-0 group-focus-within:ml-0 transition-all duration-300 flex-shrink-0"
+        />
 
         <div
           ref={contentRef}
@@ -96,20 +103,13 @@ export function TaskCard({ task }: TaskCardProps) {
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
           className={cn(
-            "flex-1 min-w-0 outline-none text-sm leading-tight",
+            "flex-1 min-w-0 outline-none text-sm leading-tight transition-all duration-150",
             isCompleted && "line-through text-muted-foreground",
             isEditing && "ring-2 ring-ring rounded px-1"
           )}
         >
           {title}
         </div>
-
-        <Checkbox
-          checked={isCompleted}
-          onCheckedChange={handleToggleComplete}
-          onClick={(e) => e.stopPropagation()}
-          className="mt-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
-        />
       </div>
     </Card>
   );
