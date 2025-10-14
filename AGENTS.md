@@ -151,3 +151,5 @@ TypeScript (repository uses Next.js and TypeScript under `web/`). Follow standar
 # LLM Guidelines
 
 Be as concise as is reasonable.
+
+Prefer kebab-case for filenames over camelCase.

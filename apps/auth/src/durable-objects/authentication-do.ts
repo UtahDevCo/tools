@@ -1,5 +1,5 @@
-import { DurableObject } from 'cloudflare:workers';
-import type { Env } from '../types/env';
+import { DurableObject } from "cloudflare:workers";
+import type { Env } from "../types/env";
 
 export class AuthenticationDO extends DurableObject<Env> {
   private sql: SqlStorage;
@@ -50,13 +50,17 @@ export class AuthenticationDO extends DurableObject<Env> {
     `);
   }
 
-  async generateMagicLink(email: string, appId?: string, redirectUri?: string): Promise<string> {
+  async generateMagicLink(
+    email: string,
+    appId?: string,
+    redirectUri?: string
+  ): Promise<string> {
     // Generate secure random token
     const tokenBytes = new Uint8Array(32);
     crypto.getRandomValues(tokenBytes);
     const token = Array.from(tokenBytes)
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
 
     const now = Date.now();
     const expiresAt = now + 15 * 60 * 1000; // 15 minutes
@@ -76,16 +80,20 @@ export class AuthenticationDO extends DurableObject<Env> {
     return token;
   }
 
-  async verifyMagicLink(token: string): Promise<{ email: string; appId?: string; redirectUri?: string }> {
+  async verifyMagicLink(
+    token: string
+  ): Promise<{ email: string; appId?: string; redirectUri?: string }> {
     const now = Date.now();
 
     // Get token
-    const result = this.sql.exec(
-      `SELECT email, app_id, redirect_uri, expires_at, attempts, used_at
+    const result = this.sql
+      .exec(
+        `SELECT email, app_id, redirect_uri, expires_at, attempts, used_at
        FROM magic_link_tokens
        WHERE token = ?`,
-      token
-    ).toArray() as Array<{
+        token
+      )
+      .toArray() as Array<{
       email: string;
       app_id: string | null;
       redirect_uri: string | null;
@@ -95,24 +103,24 @@ export class AuthenticationDO extends DurableObject<Env> {
     }>;
 
     if (result.length === 0) {
-      throw new Error('INVALID_TOKEN');
+      throw new Error("INVALID_TOKEN");
     }
 
     const record = result[0];
 
     // Check if already used
     if (record.used_at) {
-      throw new Error('TOKEN_ALREADY_USED');
+      throw new Error("TOKEN_ALREADY_USED");
     }
 
     // Check expiration
     if (now > record.expires_at) {
-      throw new Error('TOKEN_EXPIRED');
+      throw new Error("TOKEN_EXPIRED");
     }
 
     // Check attempts
     if (record.attempts >= 5) {
-      throw new Error('TOO_MANY_ATTEMPTS');
+      throw new Error("TOO_MANY_ATTEMPTS");
     }
 
     // Increment attempts
@@ -148,10 +156,9 @@ export class AuthenticationDO extends DurableObject<Env> {
   }
 
   async isTokenRevoked(jti: string): Promise<boolean> {
-    const result = this.sql.exec(
-      `SELECT jti FROM token_blacklist WHERE jti = ?`,
-      jti
-    ).toArray();
+    const result = this.sql
+      .exec(`SELECT jti FROM token_blacklist WHERE jti = ?`, jti)
+      .toArray();
 
     return result.length > 0;
   }
@@ -160,24 +167,21 @@ export class AuthenticationDO extends DurableObject<Env> {
     const now = Date.now();
 
     // Delete expired magic link tokens
-    this.sql.exec(
-      `DELETE FROM magic_link_tokens WHERE expires_at < ?`,
-      now
-    );
+    this.sql.exec(`DELETE FROM magic_link_tokens WHERE expires_at < ?`, now);
 
     // Delete expired blacklist entries
-    this.sql.exec(
-      `DELETE FROM token_blacklist WHERE expires_at < ?`,
-      now
-    );
+    this.sql.exec(`DELETE FROM token_blacklist WHERE expires_at < ?`, now);
   }
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
     try {
-      if (url.pathname === '/generate-magic-link' && request.method === 'POST') {
-        const { email, appId, redirectUri } = await request.json() as {
+      if (
+        url.pathname === "/generate-magic-link" &&
+        request.method === "POST"
+      ) {
+        const { email, appId, redirectUri } = (await request.json()) as {
           email: string;
           appId?: string;
           redirectUri?: string;
@@ -186,34 +190,40 @@ export class AuthenticationDO extends DurableObject<Env> {
         return Response.json({ token });
       }
 
-      if (url.pathname === '/verify-magic-link' && request.method === 'POST') {
-        const { token } = await request.json() as { token: string };
+      if (url.pathname === "/verify-magic-link" && request.method === "POST") {
+        const { token } = (await request.json()) as { token: string };
         const result = await this.verifyMagicLink(token);
         return Response.json(result);
       }
 
-      if (url.pathname === '/revoke-token' && request.method === 'POST') {
-        const { jti, expiresAt } = await request.json() as { jti: string; expiresAt: number };
+      if (url.pathname === "/revoke-token" && request.method === "POST") {
+        const { jti, expiresAt } = (await request.json()) as {
+          jti: string;
+          expiresAt: number;
+        };
         await this.revokeToken(jti, expiresAt);
         return Response.json({ success: true });
       }
 
-      if (url.pathname === '/is-token-revoked' && request.method === 'POST') {
-        const { jti } = await request.json() as { jti: string };
+      if (url.pathname === "/is-token-revoked" && request.method === "POST") {
+        const { jti } = (await request.json()) as { jti: string };
         const revoked = await this.isTokenRevoked(jti);
         return Response.json({ revoked });
       }
 
-      if (url.pathname === '/cleanup' && request.method === 'POST') {
+      if (url.pathname === "/cleanup" && request.method === "POST") {
         await this.cleanupExpired();
         return Response.json({ success: true });
       }
 
-      return new Response('Not Found', { status: 404 });
+      return new Response("Not Found", { status: 404 });
     } catch (error) {
-      return Response.json({
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }, { status: 400 });
+      return Response.json(
+        {
+          error: error instanceof Error ? error.message : "Unknown error",
+        },
+        { status: 400 }
+      );
     }
   }
 }

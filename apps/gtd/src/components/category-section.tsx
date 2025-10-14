@@ -25,12 +25,12 @@ export function CategorySection({
   queueId,
 }: CategorySectionProps) {
   function handleCreateTask(title: string) {
-    console.log("Create task in", category, "in queue", queueId, ":", title);
+    console.info("Create task in", category, "in queue", queueId, ":", title);
     // TODO: Call API to create task
   }
 
   function handleAddTask() {
-    console.log("Add task to", category, "in queue", queueId);
+    console.info("Add task to", category, "in queue", queueId);
     // Focus on first empty task card
   }
 

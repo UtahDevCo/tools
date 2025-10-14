@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { Header } from './header';
-import { QueueList, mockQueues } from './queue-list';
-import { toast } from 'sonner';
+import { useState } from "react";
+import { Header } from "./header";
+import { QueueList, mockQueues } from "./queue-list";
+import { toast } from "sonner";
 
 export function Dashboard() {
   const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
@@ -24,25 +24,25 @@ export function Dashboard() {
       };
       return updated;
     });
-    toast.success('Queue name updated');
-    console.log('Queue name updated to:', name);
+    toast.success("Queue name updated");
+    console.info("Queue name updated to:", name);
   };
 
   const handleAddQueue = () => {
     const newQueue = {
       id: String(queues.length + 1),
       name: `New Queue ${queues.length + 1}`,
-      color: '#3b82f6',
+      color: "#3b82f6",
     };
     setQueues((prev) => [...prev, newQueue]);
     setCurrentQueueIndex(queues.length);
-    toast.success('New queue created');
-    console.log('New queue created:', newQueue);
+    toast.success("New queue created");
+    console.info("New queue created:", newQueue);
   };
 
   const handleDeleteQueue = () => {
     if (queues.length <= 1) {
-      toast.error('Cannot delete the last queue');
+      toast.error("Cannot delete the last queue");
       return;
     }
 
@@ -50,7 +50,7 @@ export function Dashboard() {
     setQueues((prev) => prev.filter((_, index) => index !== currentQueueIndex));
     setCurrentQueueIndex((prev) => Math.max(0, prev - 1));
     toast.success(`"${deletedQueueName}" deleted`);
-    console.log('Queue deleted:', deletedQueueName);
+    console.info("Queue deleted:", deletedQueueName);
   };
 
   return (

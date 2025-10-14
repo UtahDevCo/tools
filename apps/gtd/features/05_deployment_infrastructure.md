@@ -361,7 +361,7 @@ export default {
       const response = await handleRequest(request, env);
 
       // Log successful request
-      console.log(JSON.stringify({
+      console.info(JSON.stringify({
         timestamp: Date.now(),
         duration: Date.now() - start,
         method: request.method,

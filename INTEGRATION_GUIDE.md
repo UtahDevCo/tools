@@ -717,7 +717,7 @@ await fetch(gtdApiUrl, {
 });
 
 // Services log with correlation ID
-console.log(JSON.stringify({
+console.info(JSON.stringify({
   correlationId,
   service: 'auth',
   action: 'request_magic_link',

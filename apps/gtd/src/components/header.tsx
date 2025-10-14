@@ -27,6 +27,7 @@ import {
   Plus,
   Trash,
 } from "lucide-react";
+import { useAuth } from "@/lib/auth";
 
 type HeaderProps = {
   currentQueueIndex: number;
@@ -52,6 +53,7 @@ export function Header({
   const [queueName, setQueueName] = useState(currentQueueName || "");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const { logout } = useAuth();
 
   useEffect(() => {
     setQueueName(currentQueueName || "");
@@ -82,7 +84,7 @@ export function Header({
       if (newName && newName !== currentQueueName) {
         setQueueName(newName);
         onQueueNameChange?.(newName);
-        console.log("Queue name changed to:", newName);
+        console.info("Queue name changed to:", newName);
       } else {
         // Reset to current name if empty or unchanged
         titleRef.current.textContent = currentQueueName || "";
@@ -110,7 +112,7 @@ export function Header({
   function handleConfirmDelete() {
     onDeleteQueue?.();
     setShowDeleteDialog(false);
-    console.log("Delete queue:", currentQueueName);
+    console.info("Delete queue:", currentQueueName);
   }
 
   return (
@@ -151,7 +153,6 @@ export function Header({
                   Delete list
                 </DropdownMenuItem>
 
-
                 <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />
                   Settings
@@ -159,7 +160,7 @@ export function Header({
 
                 <DropdownMenuSeparator />
 
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => logout()}>
                   <LogOut className="mr-2 h-4 w-4" />
                   Sign out
                 </DropdownMenuItem>

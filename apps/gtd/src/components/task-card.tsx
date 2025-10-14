@@ -24,7 +24,7 @@ export function TaskCard({ task }: TaskCardProps) {
 
   function handleToggleComplete(checked: boolean) {
     setIsCompleted(checked as boolean);
-    console.log("Toggle task", task.id, "to", checked);
+    console.info("Toggle task", task.id, "to", checked);
   }
 
   function handleClick(e: React.MouseEvent) {
@@ -44,7 +44,7 @@ export function TaskCard({ task }: TaskCardProps) {
       const newTitle = contentRef.current.textContent || "";
       if (newTitle.trim() !== title) {
         setTitle(newTitle.trim());
-        console.log("Update task", task.id, "title to", newTitle.trim());
+        console.info("Update task", task.id, "title to", newTitle.trim());
       }
     }
   }
@@ -138,7 +138,7 @@ export function EmptyTaskCard({
       const title = contentRef.current.textContent?.trim() || "";
       if (title) {
         onCreateTask(title);
-        console.log("Create task in", category, "queue", queueId, ":", title);
+        console.info("Create task in", category, "queue", queueId, ":", title);
       }
     }
     setIsEditing(false);
