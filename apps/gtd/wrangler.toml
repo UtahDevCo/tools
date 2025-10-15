@@ -1,0 +1,16 @@
+name = "gtd-app"
+compatibility_date = "2025-01-10"
+pages_build_output_dir = "dist"
+# account_id is not supported in Pages configuration files; set via the Cloudflare dashboard or wrangler CLI when needed
+
+[env.preview]
+name = "gtd-app-dev"
+
+[env.production]
+name = "gtd-app-prod"
+
+# Environment variables
+# AUTH_URL - Auth service URL (set via wrangler secret or dashboard)
+# These can be set via:
+# wrangler pages secret put AUTH_URL --project-name=gtd-app-dev
+# wrangler pages secret put AUTH_URL --project-name=gtd-app-prod

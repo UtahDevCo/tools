@@ -25,9 +25,11 @@
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20251011.0",
     "@types/bun": "latest",
     "@types/react": "^19",
-    "@types/react-dom": "^19"
+    "@types/react-dom": "^19",
+    "wrangler": "^4.43.0"
   },
   "name": "bun-react-template",
   "private": true,
@@ -35,6 +37,8 @@
     "build": "bun run build.ts",
     "dev": "PORT=3020 bun --hot src/index.tsx",
     "start": "NODE_ENV=production bun src/index.tsx",
+    "deploy": "bun run build && wrangler pages deploy dist --project-name=gtd-app-dev",
+    "deploy:prod": "bun run build && wrangler pages deploy dist --project-name=gtd-app-prod",
     "routes:generate": "npx @tanstack/router-cli generate",
     "routes:watch": "npx @tanstack/router-cli watch"
   },
