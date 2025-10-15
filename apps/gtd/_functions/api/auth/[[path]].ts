@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * Cloudflare Pages Function to proxy auth requests to the auth service
  * Endpoint: /api/auth/* (catch-all for routes not handled by specific functions)
@@ -43,17 +44,24 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   switch (contentType) {
     case "application/json": {
       const json = await response.json();
+      const { accessToken, refreshToken, redirectUrl } = z
+        .object({
+          accessToken: z.string(),
+          refreshToken: z.string(),
+          redirectUrl: z.string().url().optional(),
+        })
+        .parse(json);
 
-      if (json.redirectUrl) {
+      if (redirectUrl) {
         const headers = new Headers();
-        headers.set("Location", json.redirectUrl);
+        headers.set("Location", redirectUrl);
         headers.append(
           "Set-Cookie",
-          `access_token=${json.accessToken}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=3600`
+          `access_token=${accessToken}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=3600`
         );
         headers.append(
           "Set-Cookie",
-          `refresh_token=${json.refreshToken}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`
+          `refresh_token=${refreshToken}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`
         );
         return new Response(null, {
           status: 302,

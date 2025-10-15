@@ -10,7 +10,7 @@ export interface Env {
   JWT_PUBLIC_KEY: string;
 
   // Configuration
-  AUTH_URL: string;
+  CLIENT_URL: string;
   DEFAULT_APP_URL: string;
   APP_URLS?: string; // JSON object mapping appId to URLs
   ALLOWED_ORIGINS?: string; // Comma-separated list

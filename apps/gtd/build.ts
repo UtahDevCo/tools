@@ -3,6 +3,26 @@ import plugin from "bun-plugin-tailwind";
 import { existsSync } from "fs";
 import { rm } from "fs/promises";
 import path from "path";
+import { z } from "zod";
+
+const BuildConfigSchema = z.object({
+  outdir: z.string().optional(),
+  minify: z.union([z.boolean(), z.record(z.boolean())]).optional(),
+  sourcemap: z.enum(["none", "linked", "inline", "external"]).optional(),
+  target: z.enum(["browser", "bun", "node"]).optional(),
+  format: z.enum(["esm", "cjs", "iife"]).optional(),
+  splitting: z.boolean().optional(),
+  packages: z.enum(["bundle", "external"]).optional(),
+  publicPath: z.string().optional(),
+  env: z.union([z.literal("inline"), z.literal("disable"), z.string()]).optional(),
+  conditions: z.union([z.string(), z.array(z.string())]).optional(),
+  external: z.union([z.string(), z.array(z.string())]).optional(),
+  banner: z.string().optional(),
+  footer: z.string().optional(),
+  define: z.record(z.any()).optional(),
+}).passthrough();
+
+type BuildConfig = z.infer<typeof BuildConfigSchema>;
 
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
   console.info(`
@@ -34,7 +54,7 @@ Example:
 }
 
 const toCamelCase = (str: string): string =>
-  str.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+  str.replace(/-([a-z])/g, (g) => g[1]?.toUpperCase() ?? g);
 
 const parseValue = (value: string): any => {
   if (value === "true") return true;
@@ -48,8 +68,8 @@ const parseValue = (value: string): any => {
   return value;
 };
 
-function parseArgs(): Partial<Bun.BuildConfig> {
-  const config: Partial<Bun.BuildConfig> = {};
+function parseArgs(): BuildConfig {
+  const config: Record<string, any> = {};
   const args = process.argv.slice(2);
 
   for (let i = 0; i < args.length; i++) {
@@ -85,15 +105,20 @@ function parseArgs(): Partial<Bun.BuildConfig> {
     key = toCamelCase(key);
 
     if (key.includes(".")) {
-      const [parentKey, childKey] = key.split(".");
-      config[parentKey] = config[parentKey] || {};
-      config[parentKey][childKey] = parseValue(value);
+      const parts = key.split(".");
+      const parentKey = parts[0];
+      const childKey = parts[1];
+      
+      if (parentKey && childKey) {
+        config[parentKey] = config[parentKey] || {};
+        config[parentKey][childKey] = parseValue(value);
+      }
     } else {
       config[key] = parseValue(value);
     }
   }
 
-  return config;
+  return BuildConfigSchema.parse(config);
 }
 
 const formatFileSize = (bytes: number): string => {
@@ -112,7 +137,7 @@ const formatFileSize = (bytes: number): string => {
 console.info("\n🚀 Starting build process...\n");
 
 const cliConfig = parseArgs();
-const outdir = cliConfig.outdir || path.join(process.cwd(), "dist");
+const outdir = cliConfig.outdir ?? path.join(process.cwd(), "dist");
 
 if (existsSync(outdir)) {
   console.info(`🗑️ Cleaning previous build at ${outdir}`);
@@ -136,12 +161,47 @@ if (existsSync(envFile)) {
   }
 }
 
-const entrypoints = [...new Bun.Glob("**.html").scanSync("src")]
+const htmlFiles = [...new Bun.Glob("**.html").scanSync("src")]
   .map((a) => path.resolve("src", a))
   .filter((dir) => !dir.includes("node_modules"));
+
+// Include frontend.tsx as a browser entrypoint
+const entrypoints = [
+  ...htmlFiles,
+  path.resolve("src", "frontend.tsx"),
+];
+
 console.info(
-  `📄 Found ${entrypoints.length} HTML ${entrypoints.length === 1 ? "file" : "files"} to process\n`
+  `📄 Found ${htmlFiles.length} HTML ${htmlFiles.length === 1 ? "file" : "files"} and 1 frontend module to process\n`
 );
+
+// Normalize config to match Bun.BuildConfig requirements
+const normalizedConfig: Partial<Bun.BuildConfig> = {};
+
+if (cliConfig.outdir) normalizedConfig.outdir = cliConfig.outdir;
+if (cliConfig.minify !== undefined) normalizedConfig.minify = cliConfig.minify;
+if (cliConfig.sourcemap) normalizedConfig.sourcemap = cliConfig.sourcemap;
+if (cliConfig.target) normalizedConfig.target = cliConfig.target;
+if (cliConfig.format) normalizedConfig.format = cliConfig.format;
+if (cliConfig.splitting !== undefined) normalizedConfig.splitting = cliConfig.splitting;
+if (cliConfig.packages) normalizedConfig.packages = cliConfig.packages;
+if (cliConfig.publicPath) normalizedConfig.publicPath = cliConfig.publicPath;
+if (cliConfig.banner) normalizedConfig.banner = cliConfig.banner;
+if (cliConfig.footer) normalizedConfig.footer = cliConfig.footer;
+if (cliConfig.define) normalizedConfig.define = cliConfig.define;
+
+// Normalize external and conditions to arrays
+if (cliConfig.external) {
+  normalizedConfig.external = Array.isArray(cliConfig.external)
+    ? cliConfig.external
+    : cliConfig.external.split(",").map((s) => s.trim());
+}
+
+if (cliConfig.conditions) {
+  normalizedConfig.conditions = Array.isArray(cliConfig.conditions)
+    ? cliConfig.conditions
+    : cliConfig.conditions.split(",").map((s) => s.trim());
+}
 
 const result = await Bun.build({
   entrypoints,
@@ -150,13 +210,12 @@ const result = await Bun.build({
   minify: true,
   target: "browser",
   sourcemap: "linked",
+  publicPath: "/",
   define: {
     "process.env.NODE_ENV": JSON.stringify("production"),
-    "import.meta.env.AUTH_URL": JSON.stringify(
-      process.env.AUTH_URL || ""
-    ),
+    "import.meta.env.AUTH_URL": JSON.stringify(process.env.AUTH_URL || ""),
   },
-  ...cliConfig,
+  ...normalizedConfig,
 });
 
 const end = performance.now();

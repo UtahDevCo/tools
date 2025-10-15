@@ -4,6 +4,12 @@ compatibility_date = "2025-01-10"
 compatibility_flags = ["nodejs_compat"]
 account_id = "cc4c7fdc635749de34e3fa649b321055"
 
+
+# Environment variables
+# AUTH_URL - Auth service URL (set via wrangler secret or dashboard)
+[vars]
+CLIENT_URL = "http://localhost:3020" # Default for local dev
+
 [[durable_objects.bindings]]
 name = "AUTH_DO"
 class_name = "AuthenticationDO"

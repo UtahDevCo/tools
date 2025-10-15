@@ -4,6 +4,7 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "TURBO_UI=false turbo run dev",
+    "dev:worker": "TURBO_UI=false turbo run dev:worker",
     "deploy": "turbo run deploy",
     "deploy:prod": "turbo run deploy:prod",
     "lint": "turbo run lint",

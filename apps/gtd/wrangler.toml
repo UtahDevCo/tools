@@ -1,16 +1,32 @@
 name = "gtd-app"
+main = "src/worker.ts"
 compatibility_date = "2025-01-10"
-pages_build_output_dir = "dist"
-# account_id is not supported in Pages configuration files; set via the Cloudflare dashboard or wrangler CLI when needed
 
-[env.preview]
-name = "gtd-app-dev"
+# Workers Static Assets configuration
+[assets]
+directory = "dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
 
-[env.production]
-name = "gtd-app-prod"
+# Run Worker first for API routes
+run_worker_first = ["/api/*"]
+
+[observability]
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
 
 # Environment variables
 # AUTH_URL - Auth service URL (set via wrangler secret or dashboard)
-# These can be set via:
-# wrangler pages secret put AUTH_URL --project-name=gtd-app-dev
-# wrangler pages secret put AUTH_URL --project-name=gtd-app-prod
+[vars]
+AUTH_URL = "http://localhost:8787" # Default for local dev
+
+
+[env.dev]
+name = "gtd-app-dev"
+vars = { AUTH_URL = "https://auth-service-dev.christopher-esplin.workers.dev" }
+
+[env.production]
+name = "gtd-app-prod"
+# AUTH_URL should be set via: wrangler secret put AUTH_URL --env production

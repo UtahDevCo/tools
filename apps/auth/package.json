@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
+    "dev:worker": "wrangler dev",
     "deploy": "wrangler deploy --env=development",
     "deploy:prod": "wrangler deploy --env=production",
     "set-env": "bash scripts/put-keys.sh",

@@ -36,9 +36,11 @@
   "scripts": {
     "build": "bun run build.ts",
     "dev": "PORT=3020 bun --hot src/index.tsx",
+    "dev:worker": "bun run build && wrangler dev --port 3020",
+    "dev:worker:remote": "bun run build && wrangler dev --remote",
     "start": "NODE_ENV=production bun src/index.tsx",
-    "deploy": "bun run build && wrangler pages deploy dist --project-name=gtd-app-dev",
-    "deploy:prod": "bun run build && wrangler pages deploy dist --project-name=gtd-app-prod",
+    "deploy": "bun run build && wrangler deploy --env dev",
+    "deploy:prod": "bun run build && wrangler deploy --env production",
     "routes:generate": "npx @tanstack/router-cli generate",
     "routes:watch": "npx @tanstack/router-cli watch"
   },

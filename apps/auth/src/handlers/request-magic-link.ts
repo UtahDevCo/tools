@@ -61,7 +61,7 @@ export async function handleRequestMagicLink(c: Context<{ Bindings: Env }>) {
     );
     const { token } = (await tokenResponse.json()) as { token: string };
 
-    const magicLink = `${c.env.AUTH_URL}/api/auth/verify?token=${token}`;
+    const magicLink = `${c.env.CLIENT_URL}/api/auth/verify?token=${token}`;
 
     await sendMagicLinkEmail(c.env, email, magicLink, appId);
 

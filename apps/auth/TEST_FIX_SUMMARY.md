@@ -106,7 +106,7 @@ bun test
 ### E2E Tests Against Deployment
 ```bash
 # Without email sending (most tests will pass)
-AUTH_URL="https://auth-service-dev.streetleap.workers.dev" bun test test/e2e
+AUTH_URL="https://auth-service-dev.christopher-esplin.workers.dev" bun test test/e2e
 
 # With email sending (requires RESEND_API_KEY configured)
 AUTH_URL="https://your-fully-configured-deployment.workers.dev" bun test test/e2e
