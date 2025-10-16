@@ -4,11 +4,17 @@ compatibility_date = "2025-01-10"
 compatibility_flags = ["nodejs_compat"]
 account_id = "cc4c7fdc635749de34e3fa649b321055"
 
+[observability]
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
 
 # Environment variables
 # AUTH_URL - Auth service URL (set via wrangler secret or dashboard)
 [vars]
-CLIENT_URL = "http://localhost:3020" # Default for local dev
+CLIENT_URL = "http://localhost:3020"                            # Default for local dev
+ALLOWED_ORIGINS = "http://localhost:3020,http://localhost:5173"
 
 [[durable_objects.bindings]]
 name = "AUTH_DO"
@@ -28,6 +34,7 @@ new_sqlite_classes = ["AuthenticationDO", "UserDO", "RateLimiterDO"]
 
 [env.development]
 name = "auth-service-dev"
+vars = { CLIENT_URL = "https://gtd-app-dev.christopher-esplin.workers.dev", ALLOWED_ORIGINS = "https://gtd-app-dev.christopher-esplin.workers.dev,http://localhost:3020,http://localhost:5173" }
 
 [[env.development.durable_objects.bindings]]
 name = "AUTH_DO"
@@ -47,6 +54,7 @@ new_sqlite_classes = ["AuthenticationDO", "UserDO", "RateLimiterDO"]
 
 [env.production]
 name = "auth-service-prod"
+vars = { CLIENT_URL = "https://gtd-app-prod.christopher-esplin.workers.dev", ALLOWED_ORIGINS = "https://gtd-app-prod.christopher-esplin.workers.dev" }
 
 [[env.production.durable_objects.bindings]]
 name = "AUTH_DO"

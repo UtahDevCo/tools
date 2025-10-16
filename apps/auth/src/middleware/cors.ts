@@ -1,23 +1,29 @@
-import type { Context, Next } from 'hono';
-import type { Env } from '../types/env';
+import type { Context, Next } from "hono";
+import type { Env } from "../types/env";
 
 export function getCorsMiddleware() {
   return async (c: Context<{ Bindings: Env }>, next: Next) => {
-    const origin = c.req.header('Origin');
-    const allowedOrigins = c.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || [];
+    const origin = c.req.header("Origin");
+    const allowedOrigins =
+      c.env.ALLOWED_ORIGINS?.split(",").map((o) => o.trim()) || [];
 
     // Handle preflight requests
-    if (c.req.method === 'OPTIONS') {
+    if (c.req.method === "OPTIONS") {
       const headers: Record<string, string> = {
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Max-Age': '86400',
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Max-Age": "86400",
       };
 
       if (origin && allowedOrigins.includes(origin)) {
-        headers['Access-Control-Allow-Origin'] = origin;
-        headers['Access-Control-Allow-Credentials'] = 'true';
+        headers["Access-Control-Allow-Origin"] = origin;
+        headers["Access-Control-Allow-Credentials"] = "true";
       }
+
+      console.info(
+        "Blocked by CORS. 204 REJECTION!!!",
+        JSON.stringify({ origin, allowedOrigins }, null, 2)
+      );
 
       return new Response(null, { status: 204, headers });
     }
@@ -26,8 +32,8 @@ export function getCorsMiddleware() {
 
     // Add CORS headers to response
     if (origin && allowedOrigins.includes(origin)) {
-      c.res.headers.set('Access-Control-Allow-Origin', origin);
-      c.res.headers.set('Access-Control-Allow-Credentials', 'true');
+      c.res.headers.set("Access-Control-Allow-Origin", origin);
+      c.res.headers.set("Access-Control-Allow-Credentials", "true");
     }
   };
 }

@@ -8,6 +8,7 @@ Auto-generated from all feature plans. Last updated: 2025-10-06
 Short summary
 - Canonical guidance file: `AGENTS.md` (this file)
 - Backwards-compatible pointers (if present) may reference `AGENTS.md`
+- Detailed guides are centralized in the `features/` folder
 
 Index
 - Active technologies
@@ -20,10 +21,13 @@ Index
 - Code style and React component guide
 - Imports, validation, and testing
 - Utilities and code patterns
+- Documentation organization
 
 ## Active Technologies
 - TypeScript (repository uses Next.js and TypeScript under `web/`).
 - Next.js, Drizzle (DB), Zod (validation) — follow existing repo choices. (002-add-an-admin)
+- Cloudflare Workers for deployment (GTD app and Auth service)
+- Bun for package management and local development
 
 ## Project Structure
 ```
@@ -148,8 +152,49 @@ TypeScript (repository uses Next.js and TypeScript under `web/`). Follow standar
 ## Shadcn MCP server
 - Use the `schadcn` mcp server to find and install new ui components as needed.
 
-# LLM Guidelines
+## LLM Guidelines
 
 Be as concise as is reasonable.
 
 Prefer kebab-case for filenames over camelCase.
+
+## Documentation Organization
+
+All detailed guides and explanations are centralized in the `features/` folder. This eliminates duplication and provides a single source of truth.
+
+### Core Guides
+- **`local-dev.md`**: Local development setup with both Bun and Cloudflare Workers modes
+- **`deployment.md`**: Staging and production deployment procedures
+- **`authentication.md`**: Auth configuration, JWT setup, email, cookies, and testing
+- **`architecture.md`**: Complete system architecture, service integration patterns, and data flow
+
+### Component Architecture
+- **`auth-service-architecture.md`**: Auth service design, API endpoints, rate limiting, and Durable Objects
+
+### Design References (Archive)
+These are original design specifications preserved for reference:
+- **`gtd-01-authentication-design.md`**: Original auth system design
+- **`gtd-02-data-model-design.md`**: Original data model specification
+- **`gtd-03-ui-ux-design.md`**: Original UI/UX design
+- **`gtd-04-api-design.md`**: Original API endpoint specifications
+- **`gtd-05-deployment-design.md`**: Original deployment infrastructure design
+
+### Legacy (Deprecated)
+- **`LOCAL_DEV.md`**: Original high-level architecture (superseded by local-dev.md and architecture.md)
+
+### Organization Rules
+
+**When adding documentation:**
+1. Detailed how-to guides → place in `features/`
+2. Architecture/design decisions → place in `features/`
+3. Quick reference or command snippets → keep in specific service's `README.md`
+4. Implementation specs for services → place in `features/` with service-specific filename
+
+**When consolidating:**
+1. Identify duplicate files across app directories
+2. Consolidate content into single file in `features/` with descriptive name
+3. Delete original files from app directories
+4. Update links in remaining docs to point to centralized location
+5. Preserve design specs as reference material (don't delete original thinking)
+
+**Rule**: App-specific procedural markdown files (DEPLOYMENT.md, DEV.md, AUTH_SETUP.md, etc.) must be consolidated into `features/` and deleted from app directories.

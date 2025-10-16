@@ -2,13 +2,17 @@ name = "gtd-app"
 main = "src/worker.ts"
 compatibility_date = "2025-01-10"
 
+# Build configuration
+[build]
+command = "bun run build && bun run build:worker"
+
 # Workers Static Assets configuration
 [assets]
 directory = "dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 
-# Run Worker first for API routes
+# Run Worker first for API routes (ensures API routes are processed before static assets)
 run_worker_first = ["/api/*"]
 
 [observability]
@@ -17,16 +21,22 @@ enabled = true
 head_sampling_rate = 1
 invocation_logs = true
 
-# Environment variables
-# AUTH_URL - Auth service URL (set via wrangler secret or dashboard)
+# Environment variables for local/default
 [vars]
-AUTH_URL = "http://localhost:8787" # Default for local dev
-
+AUTH_URL = "http://localhost:8787"
 
 [env.dev]
 name = "gtd-app-dev"
 vars = { AUTH_URL = "https://auth-service-dev.christopher-esplin.workers.dev" }
 
+[[env.dev.services]]
+binding = "AUTH_SERVICE"
+service = "auth-service-dev"
+
 [env.production]
 name = "gtd-app-prod"
-# AUTH_URL should be set via: wrangler secret put AUTH_URL --env production
+vars = { AUTH_URL = "https://auth-service-prod.christopher-esplin.workers.dev" }
+
+[[env.production.services]]
+binding = "AUTH_SERVICE"
+service = "auth-service-prod"

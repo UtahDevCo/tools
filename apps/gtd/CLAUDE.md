@@ -105,3 +105,17 @@ bun --hot ./index.ts
 ```
 
 For more information, read the Bun API docs in `node_modules/bun-types/docs/**.md`.
+
+## Deployment & Documentation
+
+This app is deployed as a **Cloudflare Worker** with:
+- Static assets served from `dist/` directory
+- API routes handled by `src/worker.ts`
+- Service bindings to the auth service for secure communication
+
+For detailed deployment and development information, see:
+- **Local Development**: `../../features/local-dev.md`
+- **Production Deployment**: `../../features/deployment.md`
+- **Authentication Setup**: `../../features/authentication.md`
+
+Do NOT create deployment, development, or authentication guides in this directory. All such documentation should be centralized in `features/` folder at the monorepo root.
