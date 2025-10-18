@@ -108,6 +108,8 @@ These are the original design specifications preserved for architectural referen
 
 ### Enhancement Plans
 
+**Start Here:** [gtd-enhancement-index.md](./gtd-enhancement-index.md) - Complete documentation index and navigation guide
+
 11. **[gtd-enhancement-plans-summary.md](./gtd-enhancement-plans-summary.md)** (Summary)
     - Overview of two major enhancement plans
     - Quick reference for implementation approach
@@ -178,6 +180,7 @@ These are the original design specifications preserved for architectural referen
 - [gtd-03-ui-ux-design.md](./gtd-03-ui-ux-design.md) - Design specifications
 
 ### Future Enhancements
+- **[gtd-enhancement-index.md](./gtd-enhancement-index.md)** - **START HERE** - Complete index and navigation
 - [gtd-enhancement-plans-summary.md](./gtd-enhancement-plans-summary.md) - Executive summary
 - [gtd-enhancement-quick-reference.md](./gtd-enhancement-quick-reference.md) - Quick reference card
 - [gtd-enhancement-comparison.md](./gtd-enhancement-comparison.md) - Comparison and dependencies
