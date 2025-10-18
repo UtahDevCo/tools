@@ -181,6 +181,7 @@ These are the original design specifications preserved for architectural referen
 
 ### Future Enhancements
 - **[gtd-enhancement-index.md](./gtd-enhancement-index.md)** - **START HERE** - Complete index and navigation
+- **[gtd-enhancement-roadmap.md](./gtd-enhancement-roadmap.md)** - Week-by-week implementation roadmap
 - [gtd-enhancement-plans-summary.md](./gtd-enhancement-plans-summary.md) - Executive summary
 - [gtd-enhancement-quick-reference.md](./gtd-enhancement-quick-reference.md) - Quick reference card
 - [gtd-enhancement-comparison.md](./gtd-enhancement-comparison.md) - Comparison and dependencies
