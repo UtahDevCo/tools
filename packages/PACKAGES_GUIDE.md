@@ -426,7 +426,7 @@ import { Resend } from 'resend';
 const resend = new Resend(env.RESEND_API_KEY);
 
 await resend.emails.send({
-  from: 'noreply@your-domain.com',
+  from: 'noreply@chrisesplin.com',
   to: email,
   subject: 'Sign in to GTD',
   react: MagicLinkEmail({ 

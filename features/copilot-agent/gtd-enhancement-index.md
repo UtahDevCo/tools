@@ -17,8 +17,8 @@ This index provides a complete guide to all enhancement plan documentation. Use 
 ### Ready to Implement?
 **Deep dive in this order:**
 1. [gtd-enhancement-comparison.md](./gtd-enhancement-comparison.md) - Understand dependencies
-2. [gtd-06-durable-objects-plan.md](./gtd-06-durable-objects-plan.md) - Plan 1 details
-3. [gtd-07-google-calendar-integration-plan.md](./gtd-07-google-calendar-integration-plan.md) - Plan 2 details
+2. [cloudflare-do/plan.md](./cloudflare-do/plan.md) - Plan 1 details
+3. [google-calendar/plan.md](./google-calendar/plan.md) - Plan 2 details
 
 ---
 
@@ -89,7 +89,7 @@ This index provides a complete guide to all enhancement plan documentation. Use 
 ---
 
 ### 5. Plan 1: Durable Objects (Detailed)
-**File:** [gtd-06-durable-objects-plan.md](./gtd-06-durable-objects-plan.md)  
+**File:** [cloudflare-do/plan.md](./cloudflare-do/plan.md)  
 **Length:** ~12,500 characters (~25 min read)  
 **Purpose:** Complete Plan 1 specification  
 **Contents:**
@@ -110,7 +110,7 @@ This index provides a complete guide to all enhancement plan documentation. Use 
 ---
 
 ### 6. Plan 2: Google Calendar (Detailed)
-**File:** [gtd-07-google-calendar-integration-plan.md](./gtd-07-google-calendar-integration-plan.md)  
+**File:** [google-calendar/plan.md](./google-calendar/plan.md)  
 **Length:** ~24,000 characters (~45 min read)  
 **Purpose:** Complete Plan 2 specification  
 **Contents:**
@@ -144,21 +144,21 @@ This index provides a complete guide to all enhancement plan documentation. Use 
 ### Implementation Planning
 - [gtd-enhancement-plans-summary.md](./gtd-enhancement-plans-summary.md) - Executive summary
 - [gtd-enhancement-comparison.md](./gtd-enhancement-comparison.md) - Dependencies and timeline
-- [gtd-06-durable-objects-plan.md](./gtd-06-durable-objects-plan.md) - Plan 1 details
-- [gtd-07-google-calendar-integration-plan.md](./gtd-07-google-calendar-integration-plan.md) - Plan 2 details
+- [cloudflare-do/plan.md](./cloudflare-do/plan.md) - Plan 1 details
+- [google-calendar/plan.md](./google-calendar/plan.md) - Plan 2 details
 
 ### Quick Reference
 - [gtd-enhancement-quick-reference.md](./gtd-enhancement-quick-reference.md) - One-page reference
 - [gtd-enhancement-plans-summary.md](./gtd-enhancement-plans-summary.md) - Quick API lists
 
 ### API & Data
-- [gtd-06-durable-objects-plan.md](./gtd-06-durable-objects-plan.md)#api-endpoints - Task API
-- [gtd-07-google-calendar-integration-plan.md](./gtd-07-google-calendar-integration-plan.md)#api-endpoints - Calendar API
+- [cloudflare-do/plan.md](./cloudflare-do/plan.md)#api-endpoints - Task API
+- [google-calendar/plan.md](./google-calendar/plan.md)#api-endpoints - Calendar API
 - [gtd-04-api-design.md](./gtd-04-api-design.md) - Original API design (reference)
 
 ### UI & Components
-- [gtd-06-durable-objects-plan.md](./gtd-06-durable-objects-plan.md)#web-pages-required - Plan 1 pages
-- [gtd-07-google-calendar-integration-plan.md](./gtd-07-google-calendar-integration-plan.md)#web-pages-required - Plan 2 pages
+- [cloudflare-do/plan.md](./cloudflare-do/plan.md)#web-pages-required - Plan 1 pages
+- [google-calendar/plan.md](./google-calendar/plan.md)#web-pages-required - Plan 2 pages
 - [gtd-03-ui-ux-design.md](./gtd-03-ui-ux-design.md) - Original UI design (reference)
 
 ---
@@ -168,7 +168,7 @@ This index provides a complete guide to all enhancement plan documentation. Use 
 ### Common Questions
 
 **Q: How do I start implementing these plans?**  
-A: Start with Plan 1. Read [gtd-enhancement-comparison.md](./gtd-enhancement-comparison.md) first to understand dependencies, then dive into [gtd-06-durable-objects-plan.md](./gtd-06-durable-objects-plan.md).
+A: Start with Plan 1. Read [gtd-enhancement-comparison.md](./gtd-enhancement-comparison.md) first to understand dependencies, then dive into [cloudflare-do/plan.md](./cloudflare-do/plan.md).
 
 **Q: What forms need TanStack Form?**  
 A: See [gtd-enhancement-quick-reference.md](./gtd-enhancement-quick-reference.md)#forms-using-tanstack-form for the complete list.
@@ -304,7 +304,7 @@ A: Each detailed plan has "TanStack Packages to Use" sections with examples.
 
 1. **Today:** Read [gtd-enhancement-plans-summary.md](./gtd-enhancement-plans-summary.md)
 2. **Today:** Review [gtd-enhancement-architecture-diagrams.md](./gtd-enhancement-architecture-diagrams.md)
-3. **Tomorrow:** Deep dive into [gtd-06-durable-objects-plan.md](./gtd-06-durable-objects-plan.md)
+3. **Tomorrow:** Deep dive into [cloudflare-do/plan.md](./cloudflare-do/plan.md)
 4. **This Week:** Start implementing Plan 1, Phase 1
 5. **Next Week:** Continue Plan 1 implementation
 6. **Week 3-4:** Complete Plan 1, test, and deploy

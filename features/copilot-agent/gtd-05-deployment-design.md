@@ -94,7 +94,7 @@ ALLOWED_ORIGINS=http://localhost:5173
 ENVIRONMENT=production
 RESEND_API_KEY=re_xxxxxxxxxxxxx  # Secret
 JWT_SECRET=xxx                    # Secret
-ALLOWED_ORIGINS=https://gtd.your-domain.com
+ALLOWED_ORIGINS=https://gtd.chrisesplin.com
 ```
 
 ### Frontend (Pages)
@@ -107,7 +107,7 @@ VITE_ENVIRONMENT=development
 
 **Production (Cloudflare Dashboard > Pages > Settings > Environment Variables)**:
 ```env
-VITE_API_URL=https://gtd.your-domain.com/api
+VITE_API_URL=https://gtd.chrisesplin.com/api
 VITE_ENVIRONMENT=production
 ```
 
@@ -324,7 +324,7 @@ jobs:
       - name: Build frontend
         run: npm run build -w packages/web
         env:
-          VITE_API_URL: ${{ github.ref == 'refs/heads/main' && 'https://gtd.your-domain.com/api' || 'https://gtd-dev.your-domain.com/api' }}
+          VITE_API_URL: ${{ github.ref == 'refs/heads/main' && 'https://gtd.chrisesplin.com/api' || 'https://gtd-dev.chrisesplin.com/api' }}
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1

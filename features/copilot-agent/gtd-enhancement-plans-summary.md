@@ -4,7 +4,7 @@ This document provides a concise overview of two major enhancement plans for the
 
 ## Plan 1: Cloudflare Durable Objects Implementation
 **Status:** Planning
-**Document:** [gtd-06-durable-objects-plan.md](./gtd-06-durable-objects-plan.md)
+**Document:** [cloudflare-do/plan.md](./cloudflare-do/plan.md)
 
 ### Goal
 Replace in-memory mock data with persistent storage using Cloudflare Durable Objects and SQLite.
@@ -49,7 +49,7 @@ POST   /api/tasks/batch         # Bulk operations
 
 ## Plan 2: Google Calendar Integration
 **Status:** Planning
-**Document:** [gtd-07-google-calendar-integration-plan.md](./gtd-07-google-calendar-integration-plan.md)
+**Document:** [google-calendar/plan.md](./google-calendar/plan.md)
 
 ### Goal
 Integrate Google Calendar to display events from multiple accounts alongside GTD tasks, with daily event lists in each queue.

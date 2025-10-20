@@ -193,11 +193,11 @@ RESTful API with JSON payloads, hosted on Cloudflare Workers:
 The GTD application now uses a **microservices architecture** with two separate services:
 
 1. **Authentication Service** (`apps/auth/`) - Handles all auth operations
-   - Base URL: `https://auth.your-domain.com/api`
+   - Base URL: `https://auth.chrisesplin.com/api`
    - Endpoints: `/auth/request-magic-link`, `/auth/verify`, `/auth/refresh`, `/auth/logout`, `/auth/me`
 
 2. **GTD API Service** (`apps/gtd/api/`) - Handles queue and task operations  
-   - Base URL: `https://gtd.your-domain.com/api`
+   - Base URL: `https://gtd.chrisesplin.com/api`
    - Endpoints: `/queues`, `/tasks`, batch operations
 
 ### Core GTD Endpoints

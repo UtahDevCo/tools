@@ -37,8 +37,6 @@ interface User {
 }
 
 interface UserPreferences {
-  theme: 'light' | 'dark' | 'system';
-  defaultView: 'desktop' | 'mobile';
   emailNotifications: boolean;
 }
 ```
@@ -54,8 +52,6 @@ const UserSchema = z.object({
   createdAt: z.number().int().positive(),
   updatedAt: z.number().int().positive(),
   preferences: z.object({
-    theme: z.enum(['light', 'dark', 'system']),
-    defaultView: z.enum(['desktop', 'mobile']),
     emailNotifications: z.boolean()
   })
 });
@@ -112,7 +108,7 @@ interface Task {
   archivedAt: number | null; // Move to archive timestamp
 }
 
-type TaskCategory = 'next_actions' | 'waiting_on' | 'someday' | 'archive';
+type TaskCategory = 'in_progress' | 'next' | 'someday' | 'archive';
 ```
 
 **Storage**: TaskDO SQLite database
@@ -125,8 +121,8 @@ type TaskCategory = 'next_actions' | 'waiting_on' | 'someday' | 'archive';
 **Zod Schema**:
 ```typescript
 const TaskCategorySchema = z.enum([
-  'next_actions',
-  'waiting_on',
+  'in_progress',
+  'next',
   'someday',
   'archive'
 ]);

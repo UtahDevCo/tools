@@ -7,7 +7,7 @@ The GTD application exposes a RESTful API through Cloudflare Workers, with all d
 ## Base URL
 
 ```
-Production: https://gtd.your-domain.com/api
+Production: https://gtd.chrisesplin.com/api
 Development: http://localhost:8787/api
 ```
 
@@ -736,7 +736,7 @@ X-RateLimit-Reset: 1234567890
 
 ```typescript
 const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://your-domain.com',
+  'Access-Control-Allow-Origin': 'https://chrisesplin.com',
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Access-Control-Max-Age': '86400',
@@ -801,7 +801,7 @@ async function createTask(data: CreateTaskInput) {
 Real-time updates via WebSocket connections:
 
 ```
-wss://gtd.your-domain.com/api/ws
+wss://gtd.chrisesplin.com/api/ws
 ```
 
 **Events:**

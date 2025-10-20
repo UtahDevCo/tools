@@ -168,12 +168,11 @@ export function EmptyTaskCard({
 
   return (
     <Card
-      className="group cursor-pointer py-2 px-2 transition-colors hover:bg-accent border-dashed focus-within:bg-accent"
+      className="group cursor-pointer py-2 px-0 transition-colors hover:bg-accent focus-within:bg-accent"
       onClick={handleClick}
       tabIndex={0}
     >
       <div className="flex items-start gap-2">
-        <div className="h-4 w-4 p-0.5" /> {/* Spacer for drag handle */}
         <div
           ref={contentRef}
           contentEditable={isEditing}
@@ -182,10 +181,9 @@ export function EmptyTaskCard({
           onKeyDown={handleKeyDown}
           className={cn(
             "flex-1 min-w-0 outline-none text-sm leading-tight h-5",
-            isEditing && "ring-2 ring-ring rounded px-1"
+            isEditing && "ring-2 ring-ring rounded"
           )}
         />
-        <div className="h-4 w-4 mt-0.5" /> {/* Spacer for checkbox */}
       </div>
     </Card>
   );

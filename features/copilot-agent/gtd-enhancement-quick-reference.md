@@ -171,8 +171,8 @@ GET    /api/google/calendars        List calendars
 ## 🚀 Getting Started
 
 1. Read the summary: `features/gtd-enhancement-plans-summary.md`
-2. Deep dive Plan 1: `features/gtd-06-durable-objects-plan.md`
-3. Deep dive Plan 2: `features/gtd-07-google-calendar-integration-plan.md`
+2. Deep dive Plan 1: `features/copilot-agent/cloudflare-do/plan.md`
+3. Deep dive Plan 2: `features/copilot-agent/google-calendar/plan.md`
 4. Start implementation with Plan 1
 
 ---
@@ -228,8 +228,8 @@ GET    /api/google/calendars        List calendars
 ## 📞 Quick Links
 
 - **Summary:** [gtd-enhancement-plans-summary.md](./gtd-enhancement-plans-summary.md)
-- **Plan 1 Detail:** [gtd-06-durable-objects-plan.md](./gtd-06-durable-objects-plan.md)
-- **Plan 2 Detail:** [gtd-07-google-calendar-integration-plan.md](./gtd-07-google-calendar-integration-plan.md)
+- **Plan 1 Detail:** [cloudflare-do/plan.md](./cloudflare-do/plan.md)
+- **Plan 2 Detail:** [google-calendar/plan.md](./google-calendar/plan.md)
 - **Features Index:** [README.md](./README.md)
 
 ---
