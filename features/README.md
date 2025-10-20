@@ -106,6 +106,46 @@ These are the original design specifications preserved for architectural referen
     - Cloudflare configuration philosophy
     - **Purpose:** Reference for deployment architecture
 
+### Enhancement Plans
+
+**Start Here:** [gtd-enhancement-index.md](./gtd-enhancement-index.md) - Complete documentation index and navigation guide
+
+11. **[gtd-enhancement-plans-summary.md](./gtd-enhancement-plans-summary.md)** (Summary)
+    - Overview of two major enhancement plans
+    - Quick reference for implementation approach
+    - **When to read:** Planning new features
+    
+12. **[gtd-enhancement-quick-reference.md](./gtd-enhancement-quick-reference.md)** (Quick Reference Card)
+    - One-page reference for both plans
+    - Forms, components, APIs, and success metrics
+    - **When to read:** Quick lookup during implementation
+    
+13. **[gtd-enhancement-comparison.md](./gtd-enhancement-comparison.md)** (Comparison Table)
+    - Side-by-side comparison of both plans
+    - Dependencies, risks, timeline, and costs
+    - **When to read:** Deciding implementation order and approach
+
+14. **[gtd-enhancement-architecture-diagrams.md](./gtd-enhancement-architecture-diagrams.md)** (Architecture)
+    - Visual diagrams of system architecture
+    - Data flows and component relationships
+    - **When to read:** Understanding system design
+    
+15. **[gtd-06-durable-objects-plan.md](./gtd-06-durable-objects-plan.md)** (Plan 1: Detailed)
+    - Cloudflare Durable Objects implementation plan
+    - Replace mock data with persistent storage
+    - Complete API design and Zod schemas
+    - Web pages, forms, and components required
+    - TanStack Query and Form integration
+    - **When to read:** Implementing persistent data layer
+    
+16. **[gtd-07-google-calendar-integration-plan.md](./gtd-07-google-calendar-integration-plan.md)** (Plan 2: Detailed)
+    - Google Calendar integration design
+    - Multi-account OAuth and event syncing
+    - Display calendar events alongside GTD tasks
+    - Calendar-specific pages and components
+    - Google API integration details
+    - **When to read:** Implementing calendar features
+
 ### Legacy Documentation
 
 11. **[LOCAL_DEV.md](./LOCAL_DEV.md)** (300+ lines)
@@ -139,6 +179,16 @@ These are the original design specifications preserved for architectural referen
 ### UI/UX Design
 - [gtd-03-ui-ux-design.md](./gtd-03-ui-ux-design.md) - Design specifications
 
+### Future Enhancements
+- **[gtd-enhancement-index.md](./gtd-enhancement-index.md)** - **START HERE** - Complete index and navigation
+- **[gtd-enhancement-roadmap.md](./gtd-enhancement-roadmap.md)** - Week-by-week implementation roadmap
+- [gtd-enhancement-plans-summary.md](./gtd-enhancement-plans-summary.md) - Executive summary
+- [gtd-enhancement-quick-reference.md](./gtd-enhancement-quick-reference.md) - Quick reference card
+- [gtd-enhancement-comparison.md](./gtd-enhancement-comparison.md) - Comparison and dependencies
+- [gtd-enhancement-architecture-diagrams.md](./gtd-enhancement-architecture-diagrams.md) - Visual architecture
+- [gtd-06-durable-objects-plan.md](./gtd-06-durable-objects-plan.md) - Plan 1 (Persistent storage)
+- [gtd-07-google-calendar-integration-plan.md](./gtd-07-google-calendar-integration-plan.md) - Plan 2 (Calendar sync)
+
 ## Common Tasks & Which Doc to Read
 
 | Task | Primary Doc | Secondary Doc |
@@ -151,6 +201,10 @@ These are the original design specifications preserved for architectural referen
 | Debug deployment issues | [deployment.md](./deployment.md) | [architecture.md](./architecture.md) |
 | Understand GTD data model | [gtd-02-data-model-design.md](./gtd-02-data-model-design.md) | [architecture.md](./architecture.md) |
 | Review design decisions | [gtd-0x-*-design.md](.) | [architecture.md](./architecture.md) |
+| Plan new GTD features | [gtd-enhancement-plans-summary.md](./gtd-enhancement-plans-summary.md) | [gtd-enhancement-comparison.md](./gtd-enhancement-comparison.md) |
+| Quick lookup during dev | [gtd-enhancement-quick-reference.md](./gtd-enhancement-quick-reference.md) | Specific plan docs |
+| Implement Durable Objects | [gtd-06-durable-objects-plan.md](./gtd-06-durable-objects-plan.md) | [architecture.md](./architecture.md) |
+| Add calendar integration | [gtd-07-google-calendar-integration-plan.md](./gtd-07-google-calendar-integration-plan.md) | [gtd-06-durable-objects-plan.md](./gtd-06-durable-objects-plan.md) |
 
 ## Documentation Standards
 
