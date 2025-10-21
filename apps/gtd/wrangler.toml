@@ -6,6 +6,18 @@ compatibility_date = "2025-01-10"
 [build]
 command = "bun run build && bun run build:worker"
 
+[[durable_objects.bindings]]
+name = "USER_DO"
+class_name = "UserDO"
+
+[[durable_objects.bindings]]
+name = "QUEUE_DO"
+class_name = "QueueDO"
+
+[[migrations]]
+tag = "2025-10-20-cloudflare-do"
+new_classes = ["UserDO", "QueueDO"]
+
 # Workers Static Assets configuration
 [assets]
 directory = "dist"

@@ -1,19 +1,19 @@
-import { TaskCard, EmptyTaskCard } from "./task-card";
 import { Plus } from "lucide-react";
-
-type Task = {
-  id: string;
-  title: string;
-  completed: boolean;
-  queueId: string;
-  category: string;
-};
+import type { NewTaskCategory, TaskCategory } from "../schemas/queues";
+import type { Task } from "../lib/api-client";
+import { EmptyTaskCard, TaskCard } from "./task-card";
 
 type CategorySectionProps = {
-  category: string;
+  category: TaskCategory;
   label: string;
   tasks: Task[];
   queueId: string;
+  onCreateTask: (
+    category: NewTaskCategory,
+    title: string
+  ) => Promise<void> | void;
+  onRenameTask: (taskId: string, title: string) => Promise<void> | void;
+  onToggleTask: (taskId: string, completed: boolean) => Promise<void> | void;
 };
 
 const MIN_CARDS = 5;
@@ -23,14 +23,19 @@ export function CategorySection({
   label,
   tasks,
   queueId,
+  onCreateTask,
+  onRenameTask,
+  onToggleTask,
 }: CategorySectionProps) {
   function handleCreateTask(title: string) {
-    console.info("Create task in", category, "in queue", queueId, ":", title);
-    // TODO: Call API to create task
+    if (category === "archive") {
+      throw new Error("Cannot create tasks in the Archive category");
+    }
+
+    onCreateTask(category, title);
   }
 
   function handleAddTask() {
-    console.info("Add task to", category, "in queue", queueId);
     // Focus on first empty task card
   }
 
@@ -45,7 +50,12 @@ export function CategorySection({
       </button>
       <div className="space-y-2">
         {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} />
+          <TaskCard
+            key={task.id}
+            task={task}
+            onRenameTask={onRenameTask}
+            onToggleTask={onToggleTask}
+          />
         ))}
         {Array.from({ length: Math.max(0, MIN_CARDS - tasks.length) }).map(
           (_, index) => (

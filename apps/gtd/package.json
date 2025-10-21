@@ -10,6 +10,7 @@
     "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
     "@tanstack/react-db": "^0.1.30",
+    "@tanstack/react-form": "^0.29.0",
     "@tanstack/react-query": "^5.90.2",
     "@tanstack/react-router": "^1.132.47",
     "bun-plugin-tailwind": "^0.0.15",
@@ -22,7 +23,8 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.11",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20251011.0",

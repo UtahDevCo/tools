@@ -11,5 +11,10 @@
     "verbatimModuleSyntax": true,
     "types": ["@cloudflare/workers-types"]
   },
-  "include": ["src/worker.ts"]
+  "include": [
+    "src/worker.ts",
+    "src/durable-objects/**/*.ts",
+    "src/schemas/**/*.ts",
+    "src/types/**/*.ts"
+  ]
 }

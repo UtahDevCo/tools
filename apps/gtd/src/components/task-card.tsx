@@ -1,30 +1,27 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { GripVertical } from "lucide-react";
+import type { TaskCategory } from "../schemas/queues";
+import type { Task } from "../lib/api-client";
 import { cn } from "@/lib/utils";
-
-type Task = {
-  id: string;
-  title: string;
-  completed: boolean;
-  queueId: string;
-  category: string;
-};
 
 type TaskCardProps = {
   task: Task;
+  onRenameTask: (taskId: string, title: string) => Promise<void> | void;
+  onToggleTask: (taskId: string, completed: boolean) => Promise<void> | void;
 };
 
-export function TaskCard({ task }: TaskCardProps) {
+export function TaskCard({ task, onRenameTask, onToggleTask }: TaskCardProps) {
   const [isCompleted, setIsCompleted] = useState(task.completed);
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(task.title);
   const contentRef = useRef<HTMLDivElement>(null);
 
   function handleToggleComplete(checked: boolean) {
-    setIsCompleted(checked as boolean);
-    console.info("Toggle task", task.id, "to", checked);
+    const nextChecked = Boolean(checked);
+    setIsCompleted(nextChecked);
+    onToggleTask(task.id, nextChecked);
   }
 
   function handleClick(e: React.MouseEvent) {
@@ -44,7 +41,7 @@ export function TaskCard({ task }: TaskCardProps) {
       const newTitle = contentRef.current.textContent || "";
       if (newTitle.trim() !== title) {
         setTitle(newTitle.trim());
-        console.info("Update task", task.id, "title to", newTitle.trim());
+        onRenameTask(task.id, newTitle.trim());
       }
     }
   }
@@ -73,6 +70,17 @@ export function TaskCard({ task }: TaskCardProps) {
       selection?.addRange(range);
     }
   }, [isEditing]);
+
+  useEffect(() => {
+    setIsCompleted(task.completed);
+  }, [task.completed]);
+
+  useEffect(() => {
+    setTitle(task.title);
+    if (!isEditing && contentRef.current) {
+      contentRef.current.textContent = task.title;
+    }
+  }, [task.title, isEditing]);
 
   return (
     <Card
@@ -116,9 +124,9 @@ export function TaskCard({ task }: TaskCardProps) {
 }
 
 type EmptyTaskCardProps = {
-  onCreateTask: (title: string) => void;
+  onCreateTask: (title: string) => Promise<void> | void;
   queueId: string;
-  category: string;
+  category: TaskCategory;
 };
 
 export function EmptyTaskCard({

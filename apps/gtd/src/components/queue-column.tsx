@@ -1,89 +1,64 @@
-import { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import type { NewTaskCategory, TaskCategory } from "../schemas/queues";
+import type { Queue, Task } from "../lib/api-client";
 import { CategorySection } from "./category-section";
-import { MoreVertical } from "lucide-react";
-import { Button } from "@/components/ui/button";
-
-type Queue = {
-  id: string;
-  name: string;
-  color: string;
-};
 
 type QueueColumnProps = {
   queue: Queue;
+  tasks: Task[];
+  onCreateTask: (
+    category: NewTaskCategory,
+    title: string
+  ) => Promise<void> | void;
+  onRenameTask: (taskId: string, title: string) => Promise<void> | void;
+  onToggleTask: (taskId: string, completed: boolean) => Promise<void> | void;
 };
 
-// Mock tasks for initial development
-const mockTasks = {
-  next_actions: [
-    {
-      id: "1",
-      title: "Review Q4 metrics",
-      completed: false,
-      queueId: "1",
-      category: "next_actions",
-    },
-    {
-      id: "2",
-      title: "Schedule team meeting",
-      completed: false,
-      queueId: "1",
-      category: "next_actions",
-    },
-  ],
-  waiting_on: [
-    {
-      id: "3",
-      title: "Feedback from client",
-      completed: false,
-      queueId: "1",
-      category: "waiting_on",
-    },
-  ],
-  someday: [
-    {
-      id: "4",
-      title: "Learn TypeScript",
-      completed: false,
-      queueId: "1",
-      category: "someday",
-    },
-  ],
-  archive: [],
+const CATEGORY_LABELS: Record<TaskCategory, string> = {
+  next: "Next Actions",
+  waiting: "Waiting On",
+  someday: "Someday",
+  archive: "Archive",
 };
 
-export function QueueColumn({ queue }: QueueColumnProps) {
-  const [tasks] = useState(mockTasks);
+export function QueueColumn({
+  queue,
+  tasks,
+  onCreateTask,
+  onRenameTask,
+  onToggleTask,
+}: QueueColumnProps) {
+  const tasksByCategory: Record<TaskCategory, Task[]> = {
+    next: [],
+    waiting: [],
+    someday: [],
+    archive: [],
+  };
+
+  for (const task of tasks) {
+    tasksByCategory[task.category]?.push(task);
+  }
+
+  for (const category of Object.keys(tasksByCategory) as TaskCategory[]) {
+    tasksByCategory[category].sort((a, b) => a.position - b.position);
+  }
 
   return (
     <div className="flex h-full flex-1 flex-shrink-0 flex-col bg-card">
       <ScrollArea className="flex-1 px-4">
-        <div className="py-4 space-y-8">
-          <CategorySection
-            category="next_actions"
-            label="Next Actions"
-            tasks={tasks.next_actions}
-            queueId={queue.id}
-          />
-          <CategorySection
-            category="waiting_on"
-            label="Waiting On"
-            tasks={tasks.waiting_on}
-            queueId={queue.id}
-          />
-          <CategorySection
-            category="someday"
-            label="Someday"
-            tasks={tasks.someday}
-            queueId={queue.id}
-          />
-          <CategorySection
-            category="archive"
-            label="Archive"
-            tasks={tasks.archive}
-            queueId={queue.id}
-          />
+        <div className="space-y-8 py-4">
+          {Object.entries(CATEGORY_LABELS).map(([category, label]) => (
+            <CategorySection
+              key={category}
+              category={category as TaskCategory}
+              label={label}
+              tasks={tasksByCategory[category as TaskCategory]}
+              queueId={queue.id}
+              onCreateTask={onCreateTask}
+              onRenameTask={onRenameTask}
+              onToggleTask={onToggleTask}
+            />
+          ))}
         </div>
       </ScrollArea>
     </div>
