@@ -1,4 +1,3 @@
-
 # Development Guidelines
 
 Canonical: true
@@ -6,11 +5,13 @@ Canonical: true
 Auto-generated from all feature plans. Last updated: 2025-10-06
 
 Short summary
+
 - Canonical guidance file: `AGENTS.md` (this file)
 - Backwards-compatible pointers (if present) may reference `AGENTS.md`
 - Detailed guides are centralized in the `features/` folder
 
 Index
+
 - Active technologies
 - Project structure
 - Commands
@@ -24,12 +25,14 @@ Index
 - Documentation organization
 
 ## Active Technologies
+
 - TypeScript (repository uses Next.js and TypeScript under `web/`).
 - Next.js, Drizzle (DB), Zod (validation) — follow existing repo choices. (002-add-an-admin)
 - Cloudflare Workers for deployment (GTD app and Auth service)
 - Bun for package management and local development
 
 ## Project Structure
+
 ```
 backend/
 frontend/
@@ -37,6 +40,7 @@ tests/
 ```
 
 ## Commands
+
 Use `bun` for package management and scripts. Examples:
 
 ```bash
@@ -49,6 +53,7 @@ bun run lint
 ```
 
 ## Migrations & Database
+
 - Do NOT create migration files manually. Edit the Drizzle schema in `web/src/db/schema.ts` (use camelCase column names, snake_case table names), then run:
 
 ```bash
@@ -58,17 +63,21 @@ cd web && bun run d:update
 - Cloudflare D1 is the canonical database for this project. Use Drizzle with D1 for schema and queries.
 
 ## API & Server
+
 - Prefer React Server Actions for backend operations from the app instead of creating standalone REST API endpoints when possible. When server actions are insufficient, follow contract-first design using Zod or GraphQL schemas.
 - Server action files (`"use server"`) can ONLY export async functions. Do NOT export constants, types, or Zod schemas from server action files; move those to separate type/schema files.
 
 ## Drizzle Conventions
+
 - Drizzle column names: camelCase
 - Drizzle table names: snake_case
 
 ## Observability and Auditing
+
 - Log admin actions and include basic metrics. Audit important admin actions in an `admin_action_logs` table.
 
 ## Code Style
+
 TypeScript (repository uses Next.js and TypeScript under `web/`). Follow standard conventions and the component development guide below.
 
 ---
@@ -76,6 +85,7 @@ TypeScript (repository uses Next.js and TypeScript under `web/`). Follow standar
 ## React Component Development Guide
 
 ### File and naming
+
 - File naming: use `kebab-case.tsx` (e.g., `user-profile-form.tsx`).
 - Component naming: use `PascalCase` (e.g., `UserProfileForm`).
 - Export strategy: use named exports, not default exports (e.g., `export function UserProfileForm(...)`).
@@ -83,10 +93,12 @@ TypeScript (repository uses Next.js and TypeScript under `web/`). Follow standar
 - Constants: define module-level constants in `UPPER_SNAKE_CASE` (e.g., `export const MAX_ITEMS = 10;`).
 
 ### Component definition and props
+
 - Props typing: define a TypeScript `type` for props, named `ComponentNameProps` (e.g., `type UserProfileFormProps = { ... };`).
 - Props destructuring: destructure props in the component's function signature for clarity.
 
 ### Logic and functions
+
 - File organization (preferred order):
   1. imports
   2. types/interfaces
@@ -109,6 +121,7 @@ TypeScript (repository uses Next.js and TypeScript under `web/`). Follow standar
   - Prefer `for...of` or `forEach` for iterating. Use `reduce` for transforming an array into a single value.
 
 ### Rendering and JSX
+
 - Conditional rendering: use ternary operators or logical AND (`&&`) for simple conditions.
 - Lists: when mapping over arrays to render lists, always provide a unique `key` prop to each element.
 - Styling: use a utility like `clsx` for conditionally applying CSS classes.
@@ -123,6 +136,7 @@ TypeScript (repository uses Next.js and TypeScript under `web/`). Follow standar
 ---
 
 ## Imports, Validation, and Testing
+
 - Import organization:
   - Group imports: 1. External libraries, 2. Application-level modules (`@/`), 3. Local relative imports.
   - Use absolute paths (`@/components/...`) for project-wide imports and relative paths (`./`) for local files.
@@ -134,6 +148,7 @@ TypeScript (repository uses Next.js and TypeScript under `web/`). Follow standar
   - Place test files adjacent to the files they are testing (e.g., `my-component.tsx` and `my-component.test.tsx`).
 
 ## Utility functions
+
 - `useLocalforage`: a custom hook for interacting with localForage, providing a simple API for storing and retrieving data from the browser's local storage.
   - It's found in `web/src/hooks/use-localforage.ts`.
   - Example usage is found in `web/src/hooks/use-user-settings.ts`.
@@ -141,15 +156,18 @@ TypeScript (repository uses Next.js and TypeScript under `web/`). Follow standar
   - Do not use for parameters that could reasonably be stored in a URL.
 
 ## Code patterns
+
 - Prefer importing React's exports individually, rather than using the `React.` syntax. For example, prefer `useMemo` over `React.useMemo`.
 - Never use IIFE's within a React render function. Always extract those blocks of DOM out into separate components that are written below the consuming function.
 
 ## DevTools MCP server
+
 - The app is hosted locally at http://localhost:3000/
 - If the app is not available, it can be started by running `bun dev` at the project root.
 - The app should be automatically logged into a specific user account. If not, prompt me to set `AUTH_USER_ID_OVERRIDE` in `web/.env`.
 
 ## Shadcn MCP server
+
 - Use the `schadcn` mcp server to find and install new ui components as needed.
 
 ## LLM Guidelines
@@ -163,16 +181,20 @@ Prefer kebab-case for filenames over camelCase.
 All detailed guides and explanations are centralized in the `features/` folder. This eliminates duplication and provides a single source of truth.
 
 ### Core Guides
+
 - **`local-dev.md`**: Local development setup with both Bun and Cloudflare Workers modes
 - **`deployment.md`**: Staging and production deployment procedures
 - **`authentication.md`**: Auth configuration, JWT setup, email, cookies, and testing
 - **`architecture.md`**: Complete system architecture, service integration patterns, and data flow
 
 ### Component Architecture
+
 - **`auth-service-architecture.md`**: Auth service design, API endpoints, rate limiting, and Durable Objects
 
 ### Design References (Archive)
+
 These are original design specifications preserved for reference:
+
 - **`gtd-01-authentication-design.md`**: Original auth system design
 - **`gtd-02-data-model-design.md`**: Original data model specification
 - **`gtd-03-ui-ux-design.md`**: Original UI/UX design
@@ -180,17 +202,20 @@ These are original design specifications preserved for reference:
 - **`gtd-05-deployment-design.md`**: Original deployment infrastructure design
 
 ### Legacy (Deprecated)
+
 - **`LOCAL_DEV.md`**: Original high-level architecture (superseded by local-dev.md and architecture.md)
 
 ### Organization Rules
 
 **When adding documentation:**
+
 1. Detailed how-to guides → place in `features/`
 2. Architecture/design decisions → place in `features/`
 3. Quick reference or command snippets → keep in specific service's `README.md`
 4. Implementation specs for services → place in `features/` with service-specific filename
 
 **When consolidating:**
+
 1. Identify duplicate files across app directories
 2. Consolidate content into single file in `features/` with descriptive name
 3. Delete original files from app directories

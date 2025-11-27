@@ -1,0 +1,34 @@
+{
+  "name": "@repo/components",
+  "type": "module",
+  "main": "./index.ts",
+  "module": "./index.ts",
+  "types": "./index.ts",
+  "scripts": {
+    "fix-imports": "bun run scripts/fix-imports.ts",
+    "ui:add": "bunx shadcn@latest add && bun run fix-imports"
+  },
+  "exports": {
+    ".": "./index.ts",
+    "./utils": "./src/lib/utils.ts",
+    "./ui/*": "./src/ui/*.tsx"
+  },
+  "dependencies": {
+    "@radix-ui/react-avatar": "^1.1.11",
+    "@radix-ui/react-slot": "^1.2.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.555.0",
+    "tailwind-merge": "^3.4.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^19",
+    "@types/react-dom": "^19"
+  },
+  "peerDependencies": {
+    "react": "^19",
+    "react-dom": "^19",
+    "typescript": "^5"
+  }
+}
