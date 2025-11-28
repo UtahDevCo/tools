@@ -1,0 +1,16 @@
+{
+  "hosting": {
+    "site": "quiver-gtd",
+    "public": "apps/gtd/public",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      {
+        "source": "**",
+        "run": {
+          "serviceId": "gtd",
+          "region": "us-central1"
+        }
+      }
+    ]
+  }
+}
