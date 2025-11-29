@@ -29,10 +29,8 @@ COPY package.json bun.lock* turbo.json ./
 COPY apps/gtd ./apps/gtd
 COPY packages ./packages
 
-# Copy the entire node_modules structure from deps
+# Copy the entire node_modules structure from deps (bun hoists to root)
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/gtd/node_modules ./apps/gtd/node_modules
-COPY --from=deps /app/packages/components/node_modules ./packages/components/node_modules 
 
 # Build the app using node to run next (bun has issues with next build)
 RUN cd apps/gtd && node ./node_modules/next/dist/bin/next build
