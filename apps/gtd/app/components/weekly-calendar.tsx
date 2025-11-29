@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, MoreVertical, Circle, CheckCircle2, ArrowUpDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, MoreVertical, Pencil, Check, Trash2, GripVertical, ArrowUpDown } from "lucide-react";
 import {
   Typography,
   Button,
@@ -15,6 +15,7 @@ import {
   PopoverContent,
   useKeydown,
   useLocalforage,
+  toast,
 } from "@repo/components";
 import { UserAvatar } from "@/components/user-avatar";
 import { useAuth } from "@/components/auth-provider";
@@ -569,10 +570,10 @@ function ListColumn({ list, onTaskClick, onNewTaskClick }: ListColumnProps) {
 
       {/* Task items */}
       {list.tasks.map((task) => (
-        <TaskItem
+        <ConnectedTaskItem
           key={task.id}
           task={task}
-          onClick={() => onTaskClick(task)}
+          onEdit={() => onTaskClick(task)}
         />
       ))}
 
@@ -630,10 +631,10 @@ function WeekdayColumn({
           <TaskRow />
         ) : tasks.length > 0 ? (
           tasks.map((task) => (
-            <TaskItem 
+            <ConnectedTaskItem 
               key={task.id} 
               task={task} 
-              onClick={() => onTaskClick(task)}
+              onEdit={() => onTaskClick(task)}
             />
           ))
         ) : (
@@ -644,10 +645,10 @@ function WeekdayColumn({
       {/* Desktop: Task items + empty rows */}
       <div className="hidden lg:block">
         {tasks.map((task) => (
-          <TaskItem 
+          <ConnectedTaskItem 
             key={task.id} 
             task={task} 
-            onClick={() => onTaskClick(task)}
+            onEdit={() => onTaskClick(task)}
           />
         ))}
         {Array.from({ length: emptyRowCount }).map((_, i) => (
@@ -682,10 +683,10 @@ function SectionColumn({
 
       {/* Task items */}
       {tasks.map((task) => (
-        <TaskItem
+        <ConnectedTaskItem
           key={task.id}
           task={task}
-          onClick={() => onTaskClick(task)}
+          onEdit={() => onTaskClick(task)}
         />
       ))}
 
@@ -752,10 +753,10 @@ function WeekendColumn({
             ) : (
               <>
                 {tasks.map((task) => (
-                  <TaskItem 
+                  <ConnectedTaskItem 
                     key={task.id} 
                     task={task} 
-                    onClick={() => onTaskClick(task)}
+                    onEdit={() => onTaskClick(task)}
                   />
                 ))}
                 {Array.from({ length: emptyRowCount }).map((_, i) => (
@@ -834,40 +835,201 @@ function TaskRow({ className, onClick }: { className?: string; onClick?: () => v
   return <div className={cn("block h-9 border-b-2 border-zinc-100", className)} />;
 }
 
+const UNDO_TIMEOUT_MS = 5000;
+
+type TaskItemProps = {
+  task: TaskWithListInfo | TaskWithParsedDate;
+  onEdit?: () => void;
+  onToggleComplete?: () => void;
+  onDelete?: () => void;
+  isDemo?: boolean;
+};
+
 function TaskItem({ 
   task, 
-  onClick,
-}: { 
-  task: TaskWithListInfo | TaskWithParsedDate; 
-  onClick?: () => void;
-}) {
+  onEdit,
+  onToggleComplete,
+  onDelete,
+  isDemo = false,
+}: TaskItemProps) {
   const isCompleted = task.status === "completed";
+  const containerRef = useRef<HTMLDivElement>(null);
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
+      ref={containerRef}
+      tabIndex={0}
       className={cn(
-        "flex min-h-9 h-9 w-full items-center gap-2 border-b-2 border-zinc-100 px-1 text-left transition-colors hover:bg-zinc-50",
-        isCompleted && "opacity-50",
-        onClick && "cursor-pointer"
+        "group/task relative flex min-h-9 h-9 w-full items-center border-b-2 border-zinc-100 text-left transition-colors",
+        "hover:bg-zinc-50 focus-within:bg-zinc-50",
+        "focus:outline-none focus:ring-0",
+        isCompleted && "opacity-60"
       )}
     >
-      {isCompleted ? (
-        <CheckCircle2 className="size-4 shrink-0 text-green-500" />
-      ) : (
-        <Circle className="size-4 shrink-0 text-zinc-400" />
-      )}
+      {/* Task title */}
       <Typography
         variant="default"
         className={cn(
-          "truncate text-sm",
+          "truncate text-sm px-1 flex-1",
           isCompleted && "line-through text-zinc-400"
         )}
       >
         {task.title}
       </Typography>
-    </button>
+
+      {/* Action buttons overlay - appears on hover/focus */}
+      <div
+        className={cn(
+          "absolute right-0 top-0 bottom-0 flex items-center gap-0.5 pr-1",
+          "opacity-0 group-hover/task:opacity-100 group-focus-within/task:opacity-100",
+          "transition-opacity duration-150",
+          // Gradient background to fade over text
+          "bg-linear-to-l from-zinc-50 via-zinc-50 to-transparent",
+          "pl-6"
+        )}
+      >
+        {/* Drag handle (placeholder - not functional yet) */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="flex size-7 items-center justify-center rounded text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200 transition-colors cursor-grab"
+              tabIndex={-1}
+              disabled
+            >
+              <GripVertical className="size-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p>Drag (coming soon)</p>
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Edit button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit?.();
+              }}
+              className="flex size-7 items-center justify-center rounded text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200 transition-colors"
+              disabled={isDemo}
+            >
+              <Pencil className="size-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p>Edit</p>
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Mark complete/incomplete button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleComplete?.();
+              }}
+              className={cn(
+                "flex size-7 items-center justify-center rounded transition-colors",
+                isCompleted 
+                  ? "text-green-600 hover:text-green-700 hover:bg-green-100"
+                  : "text-zinc-500 hover:text-green-600 hover:bg-green-100"
+              )}
+              disabled={isDemo}
+            >
+              <Check className="size-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p>{isCompleted ? "Mark incomplete" : "Mark complete"}</p>
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Delete button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete?.();
+              }}
+              className="flex size-7 items-center justify-center rounded text-zinc-500 hover:text-red-600 hover:bg-red-100 transition-colors"
+              disabled={isDemo}
+            >
+              <Trash2 className="size-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p>Delete</p>
+          </TooltipContent>
+        </Tooltip>
+      </div>
+    </div>
+  );
+}
+
+// Connected TaskItem that uses the TasksProvider for actions
+type ConnectedTaskItemProps = {
+  task: TaskWithListInfo;
+  onEdit: () => void;
+  isDemo?: boolean;
+};
+
+function ConnectedTaskItem({ task, onEdit, isDemo = false }: ConnectedTaskItemProps) {
+  const { optimisticToggleComplete, optimisticDelete } = useTasks();
+  const deleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleToggleComplete = useCallback(() => {
+    if (isDemo) return;
+    optimisticToggleComplete(task);
+  }, [task, optimisticToggleComplete, isDemo]);
+
+  const handleDelete = useCallback(() => {
+    if (isDemo) return;
+    
+    const { undo, commit } = optimisticDelete(task);
+    
+    // Clear any existing timeout for this task
+    if (deleteTimeoutRef.current) {
+      clearTimeout(deleteTimeoutRef.current);
+    }
+
+    // Show toast with undo action
+    toast(`"${task.title}" deleted`, {
+      duration: UNDO_TIMEOUT_MS,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          if (deleteTimeoutRef.current) {
+            clearTimeout(deleteTimeoutRef.current);
+            deleteTimeoutRef.current = null;
+          }
+          undo();
+        },
+      },
+    });
+
+    // Set timeout to commit the deletion
+    deleteTimeoutRef.current = setTimeout(() => {
+      commit();
+      deleteTimeoutRef.current = null;
+    }, UNDO_TIMEOUT_MS);
+  }, [task, optimisticDelete, isDemo]);
+
+  return (
+    <TaskItem
+      task={task}
+      onEdit={onEdit}
+      onToggleComplete={handleToggleComplete}
+      onDelete={handleDelete}
+      isDemo={isDemo}
+    />
   );
 }
 

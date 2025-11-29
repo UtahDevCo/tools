@@ -38,6 +38,7 @@ export {
 // Custom components
 export { Drawer, DrawerViewport } from "./src/drawer";
 export { Portal } from "./src/portal";
+export { Toaster, toast } from "./src/ui/sonner";
 
 // Hooks
 export { useKeydown } from "./src/hooks/use-keydown";

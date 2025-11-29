@@ -11,7 +11,14 @@ import {
   startTransition,
   type ReactNode,
 } from "react";
-import { getAllTasks, ensureGTDLists, type GTDLists } from "@/app/actions/tasks";
+import {
+  getAllTasks,
+  ensureGTDLists,
+  completeTask,
+  uncompleteTask,
+  deleteTask,
+  type GTDLists,
+} from "@/app/actions/tasks";
 import {
   type TaskList,
   type TaskWithParsedDate,
@@ -231,6 +238,8 @@ type TasksState = {
   isInitializingGTD: boolean;
   error: string | null;
   needsReauth: boolean;
+  // Pending deletions - tasks that are "soft deleted" awaiting undo timeout
+  pendingDeletions: Set<string>;
 };
 
 type TasksContextValue = TasksState & {
@@ -247,6 +256,9 @@ type TasksContextValue = TasksState & {
   getTasksForDate: (date: Date) => TaskWithListInfo[];
   getTasksWithoutDueDate: () => TaskWithListInfo[];
   refresh: () => void;
+  // Optimistic updates
+  optimisticToggleComplete: (task: TaskWithListInfo) => void;
+  optimisticDelete: (task: TaskWithListInfo) => { undo: () => void; commit: () => Promise<void> };
 };
 
 const TasksContext = createContext<TasksContextValue | null>(null);
@@ -264,6 +276,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
     isInitializingGTD: false,
     error: null,
     needsReauth: false,
+    pendingDeletions: new Set(),
   });
   const hasFetchedRef = useRef(false);
   const hasInitializedGTDRef = useRef(false);
@@ -305,6 +318,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
         isInitializingGTD: false,
         error: null,
         needsReauth: false,
+        pendingDeletions: new Set(),
       });
       return;
     }
@@ -404,17 +418,19 @@ export function TasksProvider({ children }: TasksProviderProps) {
     setRefreshTrigger((prev) => prev + 1);
   }, []);
 
-  // Convert tasks to include list info
+  // Convert tasks to include list info (excluding pending deletions)
   const allTasks = useMemo<TaskWithListInfo[]>(() => {
     return state.taskLists.flatMap(({ taskList, tasks }) =>
-      tasks.map((task) => ({
-        ...task,
-        listId: taskList.id,
-        listDisplayName: getTaskListDisplayName(taskList),
-        isGTDList: isGTDList(taskList),
-      }))
+      tasks
+        .filter((task) => !state.pendingDeletions.has(task.id))
+        .map((task) => ({
+          ...task,
+          listId: taskList.id,
+          listDisplayName: getTaskListDisplayName(taskList),
+          isGTDList: isGTDList(taskList),
+        }))
     );
-  }, [state.taskLists]);
+  }, [state.taskLists, state.pendingDeletions]);
 
   // GTD-specific task lists
   const activeTasks = useMemo<TaskWithListInfo[]>(() => {
@@ -486,6 +502,93 @@ export function TasksProvider({ children }: TasksProviderProps) {
     [allTasks]
   );
 
+  // Optimistic toggle complete - immediately updates UI, then syncs with server
+  const optimisticToggleComplete = useCallback(
+    (task: TaskWithListInfo) => {
+      const newStatus = task.status === "completed" ? "needsAction" : "completed";
+      
+      // Optimistically update the task status in state
+      setState((prev) => ({
+        ...prev,
+        taskLists: prev.taskLists.map(({ taskList, tasks }) => ({
+          taskList,
+          tasks: tasks.map((t) =>
+            t.id === task.id ? { ...t, status: newStatus } : t
+          ),
+        })),
+      }));
+
+      // Call server action
+      const serverAction = newStatus === "completed" 
+        ? completeTask(task.listId, task.id)
+        : uncompleteTask(task.listId, task.id);
+
+      serverAction.then((result) => {
+        if (!result.success) {
+          // Rollback on error
+          setState((prev) => ({
+            ...prev,
+            taskLists: prev.taskLists.map(({ taskList, tasks }) => ({
+              taskList,
+              tasks: tasks.map((t) =>
+                t.id === task.id ? { ...t, status: task.status } : t
+              ),
+            })),
+          }));
+          console.error("Failed to toggle task completion:", result.error);
+        }
+      });
+    },
+    []
+  );
+
+  // Optimistic delete - hides task immediately, returns undo/commit functions
+  const optimisticDelete = useCallback(
+    (task: TaskWithListInfo) => {
+      // Add to pending deletions (hides the task)
+      setState((prev) => ({
+        ...prev,
+        pendingDeletions: new Set([...prev.pendingDeletions, task.id]),
+      }));
+
+      const undo = () => {
+        // Remove from pending deletions (shows the task again)
+        setState((prev) => {
+          const newPendingDeletions = new Set(prev.pendingDeletions);
+          newPendingDeletions.delete(task.id);
+          return { ...prev, pendingDeletions: newPendingDeletions };
+        });
+      };
+
+      const commit = async () => {
+        const result = await deleteTask(task.listId, task.id);
+        
+        if (result.success) {
+          // Remove from task lists permanently
+          setState((prev) => {
+            const newPendingDeletions = new Set(prev.pendingDeletions);
+            newPendingDeletions.delete(task.id);
+            return {
+              ...prev,
+              pendingDeletions: newPendingDeletions,
+              taskLists: prev.taskLists.map(({ taskList, tasks }) => ({
+                taskList,
+                tasks: tasks.filter((t) => t.id !== task.id),
+              })),
+            };
+          });
+        } else {
+          // Rollback on error - remove from pending deletions
+          undo();
+          console.error("Failed to delete task:", result.error);
+        }
+      };
+
+      return { undo, commit };
+    },
+    []
+  );
+
   const value: TasksContextValue = {
     ...state,
     allTasks,
@@ -497,6 +600,8 @@ export function TasksProvider({ children }: TasksProviderProps) {
     getTasksForDate: getTasksForDateFn,
     getTasksWithoutDueDate: getTasksWithoutDateFn,
     refresh,
+    optimisticToggleComplete,
+    optimisticDelete,
   };
 
   return (
