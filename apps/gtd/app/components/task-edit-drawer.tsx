@@ -65,37 +65,51 @@ export function TaskEditDrawer({
     return () => clearTimeout(timeoutId);
   }, [open]);
 
-  // Use task ID as key to reset form state when task changes
-  const formKey = task?.id ?? "new";
-
   // Determine initial list:
   // 1. If editing a task, use task's list
   // 2. If defaultListId is provided, use it (clicked from a specific list)
   // 3. If there's a due date but no defaultListId, use Active
   // 4. Otherwise use Someday
-  const getInitialListId = () => {
+  const getInitialListId = useCallback(() => {
     if (task?.listId) return task.listId;
     if (defaultListId) return defaultListId;
     if (defaultDueDate && gtdLists) return gtdLists.active.id;
     if (gtdLists) return gtdLists.someday.id;
     return "";
-  };
+  }, [task?.listId, defaultListId, defaultDueDate, gtdLists]);
+
+  const getInitialDueDate = useCallback(() => {
+    if (task?.due) return task.due.split("T")[0];
+    return defaultDueDate ?? "";
+  }, [task?.due, defaultDueDate]);
 
   const [title, setTitle] = useState(() => task?.title ?? "");
   const [notes, setNotes] = useState(() => task?.notes ?? "");
-  const [dueDate, setDueDate] = useState(() => {
-    if (task?.due) return task.due.split("T")[0];
-    return defaultDueDate ?? "";
-  });
+  const [dueDate, setDueDate] = useState(getInitialDueDate);
   const [selectedListId, setSelectedListId] = useState(getInitialListId);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const isCreateMode = !task;
+  // Reset form when drawer opens or task changes
+  const [prevOpen, setPrevOpen] = useState(open);
+  const [prevTaskId, setPrevTaskId] = useState(task?.id);
 
-  // Check if selected list is "Active"
-  const isActiveList = gtdLists && selectedListId === gtdLists.active.id;
+  if (open !== prevOpen || task?.id !== prevTaskId) {
+    setPrevOpen(open);
+    setPrevTaskId(task?.id);
+
+    // Reset form when drawer opens (regardless of task) or task changes
+    if (open && (!prevOpen || task?.id !== prevTaskId)) {
+      setTitle(task?.title ?? "");
+      setNotes(task?.notes ?? "");
+      setDueDate(getInitialDueDate());
+      setSelectedListId(getInitialListId());
+      setShowDeleteConfirm(false);
+    }
+  }
+
+  const isCreateMode = !task;
 
   // Check if a list ID belongs to "Other" lists
   const isOtherListId = (listId: string) =>
@@ -137,27 +151,8 @@ export function TaskEditDrawer({
     setDueDate(newDueDate);
   };
 
-  // Reset form when task changes
-  const [prevFormKey, setPrevFormKey] = useState(formKey);
-  if (formKey !== prevFormKey) {
-    setPrevFormKey(formKey);
-    setTitle(task?.title ?? "");
-    setNotes(task?.notes ?? "");
-    setDueDate(task?.due ? task.due.split("T")[0] : (defaultDueDate ?? ""));
-
-    // Reset list selection - prioritize defaultListId when provided
-    if (task?.listId) {
-      setSelectedListId(task.listId);
-    } else if (defaultListId) {
-      setSelectedListId(defaultListId);
-    } else if (defaultDueDate && gtdLists) {
-      setSelectedListId(gtdLists.active.id);
-    } else if (gtdLists) {
-      setSelectedListId(gtdLists.someday.id);
-    } else {
-      setSelectedListId("");
-    }
-  }
+  // Check if selected list is "Active"
+  const isActiveList = gtdLists && selectedListId === gtdLists.active.id;
 
   const handleSave = useCallback(async () => {
     setIsSaving(true);
