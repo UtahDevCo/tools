@@ -2,8 +2,7 @@
 
 import { useState, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, MoreVertical, Circle, CheckCircle2, ChevronDown, ArrowUpDown } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { ChevronLeft, ChevronRight, MoreVertical, Circle, CheckCircle2, ArrowUpDown } from "lucide-react";
 import {
   Typography,
   Button,
@@ -36,13 +35,11 @@ type WeeklyCalendarProps = {
 };
 
 type ListSortOrder = "alphabetical" | "taskCount" | "updated";
-type CollapsedState = Record<string, boolean>;
 type SortPreference = { sortOrder: ListSortOrder };
 
 const WEEKDAY_TASK_ROWS = 10;
 const WEEKEND_TASK_ROWS = 4;
 const LOCALFORAGE_KEYS = {
-  COLLAPSED: "gtd-list-collapsed-state",
   SORT: "gtd-list-sort-preference",
 };
 
@@ -62,27 +59,24 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
   // Selected task for drawer
   const [selectedTask, setSelectedTask] = useState<TaskWithListInfo | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  
+  // New task creation context
+  const [newTaskContext, setNewTaskContext] = useState<{
+    listId: string;
+    listDisplayName: string;
+    dueDate?: string;
+  } | null>(null);
 
-  // Localforage for collapsed state and sort order
+  // Localforage for sort order preference
   const {
-    values: [collapsedState, sortPreference],
+    values: [sortPreference],
     setItem,
-    isLoaded: prefsLoaded,
-  } = useLocalforage<[CollapsedState | null, SortPreference | null]>(
-    [LOCALFORAGE_KEYS.COLLAPSED, LOCALFORAGE_KEYS.SORT],
+  } = useLocalforage<[SortPreference | null]>(
+    [LOCALFORAGE_KEYS.SORT],
     { storeName: "gtd-settings" }
   );
 
-  const currentCollapsed = collapsedState ?? {};
   const currentSortOrder: ListSortOrder = sortPreference?.sortOrder ?? "alphabetical";
-
-  const toggleCollapsed = useCallback(
-    (listId: string) => {
-      const newState = { ...currentCollapsed, [listId]: !currentCollapsed[listId] };
-      setItem(LOCALFORAGE_KEYS.COLLAPSED, newState);
-    },
-    [currentCollapsed, setItem]
-  );
 
   const setSortOrder = useCallback(
     (order: ListSortOrder) => {
@@ -137,6 +131,13 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
   const handleDrawerClose = useCallback(() => {
     setDrawerOpen(false);
     setSelectedTask(null);
+    setNewTaskContext(null);
+  }, []);
+
+  const handleNewTaskClick = useCallback((listId: string, listDisplayName: string, dueDate?: string) => {
+    setSelectedTask(null);
+    setNewTaskContext({ listId, listDisplayName, dueDate });
+    setDrawerOpen(true);
   }, []);
 
   const handleKeydown = useCallback(
@@ -185,17 +186,19 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
           somedayTasks={somedayTasks}
           otherLists={sortedOtherLists}
           tasksLoading={tasksLoading}
-          collapsedState={currentCollapsed}
-          onToggleCollapsed={toggleCollapsed}
           sortOrder={currentSortOrder}
           onSortOrderChange={setSortOrder}
           onTaskClick={handleTaskClick}
+          onNewTaskClick={handleNewTaskClick}
         />
       </div>
       <TaskEditDrawer
         task={selectedTask}
         open={drawerOpen}
         onClose={handleDrawerClose}
+        defaultListId={newTaskContext?.listId}
+        defaultDueDate={newTaskContext?.dueDate}
+        defaultListDisplayName={newTaskContext?.listDisplayName}
       />
     </div>
   );
@@ -293,10 +296,10 @@ function SettingsPopover() {
       <PopoverContent align="end" className="w-48">
         <nav className="flex flex-col gap-2">
           <Link
-            href="/playground/typography"
+            href="/playground"
             className="text-sm hover:text-orange-500 transition-colors"
           >
-            Typography Playground
+            Playground
           </Link>
         </nav>
       </PopoverContent>
@@ -318,11 +321,10 @@ type WeekGridProps = {
   somedayTasks: TaskWithListInfo[];
   otherLists: OtherListData[];
   tasksLoading: boolean;
-  collapsedState: CollapsedState;
-  onToggleCollapsed: (listId: string) => void;
   sortOrder: ListSortOrder;
   onSortOrderChange: (order: ListSortOrder) => void;
   onTaskClick: (task: TaskWithListInfo) => void;
+  onNewTaskClick: (listId: string, listDisplayName: string, dueDate?: string) => void;
 };
 
 function WeekGrid({ 
@@ -333,12 +335,12 @@ function WeekGrid({
   somedayTasks,
   otherLists,
   tasksLoading,
-  collapsedState,
-  onToggleCollapsed,
   sortOrder,
   onSortOrderChange,
   onTaskClick,
+  onNewTaskClick,
 }: WeekGridProps) {
+  const { gtdLists } = useTasks();
   return (
     <div className="flex flex-col gap-2 px-4 pb-4">
       {/* Day columns row */}
@@ -353,6 +355,8 @@ function WeekGrid({
                 tasks={tasks}
                 tasksLoading={tasksLoading}
                 onTaskClick={onTaskClick}
+                onNewTaskClick={onNewTaskClick}
+                activeListId={gtdLists?.active.id}
               />
             );
           }
@@ -363,6 +367,8 @@ function WeekGrid({
                 getTasksForDate={getTasksForDate}
                 tasksLoading={tasksLoading}
                 onTaskClick={onTaskClick}
+                onNewTaskClick={onNewTaskClick}
+                activeListId={gtdLists?.active.id}
               />
             </div>
           );
@@ -382,70 +388,93 @@ function WeekGrid({
                   tasks={tasks}
                   tasksLoading={tasksLoading}
                   onTaskClick={onTaskClick}
+                  onNewTaskClick={onNewTaskClick}
+                  activeListId={gtdLists?.active.id}
                 />
               );
             })}
         </div>
       </div>
 
-      {/* GTD Sections */}
-      <SectionColumn title="Next" tasks={nextTasks} onTaskClick={onTaskClick} />
-      <SectionColumn title="Waiting" tasks={waitingTasks} onTaskClick={onTaskClick} />
-      <SectionColumn title="Someday" tasks={somedayTasks} onTaskClick={onTaskClick} />
+      {/* GTD Sections with CSS columns masonry layout */}
+      <div className="mt-8">
+        <div className="flex items-center h-9 mb-10">
+          <Typography variant="headline" className="text-zinc-900">
+            GTD Lists
+          </Typography>
+        </div>
+        <div className="columns-1 md:columns-2 lg:columns-3 gap-6">
+          <SectionColumn 
+            title="Next" 
+            tasks={nextTasks} 
+            listId={gtdLists?.next.id} 
+            onTaskClick={onTaskClick} 
+            onNewTaskClick={onNewTaskClick} 
+          />
+          <SectionColumn 
+            title="Waiting" 
+            tasks={waitingTasks} 
+            listId={gtdLists?.waiting.id} 
+            onTaskClick={onTaskClick} 
+            onNewTaskClick={onNewTaskClick} 
+          />
+          <SectionColumn 
+            title="Someday" 
+            tasks={somedayTasks} 
+            listId={gtdLists?.someday.id} 
+            onTaskClick={onTaskClick} 
+            onNewTaskClick={onNewTaskClick} 
+          />
+        </div>
+      </div>
 
       {/* Other Lists Section */}
       {otherLists.length > 0 && (
         <OtherListsSection
           lists={otherLists}
-          collapsedState={collapsedState}
-          onToggleCollapsed={onToggleCollapsed}
           sortOrder={sortOrder}
           onSortOrderChange={onSortOrderChange}
           onTaskClick={onTaskClick}
+          onNewTaskClick={onNewTaskClick}
         />
       )}
     </div>
   );
 }
 
-const SECTION_TASK_ROWS = 4;
-
 type OtherListsSectionProps = {
   lists: OtherListData[];
-  collapsedState: CollapsedState;
-  onToggleCollapsed: (listId: string) => void;
   sortOrder: ListSortOrder;
   onSortOrderChange: (order: ListSortOrder) => void;
   onTaskClick: (task: TaskWithListInfo) => void;
+  onNewTaskClick: (listId: string, listDisplayName: string, dueDate?: string) => void;
 };
 
 function OtherListsSection({
   lists,
-  collapsedState,
-  onToggleCollapsed,
   sortOrder,
   onSortOrderChange,
   onTaskClick,
+  onNewTaskClick,
 }: OtherListsSectionProps) {
   return (
     <div className="mt-8">
       {/* Section header with sort control */}
-      <div className="flex items-center justify-between border-black border-b-2 h-9 mb-4">
-        <Typography variant="title" className="text-zinc-900">
+      <div className="flex items-center justify-between h-9 mb-10">
+        <Typography variant="headline" className="text-zinc-900">
           Other Lists
         </Typography>
         <SortOrderDropdown sortOrder={sortOrder} onSortOrderChange={onSortOrderChange} />
       </div>
 
-      {/* Grid of collapsible lists - up to 3 columns, stacks on narrow screens */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* CSS columns masonry layout */}
+      <div className="columns-1 md:columns-2 lg:columns-3 gap-6">
         {lists.map((list) => (
-          <CollapsibleListCard
+          <ListColumn
             key={list.taskList.id}
             list={list}
-            isCollapsed={collapsedState[list.taskList.id] ?? false}
-            onToggle={() => onToggleCollapsed(list.taskList.id)}
             onTaskClick={onTaskClick}
+            onNewTaskClick={onNewTaskClick}
           />
         ))}
       </div>
@@ -493,63 +522,38 @@ function SortOrderDropdown({ sortOrder, onSortOrderChange }: SortOrderDropdownPr
   );
 }
 
-type CollapsibleListCardProps = {
+type ListColumnProps = {
   list: OtherListData;
-  isCollapsed: boolean;
-  onToggle: () => void;
   onTaskClick: (task: TaskWithListInfo) => void;
+  onNewTaskClick: (listId: string, listDisplayName: string, dueDate?: string) => void;
 };
 
-function CollapsibleListCard({ list, isCollapsed, onToggle, onTaskClick }: CollapsibleListCardProps) {
-  return (
-    <div className="border border-zinc-200 rounded-lg overflow-hidden">
-      {/* List header */}
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between px-3 py-2 bg-zinc-50 hover:bg-zinc-100 transition-colors"
-      >
-        <div className="flex items-center gap-2">
-          <Typography variant="label" className="text-zinc-900 font-medium">
-            {list.displayName}
-          </Typography>
-          <span className="text-xs text-zinc-500">({list.tasks.length})</span>
-        </div>
-        <motion.div
-          animate={{ rotate: isCollapsed ? -90 : 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          <ChevronDown className="h-4 w-4 text-zinc-500" />
-        </motion.div>
-      </button>
+const LIST_MIN_ROWS = 1;
 
-      {/* Collapsible content with AnimatePresence */}
-      <AnimatePresence initial={false}>
-        {!isCollapsed && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
-            className="overflow-hidden"
-          >
-            <div className="px-1 py-1">
-              {list.tasks.length === 0 ? (
-                <div className="px-2 py-3 text-sm text-zinc-400 text-center">
-                  No tasks
-                </div>
-              ) : (
-                list.tasks.map((task) => (
-                  <TaskItem 
-                    key={task.id} 
-                    task={task} 
-                    onClick={() => onTaskClick(task)}
-                  />
-                ))
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+function ListColumn({ list, onTaskClick, onNewTaskClick }: ListColumnProps) {
+  const emptyRowCount = Math.max(LIST_MIN_ROWS, LIST_MIN_ROWS - list.tasks.length);
+
+  return (
+    <div className="flex flex-col break-inside-avoid mb-6">
+      {/* List header - matches DayHeader styling */}
+      <ColumnHeader title={list.displayName} />
+
+      {/* Task items */}
+      {list.tasks.map((task) => (
+        <TaskItem
+          key={task.id}
+          task={task}
+          onClick={() => onTaskClick(task)}
+        />
+      ))}
+
+      {/* Empty rows for adding new tasks */}
+      {Array.from({ length: emptyRowCount }).map((_, i) => (
+        <TaskRow 
+          key={`empty-${i}`} 
+          onClick={() => onNewTaskClick(list.taskList.id, list.displayName)}
+        />
+      ))}
     </div>
   );
 }
@@ -559,18 +563,27 @@ function WeekdayColumn({
   tasks,
   tasksLoading,
   onTaskClick,
+  onNewTaskClick,
+  activeListId,
 }: { 
   day: WeekDay;
   tasks: TaskWithListInfo[];
   tasksLoading: boolean;
   onTaskClick: (task: TaskWithListInfo) => void;
+  onNewTaskClick: (listId: string, listDisplayName: string, dueDate?: string) => void;
+  activeListId?: string;
 }) {
   const dayNum = day.date.getDate();
   const monthShort = day.date.toLocaleDateString("en-US", { month: "short" });
   const dayName = day.date.toLocaleDateString("en-US", { weekday: "short" });
+  const dateStr = day.date.toISOString().split("T")[0];
 
   // Calculate empty rows needed
   const emptyRowCount = Math.max(0, WEEKDAY_TASK_ROWS - tasks.length);
+
+  const handleEmptyRowClick = activeListId 
+    ? () => onNewTaskClick(activeListId, "Active", dateStr)
+    : undefined;
 
   return (
     <div className="flex flex-col lg:flex-1">
@@ -595,7 +608,7 @@ function WeekdayColumn({
             />
           ))
         ) : (
-          <TaskRow />
+          <TaskRow onClick={handleEmptyRowClick} />
         )}
       </div>
 
@@ -609,67 +622,51 @@ function WeekdayColumn({
           />
         ))}
         {Array.from({ length: emptyRowCount }).map((_, i) => (
-          <TaskRow key={i} />
+          <TaskRow key={i} onClick={handleEmptyRowClick} />
         ))}
       </div>
     </div>
   );
 }
+
+const SECTION_MIN_ROWS = 4;
 
 function SectionColumn({ 
   title, 
   tasks,
+  listId,
   onTaskClick,
+  onNewTaskClick,
 }: { 
   title: string; 
   tasks: TaskWithListInfo[];
+  listId?: string;
   onTaskClick: (task: TaskWithListInfo) => void;
+  onNewTaskClick: (listId: string, listDisplayName: string, dueDate?: string) => void;
 }) {
-  const emptyRowCount = Math.max(0, SECTION_TASK_ROWS - tasks.length);
+  const emptyRowCount = Math.max(0, SECTION_MIN_ROWS - tasks.length);
 
   return (
-    <div className="flex w-full flex-col">
-      {/* Section header */}
-      <SectionHeader title={title} />
+    <div className="flex flex-col break-inside-avoid mb-6">
+      {/* Section header - matches ColumnHeader styling */}
+      <ColumnHeader title={title} />
 
-      {/* Mobile: Single task row or task list */}
-      <div className="md:hidden">
-        {tasks.length > 0 ? (
-          tasks.map((task) => (
-            <TaskItem 
-              key={task.id} 
-              task={task} 
-              onClick={() => onTaskClick(task)}
-            />
-          ))
-        ) : (
-          <TaskRow />
-        )}
-      </div>
+      {/* Task items */}
+      {tasks.map((task) => (
+        <TaskItem
+          key={task.id}
+          task={task}
+          onClick={() => onTaskClick(task)}
+        />
+      ))}
 
-      {/* Desktop: Task items + empty rows */}
-      <div className="hidden md:block">
-        {tasks.map((task) => (
-          <TaskItem 
-            key={task.id} 
-            task={task} 
-            onClick={() => onTaskClick(task)}
-          />
-        ))}
-        {Array.from({ length: emptyRowCount }).map((_, i) => (
-          <TaskRow key={i} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function SectionHeader({ title }: { title: string }) {
-  return (
-    <div className="flex h-9 items-center border-black border-b-2">
-      <Typography variant="title" className="text-zinc-900">
-        {title}
-      </Typography>
+      {/* Empty rows to fill minimum height - clickable for new tasks */}
+      {Array.from({ length: emptyRowCount }).map((_, i) => (
+        <TaskRow 
+          key={`empty-${i}`} 
+          onClick={listId ? () => onNewTaskClick(listId, title) : undefined}
+        />
+      ))}
     </div>
   );
 }
@@ -679,11 +676,15 @@ function WeekendColumn({
   getTasksForDate,
   tasksLoading,
   onTaskClick,
+  onNewTaskClick,
+  activeListId,
 }: { 
   weekend: WeekDay[];
   getTasksForDate: (date: Date) => TaskWithListInfo[];
   tasksLoading: boolean;
   onTaskClick: (task: TaskWithListInfo) => void;
+  onNewTaskClick: (listId: string, listDisplayName: string, dueDate?: string) => void;
+  activeListId?: string;
 }) {
   return (
     <div className="flex flex-1 flex-col">
@@ -695,8 +696,13 @@ function WeekendColumn({
         const dayName = day.date.toLocaleDateString("en-US", {
           weekday: "short",
         });
+        const dateStr = day.date.toISOString().split("T")[0];
         const tasks = getTasksForDate(day.date);
         const emptyRowCount = Math.max(0, WEEKEND_TASK_ROWS - tasks.length);
+
+        const handleEmptyRowClick = activeListId 
+          ? () => onNewTaskClick(activeListId, "Active", dateStr)
+          : undefined;
 
         return (
           <div key={day.date.toISOString()}>
@@ -724,13 +730,23 @@ function WeekendColumn({
                   />
                 ))}
                 {Array.from({ length: emptyRowCount }).map((_, i) => (
-                  <TaskRow key={`${dayName}-${i}`} />
+                  <TaskRow key={`${dayName}-${i}`} onClick={handleEmptyRowClick} />
                 ))}
               </>
             )}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function ColumnHeader({ title }: { title: string }) {
+  return (
+    <div className="flex h-9 items-center border-black border-b-2">
+      <Typography variant="title" className="text-zinc-900">
+        {title}
+      </Typography>
     </div>
   );
 }
@@ -773,7 +789,19 @@ function DayHeader({
   );
 }
 
-function TaskRow({ className }: { className?: string }) {
+function TaskRow({ className, onClick }: { className?: string; onClick?: () => void }) {
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={cn(
+          "h-9 w-full border-b-2 border-zinc-100 transition-colors hover:bg-zinc-50 cursor-pointer",
+          className
+        )}
+      />
+    );
+  }
   return <div className={cn("h-9 border-b-2 border-zinc-100", className)} />;
 }
 

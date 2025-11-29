@@ -32,6 +32,7 @@ type AuthSuccess = { client: ReturnType<typeof createTasksClient> };
 
 // GTD Lists structure returned from ensureGTDLists
 export type GTDLists = {
+  active: TaskList;
   next: TaskList;
   waiting: TaskList;
   someday: TaskList;

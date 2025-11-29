@@ -54,17 +54,21 @@ export async function createTaskList(
 
 export async function ensureGTDListsExist(
   client: tasks_v1.Tasks
-): Promise<{ next: TaskList; waiting: TaskList; someday: TaskList }> {
+): Promise<{ active: TaskList; next: TaskList; waiting: TaskList; someday: TaskList }> {
   const existingLists = await fetchTaskLists(client);
 
   const findList = (gtdName: string) =>
     existingLists.find((list) => list.title === gtdName);
 
+  let activeList = findList(GTD_LISTS.ACTIVE);
   let nextList = findList(GTD_LISTS.NEXT);
   let waitingList = findList(GTD_LISTS.WAITING);
   let somedayList = findList(GTD_LISTS.SOMEDAY);
 
   // Create missing lists
+  if (!activeList) {
+    activeList = await createTaskList(client, GTD_LISTS.ACTIVE);
+  }
   if (!nextList) {
     nextList = await createTaskList(client, GTD_LISTS.NEXT);
   }
@@ -76,6 +80,7 @@ export async function ensureGTDListsExist(
   }
 
   return {
+    active: activeList,
     next: nextList,
     waiting: waitingList,
     someday: somedayList,

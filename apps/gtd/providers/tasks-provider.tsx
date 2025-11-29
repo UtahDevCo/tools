@@ -39,6 +39,7 @@ type TasksContextValue = TasksState & {
   // All tasks flattened with list info
   allTasks: TaskWithListInfo[];
   // GTD-specific task getters
+  activeTasks: TaskWithListInfo[];
   nextTasks: TaskWithListInfo[];
   waitingTasks: TaskWithListInfo[];
   somedayTasks: TaskWithListInfo[];
@@ -210,6 +211,11 @@ export function TasksProvider({ children }: TasksProviderProps) {
   }, [state.taskLists]);
 
   // GTD-specific task lists
+  const activeTasks = useMemo<TaskWithListInfo[]>(() => {
+    if (!state.gtdLists) return [];
+    return allTasks.filter((task) => task.listId === state.gtdLists?.active.id);
+  }, [allTasks, state.gtdLists]);
+
   const nextTasks = useMemo<TaskWithListInfo[]>(() => {
     if (!state.gtdLists) return [];
     return allTasks.filter((task) => task.listId === state.gtdLists?.next.id);
@@ -228,7 +234,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
   // Non-GTD lists with their tasks
   const otherLists = useMemo(() => {
     const gtdListIds = state.gtdLists
-      ? [state.gtdLists.next.id, state.gtdLists.waiting.id, state.gtdLists.someday.id]
+      ? [state.gtdLists.active.id, state.gtdLists.next.id, state.gtdLists.waiting.id, state.gtdLists.someday.id]
       : [];
 
     return state.taskLists
@@ -245,15 +251,28 @@ export function TasksProvider({ children }: TasksProviderProps) {
       }));
   }, [state.taskLists, state.gtdLists]);
 
+  // Get tasks for a specific date - returns Active list tasks and Other list tasks that have this due date
   const getTasksForDateFn = useCallback(
     (date: Date) => {
       const dateStr = date.toISOString().split("T")[0];
-      return allTasks.filter((task) => {
+      
+      // Get Active list tasks with this due date
+      const activeTasksForDate = activeTasks.filter((task) => {
         if (!task.dueDate) return false;
         return task.dueDate.toISOString().split("T")[0] === dateStr;
       });
+      
+      // Get Other list tasks with this due date
+      const otherTasksForDate = otherLists.flatMap((list) =>
+        list.tasks.filter((task) => {
+          if (!task.dueDate) return false;
+          return task.dueDate.toISOString().split("T")[0] === dateStr;
+        })
+      );
+      
+      return [...activeTasksForDate, ...otherTasksForDate];
     },
-    [allTasks]
+    [activeTasks, otherLists]
   );
 
   const getTasksWithoutDateFn = useCallback(
@@ -264,6 +283,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
   const value: TasksContextValue = {
     ...state,
     allTasks,
+    activeTasks,
     nextTasks,
     waitingTasks,
     somedayTasks,

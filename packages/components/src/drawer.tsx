@@ -11,6 +11,7 @@ import { type DrawerMode } from "./hooks/use-drawer-state";
 import { useFreezeScroll } from "./hooks/use-freeze-scroll";
 import { useKeydown } from "./hooks/use-keydown";
 import { Portal } from "./portal";
+import { Typography } from "..";
 
 const DRAWER_VIEWPORT_ID = "drawer-viewport";
 const FOCUSABLE_SELECTOR =
@@ -293,7 +294,9 @@ export function Drawer({
               >
                 <header className="flex items-center justify-between border-b border-border p-4">
                   <div>
-                    <h2 className="text-xl font-semibold text-foreground">{title}</h2>
+                    <Typography variant="title">
+                      {title}
+                    </Typography>
                   </div>
                   <div className="flex items-center gap-2">
                     {showModeToggle && (

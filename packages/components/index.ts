@@ -7,6 +7,21 @@ export { Button, buttonVariants } from "./src/ui/button";
 export { Avatar, AvatarImage, AvatarFallback } from "./src/ui/avatar";
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "./src/ui/tooltip";
 export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor } from "./src/ui/popover";
+export { Input } from "./src/ui/input";
+export { Textarea } from "./src/ui/textarea";
+export { Label } from "./src/ui/label";
+export {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectScrollDownButton,
+  SelectScrollUpButton,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "./src/ui/select";
 
 // Custom components
 export { Drawer, DrawerViewport } from "./src/drawer";

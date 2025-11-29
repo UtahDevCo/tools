@@ -52,29 +52,10 @@ bun test
 bun run lint
 ```
 
-## Migrations & Database
-
-- Do NOT create migration files manually. Edit the Drizzle schema in `web/src/db/schema.ts` (use camelCase column names, snake_case table names), then run:
-
-```bash
-cd web && bun run d:update
-```
-
-- Cloudflare D1 is the canonical database for this project. Use Drizzle with D1 for schema and queries.
-
 ## API & Server
 
 - Prefer React Server Actions for backend operations from the app instead of creating standalone REST API endpoints when possible. When server actions are insufficient, follow contract-first design using Zod or GraphQL schemas.
 - Server action files (`"use server"`) can ONLY export async functions. Do NOT export constants, types, or Zod schemas from server action files; move those to separate type/schema files.
-
-## Drizzle Conventions
-
-- Drizzle column names: camelCase
-- Drizzle table names: snake_case
-
-## Observability and Auditing
-
-- Log admin actions and include basic metrics. Audit important admin actions in an `admin_action_logs` table.
 
 ## Code Style
 

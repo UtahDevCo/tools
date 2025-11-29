@@ -3,6 +3,7 @@ import type { TaskList } from "./types";
 // GTD list name constants - prefixed with [GTD] in Google Tasks
 export const GTD_LIST_PREFIX = "[GTD] ";
 export const GTD_LISTS = {
+  ACTIVE: `${GTD_LIST_PREFIX}Active`,
   NEXT: `${GTD_LIST_PREFIX}Next`,
   WAITING: `${GTD_LIST_PREFIX}Waiting`,
   SOMEDAY: `${GTD_LIST_PREFIX}Someday`,
@@ -10,6 +11,7 @@ export const GTD_LISTS = {
 
 // Display names (without the [GTD] prefix)
 export const GTD_DISPLAY_NAMES = {
+  ACTIVE: "Active",
   NEXT: "Next",
   WAITING: "Waiting",
   SOMEDAY: "Someday",
