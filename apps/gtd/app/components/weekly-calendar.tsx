@@ -2,11 +2,9 @@
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, MoreVertical } from "lucide-react";
+import { ChevronLeft, ChevronRight, MoreVertical, Circle, CheckCircle2 } from "lucide-react";
 import {
   Typography,
-  Avatar,
-  AvatarFallback,
   Button,
   cn,
   Tooltip,
@@ -17,6 +15,9 @@ import {
   PopoverContent,
   useKeydown,
 } from "@repo/components";
+import { UserAvatar } from "@/components/user-avatar";
+import { useTasks } from "@/hooks/use-tasks";
+import { type TaskWithParsedDate } from "@/lib/google-tasks/types";
 
 type WeekDay = {
   date: Date;
@@ -36,6 +37,7 @@ const WEEKEND_TASK_ROWS = 4;
 
 export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
   const [dayOffset, setDayOffset] = useState(0);
+  const { getTasksForDate, getTasksWithoutDueDate, isLoading: tasksLoading, error, needsReauth } = useTasks();
 
   const today = new Date();
   const startDate = new Date(today);
@@ -44,6 +46,9 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
   const days = getFourDays(startDate);
   const columns = groupDaysIntoColumns(days);
   const headerText = formatDateRange(days);
+
+  // Get tasks without due dates for "Someday" section
+  const somedayTasks = getTasksWithoutDueDate();
 
   const handlePrevious = useCallback(() => {
     setDayOffset((prev) => prev - 4);
@@ -90,8 +95,18 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
         onToday={handleToday}
         isAtToday={isAtToday}
       />
+      {error && (
+        <div className="mx-4 mb-2 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
+          {needsReauth ? "Please sign in to view your tasks." : error}
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto">
-        <WeekGrid columns={columns} />
+        <WeekGrid 
+          columns={columns} 
+          getTasksForDate={getTasksForDate}
+          somedayTasks={somedayTasks}
+          tasksLoading={tasksLoading}
+        />
       </div>
     </div>
   );
@@ -116,11 +131,7 @@ function CalendarHeader({
     <header className="flex items-center justify-between px-3 pt-4 pb-10">
       <Typography variant="headline">{headerText}</Typography>
       <div className="flex items-center gap-2">
-        <Avatar className="size-10 bg-zinc-800 text-white">
-          <AvatarFallback className="bg-zinc-800 text-xs font-medium text-white">
-            CE
-          </AvatarFallback>
-        </Avatar>
+        <UserAvatar />
         <SettingsPopover />
         <Tooltip>
           <TooltipTrigger asChild>
@@ -204,20 +215,40 @@ function SettingsPopover() {
   );
 }
 
-function WeekGrid({ columns }: { columns: DayColumn[] }) {
+function WeekGrid({ 
+  columns, 
+  getTasksForDate,
+  somedayTasks,
+  tasksLoading,
+}: { 
+  columns: DayColumn[];
+  getTasksForDate: (date: Date) => TaskWithParsedDate[];
+  somedayTasks: TaskWithParsedDate[];
+  tasksLoading: boolean;
+}) {
   return (
     <div className="flex flex-col gap-2 px-4 pb-4">
       {/* Day columns row */}
       <div className="flex flex-col gap-2 lg:flex-row lg:gap-6 mb-8">
         {columns.map((column, index) => {
           if (column.type === "weekday") {
+            const tasks = getTasksForDate(column.day.date);
             return (
-              <WeekdayColumn key={column.day.date.toISOString()} day={column.day} />
+              <WeekdayColumn 
+                key={column.day.date.toISOString()} 
+                day={column.day}
+                tasks={tasks}
+                tasksLoading={tasksLoading}
+              />
             );
           }
           return (
             <div key={`weekend-${index}`} className="hidden lg:flex lg:flex-1 lg:flex-col">
-              <WeekendColumn weekend={column.days} />
+              <WeekendColumn 
+                weekend={column.days}
+                getTasksForDate={getTasksForDate}
+                tasksLoading={tasksLoading}
+              />
             </div>
           );
         })}
@@ -227,26 +258,47 @@ function WeekGrid({ columns }: { columns: DayColumn[] }) {
           {columns
             .filter((col): col is DayColumn & { type: "weekend" } => col.type === "weekend")
             .flatMap((col) => col.days)
-            .map((day) => (
-              <WeekdayColumn key={day.date.toISOString()} day={day} />
-            ))}
+            .map((day) => {
+              const tasks = getTasksForDate(day.date);
+              return (
+                <WeekdayColumn 
+                  key={day.date.toISOString()} 
+                  day={day}
+                  tasks={tasks}
+                  tasksLoading={tasksLoading}
+                />
+              );
+            })}
         </div>
       </div>
 
       {/* Full-width sections */}
-      <SectionColumn title="Next" />
-      <SectionColumn title="Waiting" />
-      <SectionColumn title="Someday" />
+      {/* TODO: Implement task filtering for "Next" section (tasks with near-term due dates) */}
+      <SectionColumn title="Next" tasks={[]} />
+      {/* TODO: Implement task filtering for "Waiting" section (tasks blocked on others) */}
+      <SectionColumn title="Waiting" tasks={[]} />
+      <SectionColumn title="Someday" tasks={somedayTasks} />
     </div>
   );
 }
 
 const SECTION_TASK_ROWS = 4;
 
-function WeekdayColumn({ day }: { day: WeekDay }) {
+function WeekdayColumn({ 
+  day, 
+  tasks,
+  tasksLoading,
+}: { 
+  day: WeekDay;
+  tasks: TaskWithParsedDate[];
+  tasksLoading: boolean;
+}) {
   const dayNum = day.date.getDate();
   const monthShort = day.date.toLocaleDateString("en-US", { month: "short" });
   const dayName = day.date.toLocaleDateString("en-US", { weekday: "short" });
+
+  // Calculate empty rows needed
+  const emptyRowCount = Math.max(0, WEEKDAY_TASK_ROWS - tasks.length);
 
   return (
     <div className="flex flex-col lg:flex-1">
@@ -258,14 +310,23 @@ function WeekdayColumn({ day }: { day: WeekDay }) {
         isToday={day.isToday}
       />
 
-      {/* Mobile: Single task row */}
+      {/* Mobile: Single task row or task list */}
       <div className="lg:hidden">
-        <TaskRow />
+        {tasksLoading ? (
+          <TaskRow />
+        ) : tasks.length > 0 ? (
+          tasks.map((task) => <TaskItem key={task.id} task={task} />)
+        ) : (
+          <TaskRow />
+        )}
       </div>
 
-      {/* Desktop: Multiple task rows */}
+      {/* Desktop: Task items + empty rows */}
       <div className="hidden lg:block">
-        {Array.from({ length: WEEKDAY_TASK_ROWS }).map((_, i) => (
+        {tasks.map((task) => (
+          <TaskItem key={task.id} task={task} />
+        ))}
+        {Array.from({ length: emptyRowCount }).map((_, i) => (
           <TaskRow key={i} />
         ))}
       </div>
@@ -273,20 +334,29 @@ function WeekdayColumn({ day }: { day: WeekDay }) {
   );
 }
 
-function SectionColumn({ title }: { title: string }) {
+function SectionColumn({ title, tasks }: { title: string; tasks: TaskWithParsedDate[] }) {
+  const emptyRowCount = Math.max(0, SECTION_TASK_ROWS - tasks.length);
+
   return (
     <div className="flex w-full flex-col">
       {/* Section header */}
       <SectionHeader title={title} />
 
-      {/* Mobile: Single task row */}
+      {/* Mobile: Single task row or task list */}
       <div className="md:hidden">
-        <TaskRow />
+        {tasks.length > 0 ? (
+          tasks.map((task) => <TaskItem key={task.id} task={task} />)
+        ) : (
+          <TaskRow />
+        )}
       </div>
 
-      {/* Desktop: Multiple task rows */}
+      {/* Desktop: Task items + empty rows */}
       <div className="hidden md:block">
-        {Array.from({ length: SECTION_TASK_ROWS }).map((_, i) => (
+        {tasks.map((task) => (
+          <TaskItem key={task.id} task={task} />
+        ))}
+        {Array.from({ length: emptyRowCount }).map((_, i) => (
           <TaskRow key={i} />
         ))}
       </div>
@@ -304,7 +374,15 @@ function SectionHeader({ title }: { title: string }) {
   );
 }
 
-function WeekendColumn({ weekend }: { weekend: WeekDay[] }) {
+function WeekendColumn({ 
+  weekend,
+  getTasksForDate,
+  tasksLoading,
+}: { 
+  weekend: WeekDay[];
+  getTasksForDate: (date: Date) => TaskWithParsedDate[];
+  tasksLoading: boolean;
+}) {
   return (
     <div className="flex flex-1 flex-col">
       {weekend.map((day, index) => {
@@ -315,6 +393,8 @@ function WeekendColumn({ weekend }: { weekend: WeekDay[] }) {
         const dayName = day.date.toLocaleDateString("en-US", {
           weekday: "short",
         });
+        const tasks = getTasksForDate(day.date);
+        const emptyRowCount = Math.max(0, WEEKEND_TASK_ROWS - tasks.length);
 
         return (
           <div key={day.date.toISOString()}>
@@ -328,9 +408,20 @@ function WeekendColumn({ weekend }: { weekend: WeekDay[] }) {
               isToday={day.isToday}
             />
 
-            {Array.from({ length: WEEKEND_TASK_ROWS }).map((_, i) => (
-              <TaskRow key={`${dayName}-${i}`} />
-            ))}
+            {tasksLoading ? (
+              Array.from({ length: WEEKEND_TASK_ROWS }).map((_, i) => (
+                <TaskRow key={`${dayName}-${i}`} />
+              ))
+            ) : (
+              <>
+                {tasks.map((task) => (
+                  <TaskItem key={task.id} task={task} />
+                ))}
+                {Array.from({ length: emptyRowCount }).map((_, i) => (
+                  <TaskRow key={`${dayName}-${i}`} />
+                ))}
+              </>
+            )}
           </div>
         );
       })}
@@ -378,6 +469,34 @@ function DayHeader({
 
 function TaskRow({ className }: { className?: string }) {
   return <div className={cn("h-9 border-b-2 border-zinc-100", className)} />;
+}
+
+function TaskItem({ task }: { task: TaskWithParsedDate }) {
+  const isCompleted = task.status === "completed";
+
+  return (
+    <div
+      className={cn(
+        "flex h-9 items-center gap-2 border-b-2 border-zinc-100 px-1",
+        isCompleted && "opacity-50"
+      )}
+    >
+      {isCompleted ? (
+        <CheckCircle2 className="size-4 shrink-0 text-green-500" />
+      ) : (
+        <Circle className="size-4 shrink-0 text-zinc-400" />
+      )}
+      <Typography
+        variant="default"
+        className={cn(
+          "truncate text-sm",
+          isCompleted && "line-through text-zinc-400"
+        )}
+      >
+        {task.title}
+      </Typography>
+    </div>
+  );
 }
 
 // Helper functions
