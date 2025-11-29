@@ -26,6 +26,204 @@ export type TaskWithListInfo = TaskWithParsedDate & {
   isGTDList: boolean;
 };
 
+// Demo data for signed-out users - Han Solo's Kessel Run preparation
+function createDemoData(): {
+  taskLists: { taskList: TaskList; tasks: TaskWithParsedDate[] }[];
+  gtdLists: GTDLists;
+} {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  const dayAfterTomorrow = new Date(today);
+  dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+
+  const demoGtdLists: GTDLists = {
+    active: { id: "demo-active", title: "GTD: Active", kind: "tasks#taskList" },
+    next: { id: "demo-next", title: "GTD: Next", kind: "tasks#taskList" },
+    waiting: { id: "demo-waiting", title: "GTD: Waiting", kind: "tasks#taskList" },
+    someday: { id: "demo-someday", title: "GTD: Someday", kind: "tasks#taskList" },
+  };
+
+  // Active tasks with due dates (for calendar view)
+  const activeTasks: TaskWithParsedDate[] = [
+    {
+      id: "demo-1",
+      title: "Run diagnostic on hyperdrive motivator",
+      status: "needsAction",
+      kind: "tasks#task",
+      selfLink: "",
+      position: "00000000000000000001",
+      due: today.toISOString(),
+      dueDate: today,
+    },
+    {
+      id: "demo-2", 
+      title: "Calibrate navicomputer for Kessel route",
+      status: "needsAction",
+      kind: "tasks#task",
+      selfLink: "",
+      position: "00000000000000000002",
+      due: today.toISOString(),
+      dueDate: today,
+    },
+    {
+      id: "demo-3",
+      title: "Stock up on Corellian ale for the trip",
+      status: "needsAction",
+      kind: "tasks#task",
+      selfLink: "",
+      position: "00000000000000000003",
+      due: today.toISOString(),
+      dueDate: today,
+    },
+    {
+      id: "demo-4",
+      title: "Check shield generator power cells",
+      status: "needsAction",
+      kind: "tasks#task",
+      selfLink: "",
+      position: "00000000000000000004",
+      due: today.toISOString(),
+      dueDate: today,
+    },
+    {
+      id: "demo-5",
+      title: "Refuel with tibanna gas",
+      status: "needsAction",
+      kind: "tasks#task",
+      selfLink: "",
+      position: "00000000000000000005",
+      due: tomorrow.toISOString(),
+      dueDate: tomorrow,
+    },
+    {
+      id: "demo-6",
+      title: "Bribe docking official for priority departure",
+      status: "needsAction",
+      kind: "tasks#task",
+      selfLink: "",
+      position: "00000000000000000006",
+      due: tomorrow.toISOString(),
+      dueDate: tomorrow,
+    },
+    {
+      id: "demo-7",
+      title: "Install backup hyperdrive unit",
+      status: "needsAction",
+      kind: "tasks#task",
+      selfLink: "",
+      position: "00000000000000000007",
+      due: dayAfterTomorrow.toISOString(),
+      dueDate: dayAfterTomorrow,
+    },
+  ];
+
+  // Next actions (no due date, just next things to do)
+  const nextTasks: TaskWithParsedDate[] = [
+    {
+      id: "demo-next-1",
+      title: "Find co-pilot (Chewie busy with Life Day)",
+      status: "needsAction",
+      kind: "tasks#task",
+      selfLink: "",
+      position: "00000000000000000001",
+      dueDate: null,
+    },
+    {
+      id: "demo-next-2",
+      title: "Update bounty hunter tracking database",
+      status: "needsAction",
+      kind: "tasks#task",
+      selfLink: "",
+      position: "00000000000000000002",
+      dueDate: null,
+    },
+    {
+      id: "demo-next-3",
+      title: "Test rear deflector shields",
+      status: "needsAction",
+      kind: "tasks#task",
+      selfLink: "",
+      position: "00000000000000000003",
+      dueDate: null,
+    },
+  ];
+
+  // Waiting for (delegated or blocked)
+  const waitingTasks: TaskWithParsedDate[] = [
+    {
+      id: "demo-waiting-1",
+      title: "Lando to return borrowed sensor dish",
+      status: "needsAction",
+      kind: "tasks#task",
+      selfLink: "",
+      position: "00000000000000000001",
+      dueDate: null,
+    },
+    {
+      id: "demo-waiting-2",
+      title: "Imperial clearance codes from contact",
+      status: "needsAction",
+      kind: "tasks#task",
+      selfLink: "",
+      position: "00000000000000000002",
+      dueDate: null,
+    },
+  ];
+
+  // Someday/Maybe
+  const somedayTasks: TaskWithParsedDate[] = [
+    {
+      id: "demo-someday-1",
+      title: "Pay off Jabba (when credits allow)",
+      status: "needsAction",
+      kind: "tasks#task",
+      selfLink: "",
+      position: "00000000000000000001",
+      dueDate: null,
+    },
+    {
+      id: "demo-someday-2",
+      title: "Upgrade to Class 0.5 hyperdrive",
+      status: "needsAction",
+      kind: "tasks#task",
+      selfLink: "",
+      position: "00000000000000000002",
+      dueDate: null,
+    },
+    {
+      id: "demo-someday-3",
+      title: "Visit Corellia for ship registry update",
+      status: "needsAction",
+      kind: "tasks#task",
+      selfLink: "",
+      position: "00000000000000000003",
+      dueDate: null,
+    },
+    {
+      id: "demo-someday-4",
+      title: "Learn to speak Shyriiwook fluently",
+      status: "needsAction",
+      kind: "tasks#task",
+      selfLink: "",
+      position: "00000000000000000004",
+      dueDate: null,
+    },
+  ];
+
+  const taskLists: { taskList: TaskList; tasks: TaskWithParsedDate[] }[] = [
+    { taskList: demoGtdLists.active, tasks: activeTasks },
+    { taskList: demoGtdLists.next, tasks: nextTasks },
+    { taskList: demoGtdLists.waiting, tasks: waitingTasks },
+    { taskList: demoGtdLists.someday, tasks: somedayTasks },
+  ];
+
+  return { taskLists, gtdLists: demoGtdLists };
+}
+
 type TasksState = {
   taskLists: { taskList: TaskList; tasks: TaskWithParsedDate[] }[];
   gtdLists: GTDLists | null;
@@ -99,9 +297,11 @@ export function TasksProvider({ children }: TasksProviderProps) {
 
   const fetchTasks = useCallback(async () => {
     if (!isAuthenticated) {
+      // Use demo data for signed-out users
+      const demoData = createDemoData();
       setState({
-        taskLists: [],
-        gtdLists: null,
+        taskLists: demoData.taskLists,
+        gtdLists: demoData.gtdLists,
         isLoading: false,
         isInitializingGTD: false,
         error: null,
@@ -175,15 +375,15 @@ export function TasksProvider({ children }: TasksProviderProps) {
     }
   }, [isAuthenticated, initializeGTDLists]);
 
-  // Fetch tasks on mount and when triggered
+  // Fetch tasks on mount and when triggered (including demo data for signed-out users)
   useEffect(() => {
-    if (isAuthenticated && !hasFetchedRef.current) {
+    if (!hasFetchedRef.current) {
       hasFetchedRef.current = true;
       startTransition(() => {
         fetchTasks();
       });
     }
-  }, [isAuthenticated, fetchTasks]);
+  }, [fetchTasks]);
 
   // Re-fetch when refresh is triggered
   useEffect(() => {

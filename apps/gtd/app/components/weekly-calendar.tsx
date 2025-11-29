@@ -154,9 +154,12 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
       } else if (e.key === "n" || e.key === "N") {
         e.preventDefault();
         handleNext();
+      } else if (e.key === "t" || e.key === "T") {
+        e.preventDefault();
+        handleToday();
       }
     },
-    [handlePrevious, handleNext]
+    [handlePrevious, handleNext, handleToday]
   );
 
   useKeydown({ isActive: true, callback: handleKeydown }, [handleKeydown]);
@@ -258,7 +261,7 @@ function CalendarHeader({
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Go to today</p>
+            <p>Today (T)</p>
           </TooltipContent>
         </Tooltip>
         <Tooltip>
@@ -796,13 +799,13 @@ function TaskRow({ className, onClick }: { className?: string; onClick?: () => v
         type="button"
         onClick={onClick}
         className={cn(
-          "h-9 w-full border-b-2 border-zinc-100 transition-colors hover:bg-zinc-50 cursor-pointer",
+          "block h-9 w-full border-b-2 border-zinc-100 transition-colors hover:bg-zinc-50 cursor-pointer",
           className
         )}
       />
     );
   }
-  return <div className={cn("h-9 border-b-2 border-zinc-100", className)} />;
+  return <div className={cn("block h-9 border-b-2 border-zinc-100", className)} />;
 }
 
 function TaskItem({ 
@@ -819,7 +822,7 @@ function TaskItem({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex h-9 w-full items-center gap-2 border-b-2 border-zinc-100 px-1 text-left transition-colors hover:bg-zinc-50",
+        "flex min-h-9 h-9 w-full items-center gap-2 border-b-2 border-zinc-100 px-1 text-left transition-colors hover:bg-zinc-50",
         isCompleted && "opacity-50",
         onClick && "cursor-pointer"
       )}
