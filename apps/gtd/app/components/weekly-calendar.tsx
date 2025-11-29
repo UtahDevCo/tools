@@ -1090,16 +1090,16 @@ type ConnectedTaskItemProps = {
 };
 
 function ConnectedTaskItem({ task, onEdit, isDemo = false }: ConnectedTaskItemProps) {
-  const { optimisticToggleComplete, optimisticDelete } = useTasks();
+  const { optimisticToggleComplete, optimisticDelete, isOffline } = useTasks();
   const deleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleToggleComplete = useCallback(() => {
-    if (isDemo) return;
+    if (isDemo || isOffline) return;
     optimisticToggleComplete(task);
-  }, [task, optimisticToggleComplete, isDemo]);
+  }, [task, optimisticToggleComplete, isDemo, isOffline]);
 
   const handleDelete = useCallback(() => {
-    if (isDemo) return;
+    if (isDemo || isOffline) return;
     
     const { undo, commit } = optimisticDelete(task);
     
@@ -1128,7 +1128,7 @@ function ConnectedTaskItem({ task, onEdit, isDemo = false }: ConnectedTaskItemPr
       commit();
       deleteTimeoutRef.current = null;
     }, UNDO_TIMEOUT_MS);
-  }, [task, optimisticDelete, isDemo]);
+  }, [task, optimisticDelete, isDemo, isOffline]);
 
   return (
     <TaskItem
@@ -1136,7 +1136,7 @@ function ConnectedTaskItem({ task, onEdit, isDemo = false }: ConnectedTaskItemPr
       onEdit={onEdit}
       onToggleComplete={handleToggleComplete}
       onDelete={handleDelete}
-      isDemo={isDemo}
+      isDemo={isDemo || isOffline}
     />
   );
 }
@@ -1148,12 +1148,14 @@ type OverdueTaskItemProps = {
 };
 
 function OverdueTaskItem({ task, onEdit }: OverdueTaskItemProps) {
-  const { optimisticToggleComplete, optimisticDelete } = useTasks();
+  const { optimisticToggleComplete, optimisticDelete, isOffline } = useTasks();
   const completeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isPendingComplete, setIsPendingComplete] = useState(false);
 
   const handleToggleComplete = useCallback(() => {
+    if (isOffline) return;
+    
     // Clear any existing timeout
     if (completeTimeoutRef.current) {
       clearTimeout(completeTimeoutRef.current);
@@ -1186,9 +1188,11 @@ function OverdueTaskItem({ task, onEdit }: OverdueTaskItemProps) {
       completeTimeoutRef.current = null;
       setIsPendingComplete(false);
     }, UNDO_TIMEOUT_MS);
-  }, [task, optimisticToggleComplete]);
+  }, [task, optimisticToggleComplete, isOffline]);
 
   const handleDelete = useCallback(() => {
+    if (isOffline) return;
+    
     const { undo, commit } = optimisticDelete(task);
     
     // Clear any existing timeout for this task
@@ -1216,7 +1220,7 @@ function OverdueTaskItem({ task, onEdit }: OverdueTaskItemProps) {
       commit();
       deleteTimeoutRef.current = null;
     }, UNDO_TIMEOUT_MS);
-  }, [task, optimisticDelete]);
+  }, [task, optimisticDelete, isOffline]);
 
   // Don't render if pending complete (will disappear when status updates)
   if (isPendingComplete) {
@@ -1229,6 +1233,7 @@ function OverdueTaskItem({ task, onEdit }: OverdueTaskItemProps) {
       onEdit={onEdit}
       onToggleComplete={handleToggleComplete}
       onDelete={handleDelete}
+      isDemo={isOffline}
     />
   );
 }

@@ -1,0 +1,2 @@
+- Pull GCal items into week view. Make sure to paginate.
+- Set up as a PWA. We want to install this on our phone.

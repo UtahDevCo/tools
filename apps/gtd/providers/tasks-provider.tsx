@@ -26,6 +26,8 @@ import {
 } from "@/lib/google-tasks/types";
 import { isGTDList, getTaskListDisplayName } from "@/lib/google-tasks/gtd-utils";
 import { useAuth } from "@/components/auth-provider";
+import { useOffline } from "@/providers/offline-provider";
+import { useLocalforage } from "@repo/components";
 
 // Extended task with list info
 export type TaskWithListInfo = TaskWithParsedDate & {
@@ -305,6 +307,13 @@ function createDemoData(): {
   return { taskLists, gtdLists: demoGtdLists, completedTasksWithDueDates };
 }
 
+// LocalForage cache keys
+const CACHE_KEYS = {
+  TASK_LISTS: "gtd-task-lists",
+  GTD_LISTS: "gtd-lists",
+  COMPLETED_TASKS: "gtd-completed-tasks",
+} as const;
+
 type TasksState = {
   taskLists: { taskList: TaskList; tasks: TaskWithParsedDate[] }[];
   gtdLists: GTDLists | null;
@@ -340,6 +349,8 @@ type TasksContextValue = TasksState & {
   optimisticToggleComplete: (task: TaskWithListInfo) => void;
   optimisticDelete: (task: TaskWithListInfo) => { undo: () => void; commit: () => Promise<void> };
   optimisticUpdate: (task: TaskWithListInfo, updates: { title?: string; notes?: string }) => void;
+  // Offline state
+  isOffline: boolean;
 };
 
 const TasksContext = createContext<TasksContextValue | null>(null);
@@ -348,8 +359,69 @@ type TasksProviderProps = {
   children: ReactNode;
 };
 
+// Serializable version of tasks for caching (dates as ISO strings)
+type CachedTaskLists = {
+  taskList: TaskList;
+  tasks: (Omit<TaskWithParsedDate, "dueDate"> & { dueDate: string | null })[];
+}[];
+
+type CachedCompletedTasks = (Omit<TaskWithListInfo, "dueDate"> & { dueDate: string | null })[];
+
+// Helper to serialize task lists for caching
+function serializeTaskLists(
+  taskLists: { taskList: TaskList; tasks: TaskWithParsedDate[] }[]
+): CachedTaskLists {
+  return taskLists.map(({ taskList, tasks }) => ({
+    taskList,
+    tasks: tasks.map((task) => ({
+      ...task,
+      dueDate: task.dueDate?.toISOString() ?? null,
+    })),
+  }));
+}
+
+// Helper to deserialize task lists from cache
+function deserializeTaskLists(
+  cached: CachedTaskLists
+): { taskList: TaskList; tasks: TaskWithParsedDate[] }[] {
+  return cached.map(({ taskList, tasks }) => ({
+    taskList,
+    tasks: tasks.map((task) => ({
+      ...task,
+      dueDate: task.dueDate ? new Date(task.dueDate) : null,
+    })),
+  }));
+}
+
+// Helper to serialize completed tasks for caching
+function serializeCompletedTasks(tasks: TaskWithListInfo[]): CachedCompletedTasks {
+  return tasks.map((task) => ({
+    ...task,
+    dueDate: task.dueDate?.toISOString() ?? null,
+  }));
+}
+
+// Helper to deserialize completed tasks from cache
+function deserializeCompletedTasks(cached: CachedCompletedTasks): TaskWithListInfo[] {
+  return cached.map((task) => ({
+    ...task,
+    dueDate: task.dueDate ? new Date(task.dueDate) : null,
+  }));
+}
+
 export function TasksProvider({ children }: TasksProviderProps) {
   const { isAuthenticated, refreshSession } = useAuth();
+  const { isOffline } = useOffline();
+  
+  // LocalForage for caching tasks
+  const { values: cachedValues, setItem: setCacheItem, isLoaded: isCacheLoaded } = useLocalforage<
+    [CachedTaskLists | null, GTDLists | null, CachedCompletedTasks | null]
+  >(
+    [CACHE_KEYS.TASK_LISTS, CACHE_KEYS.GTD_LISTS, CACHE_KEYS.COMPLETED_TASKS],
+    { name: "gtd-tasks-cache" }
+  );
+  const [cachedTaskLists, cachedGtdLists, cachedCompletedTasks] = cachedValues;
+  
   const [state, setState] = useState<TasksState>({
     taskLists: [],
     gtdLists: null,
@@ -366,7 +438,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
 
   // Initialize GTD lists
   const initializeGTDLists = useCallback(async () => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || isOffline) return;
 
     setState((prev) => ({ ...prev, isInitializingGTD: true }));
 
@@ -379,6 +451,8 @@ export function TasksProvider({ children }: TasksProviderProps) {
           gtdLists: result.data,
           isInitializingGTD: false,
         }));
+        // Cache GTD lists
+        setCacheItem(CACHE_KEYS.GTD_LISTS, result.data);
       } else {
         console.error("Failed to initialize GTD lists:", result.error);
         setState((prev) => ({ ...prev, isInitializingGTD: false }));
@@ -387,11 +461,11 @@ export function TasksProvider({ children }: TasksProviderProps) {
       console.error("Error initializing GTD lists:", error);
       setState((prev) => ({ ...prev, isInitializingGTD: false }));
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isOffline, setCacheItem]);
 
   // Fetch completed tasks with due dates (last 30 days) for calendar view
   const fetchCompletedTasks = useCallback(async () => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || isOffline) return;
 
     // Calculate date range: last 30 days
     const now = new Date();
@@ -427,10 +501,13 @@ export function TasksProvider({ children }: TasksProviderProps) {
         ...prev,
         completedTasksWithDueDates: completedWithDueDates,
       }));
+      
+      // Cache completed tasks
+      setCacheItem(CACHE_KEYS.COMPLETED_TASKS, serializeCompletedTasks(completedWithDueDates));
     } catch (error) {
       console.error("Failed to fetch completed tasks:", error);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isOffline, setCacheItem]);
 
   const fetchTasks = useCallback(async () => {
     if (!isAuthenticated) {
@@ -446,6 +523,25 @@ export function TasksProvider({ children }: TasksProviderProps) {
       setState({
         taskLists: demoData.taskLists,
         gtdLists: demoData.gtdLists,
+        completedTasksWithDueDates: completedWithListInfo,
+        isLoading: false,
+        isInitializingGTD: false,
+        error: null,
+        needsReauth: false,
+        pendingDeletions: new Set(),
+      });
+      return;
+    }
+
+    // If offline, use cached data
+    if (isOffline && isCacheLoaded && cachedTaskLists) {
+      const taskLists = deserializeTaskLists(cachedTaskLists);
+      const completedWithListInfo: TaskWithListInfo[] = cachedCompletedTasks
+        ? deserializeCompletedTasks(cachedCompletedTasks)
+        : [];
+      setState({
+        taskLists,
+        gtdLists: cachedGtdLists ?? null,
         completedTasksWithDueDates: completedWithListInfo,
         isLoading: false,
         isInitializingGTD: false,
@@ -476,6 +572,8 @@ export function TasksProvider({ children }: TasksProviderProps) {
                 error: null,
                 needsReauth: false,
               }));
+              // Cache the results
+              setCacheItem(CACHE_KEYS.TASK_LISTS, serializeTaskLists(retryResult.data));
               // Fetch completed tasks after retry success
               fetchCompletedTasks();
               return;
@@ -483,6 +581,25 @@ export function TasksProvider({ children }: TasksProviderProps) {
           } catch {
             // Refresh failed, user needs to sign in again
           }
+        }
+
+        // If network error and we have cached data, use it
+        if (isCacheLoaded && cachedTaskLists) {
+          const taskLists = deserializeTaskLists(cachedTaskLists);
+          const completedWithListInfo: TaskWithListInfo[] = cachedCompletedTasks
+            ? deserializeCompletedTasks(cachedCompletedTasks)
+            : [];
+          setState({
+            taskLists,
+            gtdLists: cachedGtdLists ?? null,
+            completedTasksWithDueDates: completedWithListInfo,
+            isLoading: false,
+            isInitializingGTD: false,
+            error: null,
+            needsReauth: result.needsReauth ?? false,
+            pendingDeletions: new Set(),
+          });
+          return;
         }
 
         setState((prev) => ({
@@ -502,11 +619,34 @@ export function TasksProvider({ children }: TasksProviderProps) {
         error: null,
         needsReauth: false,
       }));
+      
+      // Cache the successful results
+      setCacheItem(CACHE_KEYS.TASK_LISTS, serializeTaskLists(result.data));
 
       // Fetch completed tasks with due dates (for calendar view)
       fetchCompletedTasks();
     } catch (error) {
       console.error("Failed to fetch tasks:", error);
+      
+      // If network error and we have cached data, use it
+      if (isCacheLoaded && cachedTaskLists) {
+        const taskLists = deserializeTaskLists(cachedTaskLists);
+        const completedWithListInfo: TaskWithListInfo[] = cachedCompletedTasks
+          ? deserializeCompletedTasks(cachedCompletedTasks)
+          : [];
+        setState({
+          taskLists,
+          gtdLists: cachedGtdLists ?? null,
+          completedTasksWithDueDates: completedWithListInfo,
+          isLoading: false,
+          isInitializingGTD: false,
+          error: null,
+          needsReauth: false,
+          pendingDeletions: new Set(),
+        });
+        return;
+      }
+      
       setState((prev) => ({
         ...prev,
         taskLists: [],
@@ -515,7 +655,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
         needsReauth: false,
       }));
     }
-  }, [isAuthenticated, refreshSession, fetchCompletedTasks]);
+  }, [isAuthenticated, refreshSession, fetchCompletedTasks, isOffline, isCacheLoaded, cachedTaskLists, cachedGtdLists, cachedCompletedTasks, setCacheItem]);
 
   // Reset refs when authentication state changes
   useEffect(() => {
@@ -802,6 +942,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
     optimisticToggleComplete,
     optimisticDelete,
     optimisticUpdate,
+    isOffline,
   };
 
   return (
