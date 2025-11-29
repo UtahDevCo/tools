@@ -11,6 +11,9 @@ import {
   deleteTask as deleteTaskApi,
   completeTask as completeTaskApi,
   uncompleteTask as uncompleteTaskApi,
+  ensureGTDListsExist,
+  isGTDList,
+  getTaskListDisplayName,
 } from "@/lib/google-tasks/client";
 import {
   type TaskList,
@@ -27,6 +30,19 @@ type TasksResult<T> =
 type AuthError = { error: string; needsReauth: boolean };
 type AuthSuccess = { client: ReturnType<typeof createTasksClient> };
 
+// GTD Lists structure returned from ensureGTDLists
+export type GTDLists = {
+  next: TaskList;
+  waiting: TaskList;
+  someday: TaskList;
+};
+
+// Extended task list info with display name and GTD status
+export type TaskListWithMeta = TaskList & {
+  displayName: string;
+  isGTD: boolean;
+};
+
 async function getAuthenticatedClient(): Promise<AuthError | AuthSuccess> {
   const accessToken = await getAccessToken();
 
@@ -42,6 +58,26 @@ async function getAuthenticatedClient(): Promise<AuthError | AuthSuccess> {
   return { client: createTasksClient(accessToken) };
 }
 
+/**
+ * Ensures GTD lists exist in Google Tasks and returns their IDs.
+ * Creates [GTD] Next, [GTD] Waiting, [GTD] Someday lists if missing.
+ */
+export async function ensureGTDLists(): Promise<TasksResult<GTDLists>> {
+  const result = await getAuthenticatedClient();
+
+  if ("error" in result) {
+    return { success: false, error: result.error, needsReauth: result.needsReauth };
+  }
+
+  try {
+    const gtdLists = await ensureGTDListsExist(result.client);
+    return { success: true, data: gtdLists };
+  } catch (error) {
+    console.error("Failed to ensure GTD lists:", error);
+    return { success: false, error: "Failed to ensure GTD lists exist" };
+  }
+}
+
 export async function getTaskLists(): Promise<TasksResult<TaskList[]>> {
   const result = await getAuthenticatedClient();
 
@@ -54,6 +90,30 @@ export async function getTaskLists(): Promise<TasksResult<TaskList[]>> {
     return { success: true, data: taskLists };
   } catch (error) {
     console.error("Failed to fetch task lists:", error);
+    return { success: false, error: "Failed to fetch task lists" };
+  }
+}
+
+/**
+ * Get task lists with metadata (display name and GTD status)
+ */
+export async function getTaskListsWithMeta(): Promise<TasksResult<TaskListWithMeta[]>> {
+  const result = await getAuthenticatedClient();
+
+  if ("error" in result) {
+    return { success: false, error: result.error, needsReauth: result.needsReauth };
+  }
+
+  try {
+    const taskLists = await fetchTaskLists(result.client);
+    const listsWithMeta: TaskListWithMeta[] = taskLists.map((list) => ({
+      ...list,
+      displayName: getTaskListDisplayName(list),
+      isGTD: isGTDList(list),
+    }));
+    return { success: true, data: listsWithMeta };
+  } catch (error) {
+    console.error("Failed to fetch task lists with meta:", error);
     return { success: false, error: "Failed to fetch task lists" };
   }
 }

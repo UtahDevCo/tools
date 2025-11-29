@@ -2,10 +2,21 @@ import { tasks_v1, auth } from "@googleapis/tasks";
 import {
   TaskListsResponseSchema,
   TasksResponseSchema,
+  TaskListSchema,
   type TaskList,
   type Task,
   type TaskInput,
 } from "./types";
+import {
+  GTD_LIST_PREFIX,
+  GTD_LISTS,
+  GTD_DISPLAY_NAMES,
+  isGTDList,
+  getTaskListDisplayName,
+} from "./gtd-utils";
+
+// Re-export GTD utilities for backwards compatibility
+export { GTD_LIST_PREFIX, GTD_LISTS, GTD_DISPLAY_NAMES, isGTDList, getTaskListDisplayName };
 
 export function createTasksClient(accessToken: string): tasks_v1.Tasks {
   const oauth2Client = new auth.OAuth2();
@@ -26,6 +37,49 @@ export async function fetchTaskLists(
   });
 
   return parsed.items ?? [];
+}
+
+export async function createTaskList(
+  client: tasks_v1.Tasks,
+  title: string
+): Promise<TaskList> {
+  const response = await client.tasklists.insert({
+    requestBody: {
+      title,
+    },
+  });
+
+  return TaskListSchema.parse(response.data, { reportInput: true });
+}
+
+export async function ensureGTDListsExist(
+  client: tasks_v1.Tasks
+): Promise<{ next: TaskList; waiting: TaskList; someday: TaskList }> {
+  const existingLists = await fetchTaskLists(client);
+
+  const findList = (gtdName: string) =>
+    existingLists.find((list) => list.title === gtdName);
+
+  let nextList = findList(GTD_LISTS.NEXT);
+  let waitingList = findList(GTD_LISTS.WAITING);
+  let somedayList = findList(GTD_LISTS.SOMEDAY);
+
+  // Create missing lists
+  if (!nextList) {
+    nextList = await createTaskList(client, GTD_LISTS.NEXT);
+  }
+  if (!waitingList) {
+    waitingList = await createTaskList(client, GTD_LISTS.WAITING);
+  }
+  if (!somedayList) {
+    somedayList = await createTaskList(client, GTD_LISTS.SOMEDAY);
+  }
+
+  return {
+    next: nextList,
+    waiting: waitingList,
+    someday: somedayList,
+  };
 }
 
 export async function fetchTasks(

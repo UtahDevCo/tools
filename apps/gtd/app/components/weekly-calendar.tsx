@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, MoreVertical, Circle, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, MoreVertical, Circle, CheckCircle2, ChevronDown, ArrowUpDown } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Typography,
   Button,
@@ -14,10 +15,12 @@ import {
   PopoverTrigger,
   PopoverContent,
   useKeydown,
+  useLocalforage,
 } from "@repo/components";
 import { UserAvatar } from "@/components/user-avatar";
-import { useTasks } from "@/providers/tasks-provider";
-import { type TaskWithParsedDate } from "@/lib/google-tasks/types";
+import { useTasks, type TaskWithListInfo } from "@/providers/tasks-provider";
+import { type TaskWithParsedDate, type TaskList } from "@/lib/google-tasks/types";
+import { TaskEditDrawer } from "./task-edit-drawer";
 
 type WeekDay = {
   date: Date;
@@ -32,12 +35,80 @@ type WeeklyCalendarProps = {
   className?: string;
 };
 
+type ListSortOrder = "alphabetical" | "taskCount" | "updated";
+type CollapsedState = Record<string, boolean>;
+type SortPreference = { sortOrder: ListSortOrder };
+
 const WEEKDAY_TASK_ROWS = 10;
 const WEEKEND_TASK_ROWS = 4;
+const LOCALFORAGE_KEYS = {
+  COLLAPSED: "gtd-list-collapsed-state",
+  SORT: "gtd-list-sort-preference",
+};
 
 export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
   const [dayOffset, setDayOffset] = useState(0);
-  const { getTasksForDate, getTasksWithoutDueDate, isLoading: tasksLoading, error, needsReauth } = useTasks();
+  const { 
+    getTasksForDate, 
+    nextTasks, 
+    waitingTasks, 
+    somedayTasks, 
+    otherLists,
+    isLoading: tasksLoading, 
+    error, 
+    needsReauth 
+  } = useTasks();
+
+  // Selected task for drawer
+  const [selectedTask, setSelectedTask] = useState<TaskWithListInfo | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Localforage for collapsed state and sort order
+  const {
+    values: [collapsedState, sortPreference],
+    setItem,
+    isLoaded: prefsLoaded,
+  } = useLocalforage<[CollapsedState | null, SortPreference | null]>(
+    [LOCALFORAGE_KEYS.COLLAPSED, LOCALFORAGE_KEYS.SORT],
+    { storeName: "gtd-settings" }
+  );
+
+  const currentCollapsed = collapsedState ?? {};
+  const currentSortOrder: ListSortOrder = sortPreference?.sortOrder ?? "alphabetical";
+
+  const toggleCollapsed = useCallback(
+    (listId: string) => {
+      const newState = { ...currentCollapsed, [listId]: !currentCollapsed[listId] };
+      setItem(LOCALFORAGE_KEYS.COLLAPSED, newState);
+    },
+    [currentCollapsed, setItem]
+  );
+
+  const setSortOrder = useCallback(
+    (order: ListSortOrder) => {
+      setItem(LOCALFORAGE_KEYS.SORT, { sortOrder: order });
+    },
+    [setItem]
+  );
+
+  // Sort other lists based on preference
+  const sortedOtherLists = useMemo(() => {
+    const lists = [...otherLists];
+    switch (currentSortOrder) {
+      case "alphabetical":
+        return lists.sort((a, b) => a.displayName.localeCompare(b.displayName));
+      case "taskCount":
+        return lists.sort((a, b) => b.tasks.length - a.tasks.length);
+      case "updated":
+        return lists.sort((a, b) => {
+          const aUpdated = a.taskList.updated ?? "";
+          const bUpdated = b.taskList.updated ?? "";
+          return bUpdated.localeCompare(aUpdated);
+        });
+      default:
+        return lists;
+    }
+  }, [otherLists, currentSortOrder]);
 
   const today = new Date();
   const startDate = new Date(today);
@@ -45,9 +116,6 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
 
   const { days, columns } = getDaysForFourColumns(startDate);
   const headerText = formatDateRange(days);
-
-  // Get tasks without due dates for "Someday" section
-  const somedayTasks = getTasksWithoutDueDate();
 
   const handlePrevious = useCallback(() => {
     setDayOffset((prev) => prev - 4);
@@ -61,10 +129,19 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
     setDayOffset(0);
   }, []);
 
+  const handleTaskClick = useCallback((task: TaskWithListInfo) => {
+    setSelectedTask(task);
+    setDrawerOpen(true);
+  }, []);
+
+  const handleDrawerClose = useCallback(() => {
+    setDrawerOpen(false);
+    setSelectedTask(null);
+  }, []);
+
   const handleKeydown = useCallback(
     (event: Event) => {
       const e = event as KeyboardEvent;
-      // Ignore if user is typing in an input/textarea
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") {
         return;
@@ -103,10 +180,23 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
         <WeekGrid 
           columns={columns} 
           getTasksForDate={getTasksForDate}
+          nextTasks={nextTasks}
+          waitingTasks={waitingTasks}
           somedayTasks={somedayTasks}
+          otherLists={sortedOtherLists}
           tasksLoading={tasksLoading}
+          collapsedState={currentCollapsed}
+          onToggleCollapsed={toggleCollapsed}
+          sortOrder={currentSortOrder}
+          onSortOrderChange={setSortOrder}
+          onTaskClick={handleTaskClick}
         />
       </div>
+      <TaskEditDrawer
+        task={selectedTask}
+        open={drawerOpen}
+        onClose={handleDrawerClose}
+      />
     </div>
   );
 }
@@ -214,17 +304,41 @@ function SettingsPopover() {
   );
 }
 
+type OtherListData = {
+  taskList: TaskList;
+  displayName: string;
+  tasks: TaskWithListInfo[];
+};
+
+type WeekGridProps = {
+  columns: DayColumn[];
+  getTasksForDate: (date: Date) => TaskWithListInfo[];
+  nextTasks: TaskWithListInfo[];
+  waitingTasks: TaskWithListInfo[];
+  somedayTasks: TaskWithListInfo[];
+  otherLists: OtherListData[];
+  tasksLoading: boolean;
+  collapsedState: CollapsedState;
+  onToggleCollapsed: (listId: string) => void;
+  sortOrder: ListSortOrder;
+  onSortOrderChange: (order: ListSortOrder) => void;
+  onTaskClick: (task: TaskWithListInfo) => void;
+};
+
 function WeekGrid({ 
   columns, 
   getTasksForDate,
+  nextTasks,
+  waitingTasks,
   somedayTasks,
+  otherLists,
   tasksLoading,
-}: { 
-  columns: DayColumn[];
-  getTasksForDate: (date: Date) => TaskWithParsedDate[];
-  somedayTasks: TaskWithParsedDate[];
-  tasksLoading: boolean;
-}) {
+  collapsedState,
+  onToggleCollapsed,
+  sortOrder,
+  onSortOrderChange,
+  onTaskClick,
+}: WeekGridProps) {
   return (
     <div className="flex flex-col gap-2 px-4 pb-4">
       {/* Day columns row */}
@@ -238,6 +352,7 @@ function WeekGrid({
                 day={column.day}
                 tasks={tasks}
                 tasksLoading={tasksLoading}
+                onTaskClick={onTaskClick}
               />
             );
           }
@@ -247,6 +362,7 @@ function WeekGrid({
                 weekend={column.days}
                 getTasksForDate={getTasksForDate}
                 tasksLoading={tasksLoading}
+                onTaskClick={onTaskClick}
               />
             </div>
           );
@@ -265,32 +381,189 @@ function WeekGrid({
                   day={day}
                   tasks={tasks}
                   tasksLoading={tasksLoading}
+                  onTaskClick={onTaskClick}
                 />
               );
             })}
         </div>
       </div>
 
-      {/* Full-width sections */}
-      {/* TODO: Implement task filtering for "Next" section (tasks with near-term due dates) */}
-      <SectionColumn title="Next" tasks={[]} />
-      {/* TODO: Implement task filtering for "Waiting" section (tasks blocked on others) */}
-      <SectionColumn title="Waiting" tasks={[]} />
-      <SectionColumn title="Someday" tasks={somedayTasks} />
+      {/* GTD Sections */}
+      <SectionColumn title="Next" tasks={nextTasks} onTaskClick={onTaskClick} />
+      <SectionColumn title="Waiting" tasks={waitingTasks} onTaskClick={onTaskClick} />
+      <SectionColumn title="Someday" tasks={somedayTasks} onTaskClick={onTaskClick} />
+
+      {/* Other Lists Section */}
+      {otherLists.length > 0 && (
+        <OtherListsSection
+          lists={otherLists}
+          collapsedState={collapsedState}
+          onToggleCollapsed={onToggleCollapsed}
+          sortOrder={sortOrder}
+          onSortOrderChange={onSortOrderChange}
+          onTaskClick={onTaskClick}
+        />
+      )}
     </div>
   );
 }
 
 const SECTION_TASK_ROWS = 4;
 
+type OtherListsSectionProps = {
+  lists: OtherListData[];
+  collapsedState: CollapsedState;
+  onToggleCollapsed: (listId: string) => void;
+  sortOrder: ListSortOrder;
+  onSortOrderChange: (order: ListSortOrder) => void;
+  onTaskClick: (task: TaskWithListInfo) => void;
+};
+
+function OtherListsSection({
+  lists,
+  collapsedState,
+  onToggleCollapsed,
+  sortOrder,
+  onSortOrderChange,
+  onTaskClick,
+}: OtherListsSectionProps) {
+  return (
+    <div className="mt-8">
+      {/* Section header with sort control */}
+      <div className="flex items-center justify-between border-black border-b-2 h-9 mb-4">
+        <Typography variant="title" className="text-zinc-900">
+          Other Lists
+        </Typography>
+        <SortOrderDropdown sortOrder={sortOrder} onSortOrderChange={onSortOrderChange} />
+      </div>
+
+      {/* Grid of collapsible lists - up to 3 columns, stacks on narrow screens */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {lists.map((list) => (
+          <CollapsibleListCard
+            key={list.taskList.id}
+            list={list}
+            isCollapsed={collapsedState[list.taskList.id] ?? false}
+            onToggle={() => onToggleCollapsed(list.taskList.id)}
+            onTaskClick={onTaskClick}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+type SortOrderDropdownProps = {
+  sortOrder: ListSortOrder;
+  onSortOrderChange: (order: ListSortOrder) => void;
+};
+
+function SortOrderDropdown({ sortOrder, onSortOrderChange }: SortOrderDropdownProps) {
+  const sortOptions: { value: ListSortOrder; label: string }[] = [
+    { value: "alphabetical", label: "A-Z" },
+    { value: "taskCount", label: "Task Count" },
+    { value: "updated", label: "Recently Updated" },
+  ];
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs">
+          <ArrowUpDown className="h-3 w-3" />
+          Sort
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-40 p-1">
+        <div className="flex flex-col">
+          {sortOptions.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => onSortOrderChange(option.value)}
+              className={cn(
+                "px-2 py-1.5 text-sm text-left rounded hover:bg-zinc-100 transition-colors",
+                sortOrder === option.value && "bg-zinc-100 font-medium"
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+type CollapsibleListCardProps = {
+  list: OtherListData;
+  isCollapsed: boolean;
+  onToggle: () => void;
+  onTaskClick: (task: TaskWithListInfo) => void;
+};
+
+function CollapsibleListCard({ list, isCollapsed, onToggle, onTaskClick }: CollapsibleListCardProps) {
+  return (
+    <div className="border border-zinc-200 rounded-lg overflow-hidden">
+      {/* List header */}
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-3 py-2 bg-zinc-50 hover:bg-zinc-100 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Typography variant="label" className="text-zinc-900 font-medium">
+            {list.displayName}
+          </Typography>
+          <span className="text-xs text-zinc-500">({list.tasks.length})</span>
+        </div>
+        <motion.div
+          animate={{ rotate: isCollapsed ? -90 : 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          <ChevronDown className="h-4 w-4 text-zinc-500" />
+        </motion.div>
+      </button>
+
+      {/* Collapsible content with AnimatePresence */}
+      <AnimatePresence initial={false}>
+        {!isCollapsed && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="px-1 py-1">
+              {list.tasks.length === 0 ? (
+                <div className="px-2 py-3 text-sm text-zinc-400 text-center">
+                  No tasks
+                </div>
+              ) : (
+                list.tasks.map((task) => (
+                  <TaskItem 
+                    key={task.id} 
+                    task={task} 
+                    onClick={() => onTaskClick(task)}
+                  />
+                ))
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 function WeekdayColumn({ 
   day, 
   tasks,
   tasksLoading,
+  onTaskClick,
 }: { 
   day: WeekDay;
-  tasks: TaskWithParsedDate[];
+  tasks: TaskWithListInfo[];
   tasksLoading: boolean;
+  onTaskClick: (task: TaskWithListInfo) => void;
 }) {
   const dayNum = day.date.getDate();
   const monthShort = day.date.toLocaleDateString("en-US", { month: "short" });
@@ -314,7 +587,13 @@ function WeekdayColumn({
         {tasksLoading ? (
           <TaskRow />
         ) : tasks.length > 0 ? (
-          tasks.map((task) => <TaskItem key={task.id} task={task} />)
+          tasks.map((task) => (
+            <TaskItem 
+              key={task.id} 
+              task={task} 
+              onClick={() => onTaskClick(task)}
+            />
+          ))
         ) : (
           <TaskRow />
         )}
@@ -323,7 +602,11 @@ function WeekdayColumn({
       {/* Desktop: Task items + empty rows */}
       <div className="hidden lg:block">
         {tasks.map((task) => (
-          <TaskItem key={task.id} task={task} />
+          <TaskItem 
+            key={task.id} 
+            task={task} 
+            onClick={() => onTaskClick(task)}
+          />
         ))}
         {Array.from({ length: emptyRowCount }).map((_, i) => (
           <TaskRow key={i} />
@@ -333,7 +616,15 @@ function WeekdayColumn({
   );
 }
 
-function SectionColumn({ title, tasks }: { title: string; tasks: TaskWithParsedDate[] }) {
+function SectionColumn({ 
+  title, 
+  tasks,
+  onTaskClick,
+}: { 
+  title: string; 
+  tasks: TaskWithListInfo[];
+  onTaskClick: (task: TaskWithListInfo) => void;
+}) {
   const emptyRowCount = Math.max(0, SECTION_TASK_ROWS - tasks.length);
 
   return (
@@ -344,7 +635,13 @@ function SectionColumn({ title, tasks }: { title: string; tasks: TaskWithParsedD
       {/* Mobile: Single task row or task list */}
       <div className="md:hidden">
         {tasks.length > 0 ? (
-          tasks.map((task) => <TaskItem key={task.id} task={task} />)
+          tasks.map((task) => (
+            <TaskItem 
+              key={task.id} 
+              task={task} 
+              onClick={() => onTaskClick(task)}
+            />
+          ))
         ) : (
           <TaskRow />
         )}
@@ -353,7 +650,11 @@ function SectionColumn({ title, tasks }: { title: string; tasks: TaskWithParsedD
       {/* Desktop: Task items + empty rows */}
       <div className="hidden md:block">
         {tasks.map((task) => (
-          <TaskItem key={task.id} task={task} />
+          <TaskItem 
+            key={task.id} 
+            task={task} 
+            onClick={() => onTaskClick(task)}
+          />
         ))}
         {Array.from({ length: emptyRowCount }).map((_, i) => (
           <TaskRow key={i} />
@@ -377,10 +678,12 @@ function WeekendColumn({
   weekend,
   getTasksForDate,
   tasksLoading,
+  onTaskClick,
 }: { 
   weekend: WeekDay[];
-  getTasksForDate: (date: Date) => TaskWithParsedDate[];
+  getTasksForDate: (date: Date) => TaskWithListInfo[];
   tasksLoading: boolean;
+  onTaskClick: (task: TaskWithListInfo) => void;
 }) {
   return (
     <div className="flex flex-1 flex-col">
@@ -414,7 +717,11 @@ function WeekendColumn({
             ) : (
               <>
                 {tasks.map((task) => (
-                  <TaskItem key={task.id} task={task} />
+                  <TaskItem 
+                    key={task.id} 
+                    task={task} 
+                    onClick={() => onTaskClick(task)}
+                  />
                 ))}
                 {Array.from({ length: emptyRowCount }).map((_, i) => (
                   <TaskRow key={`${dayName}-${i}`} />
@@ -470,14 +777,23 @@ function TaskRow({ className }: { className?: string }) {
   return <div className={cn("h-9 border-b-2 border-zinc-100", className)} />;
 }
 
-function TaskItem({ task }: { task: TaskWithParsedDate }) {
+function TaskItem({ 
+  task, 
+  onClick,
+}: { 
+  task: TaskWithListInfo | TaskWithParsedDate; 
+  onClick?: () => void;
+}) {
   const isCompleted = task.status === "completed";
 
   return (
-    <div
+    <button
+      type="button"
+      onClick={onClick}
       className={cn(
-        "flex h-9 items-center gap-2 border-b-2 border-zinc-100 px-1",
-        isCompleted && "opacity-50"
+        "flex h-9 w-full items-center gap-2 border-b-2 border-zinc-100 px-1 text-left transition-colors hover:bg-zinc-50",
+        isCompleted && "opacity-50",
+        onClick && "cursor-pointer"
       )}
     >
       {isCompleted ? (
@@ -494,7 +810,7 @@ function TaskItem({ task }: { task: TaskWithParsedDate }) {
       >
         {task.title}
       </Typography>
-    </div>
+    </button>
   );
 }
 
