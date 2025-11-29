@@ -2,6 +2,7 @@
 
 import { type ReactNode } from "react";
 import { AuthProvider } from "@/components/auth-provider";
+import { TasksProvider } from "@/providers/tasks-provider";
 import { TooltipProvider } from "@repo/components";
 
 type ProvidersProps = {
@@ -11,7 +12,9 @@ type ProvidersProps = {
 export function Providers({ children }: ProvidersProps) {
   return (
     <AuthProvider>
-      <TooltipProvider>{children}</TooltipProvider>
+      <TasksProvider>
+        <TooltipProvider>{children}</TooltipProvider>
+      </TasksProvider>
     </AuthProvider>
   );
 }

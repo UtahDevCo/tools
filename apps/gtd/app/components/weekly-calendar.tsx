@@ -16,7 +16,7 @@ import {
   useKeydown,
 } from "@repo/components";
 import { UserAvatar } from "@/components/user-avatar";
-import { useTasks } from "@/hooks/use-tasks";
+import { useTasks } from "@/providers/tasks-provider";
 import { type TaskWithParsedDate } from "@/lib/google-tasks/types";
 
 type WeekDay = {

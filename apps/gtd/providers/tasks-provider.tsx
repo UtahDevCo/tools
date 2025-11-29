@@ -1,6 +1,16 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect, useRef, startTransition } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useMemo,
+  useEffect,
+  useRef,
+  startTransition,
+  type ReactNode,
+} from "react";
 import { getAllTasks } from "@/app/actions/tasks";
 import {
   type TaskList,
@@ -17,14 +27,20 @@ type TasksState = {
   needsReauth: boolean;
 };
 
-type UseTasksReturn = TasksState & {
+type TasksContextValue = TasksState & {
   allTasks: TaskWithParsedDate[];
   getTasksForDate: (date: Date) => TaskWithParsedDate[];
   getTasksWithoutDueDate: () => TaskWithParsedDate[];
   refresh: () => void;
 };
 
-export function useTasks(): UseTasksReturn {
+const TasksContext = createContext<TasksContextValue | null>(null);
+
+type TasksProviderProps = {
+  children: ReactNode;
+};
+
+export function TasksProvider({ children }: TasksProviderProps) {
   const { isAuthenticated, refreshSession } = useAuth();
   const [state, setState] = useState<TasksState>({
     taskLists: [],
@@ -136,11 +152,25 @@ export function useTasks(): UseTasksReturn {
     [allTasks]
   );
 
-  return {
+  const value: TasksContextValue = {
     ...state,
     allTasks,
     getTasksForDate: getTasksForDateFn,
     getTasksWithoutDueDate: getTasksWithoutDateFn,
     refresh,
   };
+
+  return (
+    <TasksContext.Provider value={value}>{children}</TasksContext.Provider>
+  );
+}
+
+export function useTasks(): TasksContextValue {
+  const context = useContext(TasksContext);
+
+  if (!context) {
+    throw new Error("useTasks must be used within a TasksProvider");
+  }
+
+  return context;
 }
