@@ -43,8 +43,7 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
   const startDate = new Date(today);
   startDate.setDate(today.getDate() + dayOffset);
 
-  const days = getFourDays(startDate);
-  const columns = groupDaysIntoColumns(days);
+  const { days, columns } = getDaysForFourColumns(startDate);
   const headerText = formatDateRange(days);
 
   // Get tasks without due dates for "Someday" section
@@ -501,56 +500,47 @@ function TaskItem({ task }: { task: TaskWithParsedDate }) {
 
 // Helper functions
 
-function getFourDays(startDate: Date): WeekDay[] {
+function getDaysForFourColumns(startDate: Date): { days: WeekDay[]; columns: DayColumn[] } {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const days: WeekDay[] = [];
+  const columns: DayColumn[] = [];
+  const currentDate = new Date(startDate);
 
-  for (let i = 0; i < 4; i++) {
-    const day = new Date(startDate);
-    day.setDate(startDate.getDate() + i);
+  // Keep adding days until we have 4 columns
+  while (columns.length < 4) {
+    const day = new Date(currentDate);
     day.setHours(0, 0, 0, 0);
 
-    days.push({
+    const weekDay: WeekDay = {
       date: day,
       isToday: day.getTime() === today.getTime(),
-    });
+    };
+
+    days.push(weekDay);
+
+    if (isWeekend(day)) {
+      // Check if the last column is already a weekend we can add to
+      const lastColumn = columns[columns.length - 1];
+      if (lastColumn && lastColumn.type === "weekend") {
+        lastColumn.days.push(weekDay);
+      } else {
+        columns.push({ type: "weekend", days: [weekDay] });
+      }
+    } else {
+      columns.push({ type: "weekday", day: weekDay });
+    }
+
+    currentDate.setDate(currentDate.getDate() + 1);
   }
 
-  return days;
+  return { days, columns };
 }
 
 function isWeekend(date: Date): boolean {
   const dayOfWeek = date.getDay();
   return dayOfWeek === 0 || dayOfWeek === 6; // Sunday = 0, Saturday = 6
-}
-
-function groupDaysIntoColumns(days: WeekDay[]): DayColumn[] {
-  const columns: DayColumn[] = [];
-  let i = 0;
-
-  while (i < days.length) {
-    const currentDay = days[i];
-
-    if (isWeekend(currentDay.date)) {
-      // Collect consecutive weekend days
-      const weekendDays: WeekDay[] = [currentDay];
-      i++;
-
-      while (i < days.length && isWeekend(days[i].date)) {
-        weekendDays.push(days[i]);
-        i++;
-      }
-
-      columns.push({ type: "weekend", days: weekendDays });
-    } else {
-      columns.push({ type: "weekday", day: currentDay });
-      i++;
-    }
-  }
-
-  return columns;
 }
 
 function formatDateRange(days: WeekDay[]): string {
