@@ -51,7 +51,9 @@ RUN adduser --system --uid 1001 nextjs
 # Copy standalone build
 COPY --from=builder /app/apps/gtd/.next/standalone ./
 COPY --from=builder /app/apps/gtd/.next/static ./apps/gtd/.next/static
-COPY --from=builder /app/apps/gtd/public ./apps/gtd/public
+
+# Create public directory (may be empty)
+RUN mkdir -p ./apps/gtd/public
 
 USER nextjs
 
