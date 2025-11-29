@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   Drawer,
   Button,
@@ -15,9 +15,15 @@ import {
   SelectSeparator,
   SelectGroup,
   SelectLabel,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@repo/components";
 import { useTasks, type TaskWithListInfo } from "@/providers/tasks-provider";
-import { updateTask, createTask } from "@/app/actions/tasks";
+import { updateTask, createTask, deleteTask } from "@/app/actions/tasks";
 
 type TaskEditDrawerProps = {
   task: TaskWithListInfo | null;
@@ -32,17 +38,33 @@ type TaskEditDrawerProps = {
   defaultListDisplayName?: string;
 };
 
-export function TaskEditDrawer({ 
-  task, 
-  open, 
-  onClose, 
+const DRAWER_ANIMATION_DELAY_MS = 500;
+
+export function TaskEditDrawer({
+  task,
+  open,
+  onClose,
   onSave,
   defaultListId,
   defaultDueDate,
-  defaultListDisplayName,
 }: TaskEditDrawerProps) {
   const { gtdLists, otherLists, refresh } = useTasks();
-  
+  const drawerContentRef = useRef<HTMLDivElement>(null);
+
+  // Focus first autofocus input after drawer animation completes
+  useEffect(() => {
+    if (!open) return;
+
+    const timeoutId = setTimeout(() => {
+      const autofocusInput = drawerContentRef.current?.querySelector<HTMLInputElement>(
+        'input[autofocus], textarea[autofocus]'
+      );
+      autofocusInput?.focus();
+    }, DRAWER_ANIMATION_DELAY_MS);
+
+    return () => clearTimeout(timeoutId);
+  }, [open]);
+
   // Use task ID as key to reset form state when task changes
   const formKey = task?.id ?? "new";
 
@@ -67,6 +89,8 @@ export function TaskEditDrawer({
   });
   const [selectedListId, setSelectedListId] = useState(getInitialListId);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const isCreateMode = !task;
 
@@ -74,13 +98,13 @@ export function TaskEditDrawer({
   const isActiveList = gtdLists && selectedListId === gtdLists.active.id;
 
   // Check if a list ID belongs to "Other" lists
-  const isOtherListId = (listId: string) => 
+  const isOtherListId = (listId: string) =>
     otherLists.some((l) => l.taskList.id === listId);
 
   // Handle list change - enforce due date rules for GTD lists
   const handleListChange = (newListId: string) => {
     setSelectedListId(newListId);
-    
+
     // Only enforce due date rules for GTD lists
     if (gtdLists && !isOtherListId(newListId)) {
       if (newListId === gtdLists.active.id) {
@@ -119,8 +143,8 @@ export function TaskEditDrawer({
     setPrevFormKey(formKey);
     setTitle(task?.title ?? "");
     setNotes(task?.notes ?? "");
-    setDueDate(task?.due ? task.due.split("T")[0] : defaultDueDate ?? "");
-    
+    setDueDate(task?.due ? task.due.split("T")[0] : (defaultDueDate ?? ""));
+
     // Reset list selection - prioritize defaultListId when provided
     if (task?.listId) {
       setSelectedListId(task.listId);
@@ -194,6 +218,26 @@ export function TaskEditDrawer({
     onClose,
   ]);
 
+  const handleDelete = useCallback(async () => {
+    if (!task) return;
+
+    setIsDeleting(true);
+    try {
+      const result = await deleteTask(task.listId, task.id);
+      if (result.success) {
+        refresh();
+        setShowDeleteConfirm(false);
+        onClose();
+      } else {
+        console.error("Failed to delete task:", result.error);
+      }
+    } catch (error) {
+      console.error("Error deleting task:", error);
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [task, refresh, onClose]);
+
   const gtdListOptions = gtdLists
     ? [
         { id: gtdLists.active.id, name: "Active" },
@@ -228,21 +272,45 @@ export function TaskEditDrawer({
       position="right"
       showModeToggle={false}
       actions={
-        <div className="flex gap-2 justify-end">
-          <Button variant="outline" onClick={onClose} disabled={isSaving}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving || !title.trim()}>
+        <div className="flex flex-row-reverse gap-2 justify-end">
+          <Button
+            onClick={handleSave}
+            disabled={isSaving || !title.trim()}
+            tabIndex={0}
+          >
             {isSaving ? "Saving..." : isCreateMode ? "Create" : "Save"}
           </Button>
+
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={isSaving}
+            tabIndex={0}
+          >
+            Cancel
+          </Button>
+
+          <div className="flex-1" />
+
+          {!isCreateMode && (
+            <Button
+              variant="destructive"
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={isSaving || isDeleting}
+              tabIndex={0}
+            >
+              Delete
+            </Button>
+          )}
         </div>
       }
     >
-      <div className="p-4 space-y-4">
+      <div ref={drawerContentRef} className="p-4 space-y-4">
         {/* Title */}
         <div>
           <Label htmlFor="task-title">Title</Label>
           <Input
+            autoFocus
             id="task-title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -262,7 +330,9 @@ export function TaskEditDrawer({
         </div>
 
         {/* Due Date - show for Active list, non-GTD tasks, or when creating in Other lists */}
-        {(isActiveList || (task && !task.isGTDList) || (isCreateMode && isOtherList)) && (
+        {(isActiveList ||
+          (task && !task.isGTDList) ||
+          (isCreateMode && isOtherList)) && (
           <div>
             <Label htmlFor="task-due">Due Date</Label>
             <Input
@@ -327,6 +397,33 @@ export function TaskEditDrawer({
           )}
         </div>
       </div>
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Task</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete &ldquo;{task?.title}&rdquo;? This
+              action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Drawer>
   );
 }

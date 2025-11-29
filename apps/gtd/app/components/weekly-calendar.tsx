@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, MoreVertical, Pencil, Check, Trash2, GripVertical, ArrowUpDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, MoreVertical, Pencil, Check, Trash2, ArrowUpDown } from "lucide-react";
 import {
   Typography,
   Button,
@@ -53,7 +53,8 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
     getTasksForDate, 
     nextTasks, 
     waitingTasks, 
-    somedayTasks, 
+    somedayTasks,
+    overdueTasks,
     otherLists,
     isLoading: tasksLoading, 
     error, 
@@ -181,6 +182,22 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
 
   const isAtToday = dayOffset === 0;
 
+  // Track scroll state for header border
+  const [isScrolled, setIsScrolled] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      setIsScrolled(container.scrollTop > 0);
+    };
+
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, []);
+
   return (
     <div className={cn("flex h-screen flex-col px-1 bg-white", className)}>
       <CalendarHeader
@@ -189,19 +206,21 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
         onNext={handleNext}
         onToday={handleToday}
         isAtToday={isAtToday}
+        isScrolled={isScrolled}
       />
       {error && (
         <div className="mx-4 mb-2 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
           {needsReauth ? "Please sign in to view your tasks." : error}
         </div>
       )}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
         <WeekGrid 
           columns={columns} 
           getTasksForDate={getTasksForDate}
           nextTasks={nextTasks}
           waitingTasks={waitingTasks}
           somedayTasks={somedayTasks}
+          overdueTasks={overdueTasks}
           otherLists={sortedOtherLists}
           tasksLoading={tasksLoading}
           sortOrder={currentSortOrder}
@@ -232,6 +251,7 @@ type CalendarHeaderProps = {
   onNext: () => void;
   onToday: () => void;
   isAtToday: boolean;
+  isScrolled: boolean;
 };
 
 function CalendarHeader({
@@ -240,9 +260,13 @@ function CalendarHeader({
   onNext,
   onToday,
   isAtToday,
+  isScrolled,
 }: CalendarHeaderProps) {
   return (
-    <header className="flex items-center justify-between px-3 pt-4 pb-10">
+    <header className={cn(
+      "flex items-center justify-between px-4 py-4 sticky top-0 z-30 transition-colors duration-200",
+      isScrolled ? "bg-zinc-100" : "bg-white"
+    )}>
       <Typography variant="headline">{headerText}</Typography>
       <div className="flex items-center gap-2">
         <UserAvatar />
@@ -329,6 +353,48 @@ function SettingsPopover() {
   );
 }
 
+type StickyHeaderProps = {
+  children: React.ReactNode;
+  className?: string;
+};
+
+function StickyHeader({ children, className }: StickyHeaderProps) {
+  const [isStuck, setIsStuck] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        // When sentinel is not intersecting (scrolled out of view), header is stuck
+        setIsStuck(!entry.isIntersecting);
+      },
+      { threshold: 0 }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <>
+      {/* Sentinel element - when this scrolls out of view, the header is "stuck" */}
+      <div ref={sentinelRef} className="h-0" />
+      <div
+        className={cn(
+          "sticky top-0 z-20 bg-white flex items-center py-2 mb-10 border-b-2 transition-colors duration-200",
+          isStuck ? "border-black" : "border-transparent",
+          className
+        )}
+      >
+        {children}
+      </div>
+    </>
+  );
+}
+
 type OtherListData = {
   taskList: TaskList;
   displayName: string;
@@ -341,6 +407,7 @@ type WeekGridProps = {
   nextTasks: TaskWithListInfo[];
   waitingTasks: TaskWithListInfo[];
   somedayTasks: TaskWithListInfo[];
+  overdueTasks: TaskWithListInfo[];
   otherLists: OtherListData[];
   tasksLoading: boolean;
   sortOrder: ListSortOrder;
@@ -355,6 +422,7 @@ function WeekGrid({
   nextTasks,
   waitingTasks,
   somedayTasks,
+  overdueTasks,
   otherLists,
   tasksLoading,
   sortOrder,
@@ -375,7 +443,7 @@ function WeekGrid({
   }, [columns]);
 
   return (
-    <div className="flex flex-col gap-2 px-4 pb-4">
+    <div className="flex flex-col gap-2 px-4 pb-4 pt-4">
       {/* Desktop: Day columns row */}
       <div className="hidden lg:flex lg:flex-row lg:gap-6 mb-8">
         {columns.map((column, index) => {
@@ -428,12 +496,21 @@ function WeekGrid({
 
       {/* GTD Sections with CSS columns masonry layout */}
       <div className="mt-8">
-        <div className="flex items-center h-9 mb-10">
+        <StickyHeader>
           <Typography variant="headline" className="text-zinc-900">
             GTD Lists
           </Typography>
-        </div>
-        <div className="columns-1 md:columns-2 lg:columns-3 gap-6">
+        </StickyHeader>
+        <div className={cn(
+          "columns-1 md:columns-2 gap-6",
+          overdueTasks.length > 0 ? "lg:columns-4" : "lg:columns-3"
+        )}>
+          {overdueTasks.length > 0 && (
+            <OverdueColumn
+              tasks={overdueTasks}
+              onTaskClick={onTaskClick}
+            />
+          )}
           <SectionColumn 
             title="Next" 
             tasks={nextTasks} 
@@ -490,12 +567,12 @@ function OtherListsSection({
   return (
     <div className="mt-8">
       {/* Section header with sort control */}
-      <div className="flex items-center justify-between h-9 mb-10">
+      <StickyHeader className="justify-between">
         <Typography variant="headline" className="text-zinc-900">
           Other Lists
         </Typography>
         <SortOrderDropdown sortOrder={sortOrder} onSortOrderChange={onSortOrderChange} />
-      </div>
+      </StickyHeader>
 
       {/* CSS columns masonry layout */}
       <div className="columns-1 md:columns-2 lg:columns-3 gap-6">
@@ -625,20 +702,22 @@ function WeekdayColumn({
         isToday={day.isToday}
       />
 
-      {/* Mobile: Single task row or task list */}
+      {/* Mobile: Task items + always at least one empty row */}
       <div className="lg:hidden">
         {tasksLoading ? (
           <TaskRow />
-        ) : tasks.length > 0 ? (
-          tasks.map((task) => (
-            <ConnectedTaskItem 
-              key={task.id} 
-              task={task} 
-              onEdit={() => onTaskClick(task)}
-            />
-          ))
         ) : (
-          <TaskRow onClick={handleEmptyRowClick} />
+          <>
+            {tasks.map((task) => (
+              <ConnectedTaskItem 
+                key={task.id} 
+                task={task} 
+                onEdit={() => onTaskClick(task)}
+              />
+            ))}
+            {/* Always show at least one empty row on mobile */}
+            <TaskRow onClick={handleEmptyRowClick} />
+          </>
         )}
       </div>
 
@@ -695,6 +774,33 @@ function SectionColumn({
         <TaskRow 
           key={`empty-${i}`} 
           onClick={listId ? () => onNewTaskClick(listId, title) : undefined}
+        />
+      ))}
+    </div>
+  );
+}
+
+type OverdueColumnProps = {
+  tasks: TaskWithListInfo[];
+  onTaskClick: (task: TaskWithListInfo) => void;
+};
+
+function OverdueColumn({ tasks, onTaskClick }: OverdueColumnProps) {
+  return (
+    <div className="flex flex-col break-inside-avoid mb-6">
+      {/* Overdue header - red warning styling */}
+      <div className="flex h-9 items-center border-red-500 border-b-2">
+        <Typography variant="title" className="text-red-600">
+          Overdue
+        </Typography>
+      </div>
+
+      {/* Task items with undo toast on complete */}
+      {tasks.map((task) => (
+        <OverdueTaskItem
+          key={task.id}
+          task={task}
+          onEdit={() => onTaskClick(task)}
         />
       ))}
     </div>
@@ -819,12 +925,25 @@ function DayHeader({
   );
 }
 
+const CLICK_DEBOUNCE_MS = 1000;
+
 function TaskRow({ className, onClick }: { className?: string; onClick?: () => void }) {
+  const lastClickRef = useRef<number>(0);
+
+  const handleClick = useCallback(() => {
+    const now = Date.now();
+    if (now - lastClickRef.current < CLICK_DEBOUNCE_MS) {
+      return; // Ignore clicks within debounce window
+    }
+    lastClickRef.current = now;
+    onClick?.();
+  }, [onClick]);
+
   if (onClick) {
     return (
       <button
         type="button"
-        onClick={onClick}
+        onClick={handleClick}
         className={cn(
           "block h-9 w-full border-b-2 border-zinc-100 transition-colors hover:bg-zinc-50 cursor-pointer",
           className
@@ -855,6 +974,11 @@ function TaskItem({
   const isCompleted = task.status === "completed";
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const handleDoubleClick = useCallback(() => {
+    if (isDemo) return;
+    onEdit?.();
+  }, [isDemo, onEdit]);
+
   return (
     <div
       ref={containerRef}
@@ -866,13 +990,14 @@ function TaskItem({
         isCompleted && "opacity-60"
       )}
     >
-      {/* Task title */}
+      {/* Task title - double-click opens edit drawer */}
       <Typography
         variant="default"
         className={cn(
-          "truncate text-sm px-1 flex-1",
+          "truncate text-sm px-1 flex-1 cursor-pointer",
           isCompleted && "line-through text-zinc-400"
         )}
+        onDoubleClick={handleDoubleClick}
       >
         {task.title}
       </Typography>
@@ -888,23 +1013,6 @@ function TaskItem({
           "pl-6"
         )}
       >
-        {/* Drag handle (placeholder - not functional yet) */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              className="flex size-7 items-center justify-center rounded text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200 transition-colors cursor-grab"
-              tabIndex={-1}
-              disabled
-            >
-              <GripVertical className="size-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="top">
-            <p>Drag (coming soon)</p>
-          </TooltipContent>
-        </Tooltip>
-
         {/* Edit button */}
         <Tooltip>
           <TooltipTrigger asChild>
@@ -1029,6 +1137,98 @@ function ConnectedTaskItem({ task, onEdit, isDemo = false }: ConnectedTaskItemPr
       onToggleComplete={handleToggleComplete}
       onDelete={handleDelete}
       isDemo={isDemo}
+    />
+  );
+}
+
+// OverdueTaskItem - shows undo toast when completing overdue tasks
+type OverdueTaskItemProps = {
+  task: TaskWithListInfo;
+  onEdit: () => void;
+};
+
+function OverdueTaskItem({ task, onEdit }: OverdueTaskItemProps) {
+  const { optimisticToggleComplete, optimisticDelete } = useTasks();
+  const completeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isPendingComplete, setIsPendingComplete] = useState(false);
+
+  const handleToggleComplete = useCallback(() => {
+    // Clear any existing timeout
+    if (completeTimeoutRef.current) {
+      clearTimeout(completeTimeoutRef.current);
+    }
+
+    // Mark as pending complete (hides from view immediately via optimistic update)
+    setIsPendingComplete(true);
+    optimisticToggleComplete(task);
+
+    // Show toast with undo action
+    toast(`"${task.title}" completed`, {
+      duration: UNDO_TIMEOUT_MS,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          if (completeTimeoutRef.current) {
+            clearTimeout(completeTimeoutRef.current);
+            completeTimeoutRef.current = null;
+          }
+          setIsPendingComplete(false);
+          // Uncomplete the task
+          optimisticToggleComplete({ ...task, status: "completed" });
+        },
+      },
+    });
+
+    // Set timeout to finalize (task is already marked complete on server, 
+    // undo will revert it if clicked)
+    completeTimeoutRef.current = setTimeout(() => {
+      completeTimeoutRef.current = null;
+      setIsPendingComplete(false);
+    }, UNDO_TIMEOUT_MS);
+  }, [task, optimisticToggleComplete]);
+
+  const handleDelete = useCallback(() => {
+    const { undo, commit } = optimisticDelete(task);
+    
+    // Clear any existing timeout for this task
+    if (deleteTimeoutRef.current) {
+      clearTimeout(deleteTimeoutRef.current);
+    }
+
+    // Show toast with undo action
+    toast(`"${task.title}" deleted`, {
+      duration: UNDO_TIMEOUT_MS,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          if (deleteTimeoutRef.current) {
+            clearTimeout(deleteTimeoutRef.current);
+            deleteTimeoutRef.current = null;
+          }
+          undo();
+        },
+      },
+    });
+
+    // Set timeout to commit the deletion
+    deleteTimeoutRef.current = setTimeout(() => {
+      commit();
+      deleteTimeoutRef.current = null;
+    }, UNDO_TIMEOUT_MS);
+  }, [task, optimisticDelete]);
+
+  // Don't render if pending complete (will disappear when status updates)
+  if (isPendingComplete) {
+    return null;
+  }
+
+  return (
+    <TaskItem
+      task={task}
+      onEdit={onEdit}
+      onToggleComplete={handleToggleComplete}
+      onDelete={handleDelete}
     />
   );
 }

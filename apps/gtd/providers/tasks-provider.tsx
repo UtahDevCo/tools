@@ -17,6 +17,7 @@ import {
   completeTask,
   uncompleteTask,
   deleteTask,
+  updateTask,
   type GTDLists,
 } from "@/app/actions/tasks";
 import {
@@ -48,6 +49,12 @@ function createDemoData(): {
   const dayAfterTomorrow = new Date(today);
   dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
 
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  
+  const twoDaysAgo = new Date(today);
+  twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+
   const demoGtdLists: GTDLists = {
     active: { id: "demo-active", title: "GTD: Active", kind: "tasks#taskList" },
     next: { id: "demo-next", title: "GTD: Next", kind: "tasks#taskList" },
@@ -55,8 +62,30 @@ function createDemoData(): {
     someday: { id: "demo-someday", title: "GTD: Someday", kind: "tasks#taskList" },
   };
 
-  // Active tasks with due dates (for calendar view)
+  // Active tasks with due dates (for calendar view) - includes overdue tasks
   const activeTasks: TaskWithParsedDate[] = [
+    // Overdue tasks
+    {
+      id: "demo-overdue-1",
+      title: "Pay Jabba's bounty (URGENT!)",
+      status: "needsAction",
+      kind: "tasks#task",
+      selfLink: "",
+      position: "00000000000000000000",
+      due: twoDaysAgo.toISOString(),
+      dueDate: twoDaysAgo,
+    },
+    {
+      id: "demo-overdue-2",
+      title: "Return Lando's cape",
+      status: "needsAction",
+      kind: "tasks#task",
+      selfLink: "",
+      position: "00000000000000000000",
+      due: yesterday.toISOString(),
+      dueDate: yesterday,
+    },
+    // Today's tasks
     {
       id: "demo-1",
       title: "Run diagnostic on hyperdrive motivator",
@@ -230,12 +259,6 @@ function createDemoData(): {
   ];
 
   // Completed tasks with due dates (for calendar view only)
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  
-  const twoDaysAgo = new Date(today);
-  twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-
   const completedTasksWithDueDates: TaskWithParsedDate[] = [
     {
       id: "demo-completed-1",
@@ -303,15 +326,20 @@ type TasksContextValue = TasksState & {
   nextTasks: TaskWithListInfo[];
   waitingTasks: TaskWithListInfo[];
   somedayTasks: TaskWithListInfo[];
+  // Overdue tasks (incomplete tasks with due date before today)
+  overdueTasks: TaskWithListInfo[];
   // Non-GTD lists with their tasks
   otherLists: { taskList: TaskList; displayName: string; tasks: TaskWithListInfo[] }[];
   // Date-based getters (for calendar)
   getTasksForDate: (date: Date) => TaskWithListInfo[];
   getTasksWithoutDueDate: () => TaskWithListInfo[];
   refresh: () => void;
+  // Expose gtdLists for components that need to check list IDs
+  gtdLists: GTDLists | null;
   // Optimistic updates
   optimisticToggleComplete: (task: TaskWithListInfo) => void;
   optimisticDelete: (task: TaskWithListInfo) => { undo: () => void; commit: () => Promise<void> };
+  optimisticUpdate: (task: TaskWithListInfo, updates: { title?: string; notes?: string }) => void;
 };
 
 const TasksContext = createContext<TasksContextValue | null>(null);
@@ -563,6 +591,23 @@ export function TasksProvider({ children }: TasksProviderProps) {
     return allTasks.filter((task) => task.listId === state.gtdLists?.someday.id);
   }, [allTasks, state.gtdLists]);
 
+  // Overdue tasks - incomplete tasks with due date before today
+  const overdueTasks = useMemo<TaskWithListInfo[]>(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return allTasks.filter((task) => {
+      // Must be incomplete
+      if (task.status === "completed") return false;
+      // Must have a due date
+      if (!task.dueDate) return false;
+      // Due date must be before today
+      const dueDate = new Date(task.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      return dueDate < today;
+    });
+  }, [allTasks]);
+
   // Non-GTD lists with their tasks
   const otherLists = useMemo(() => {
     const gtdListIds = state.gtdLists
@@ -705,6 +750,43 @@ export function TasksProvider({ children }: TasksProviderProps) {
     []
   );
 
+  // Optimistic update - immediately updates UI, then syncs with server
+  const optimisticUpdate = useCallback(
+    (task: TaskWithListInfo, updates: { title?: string; notes?: string }) => {
+      const previousTitle = task.title;
+      const previousNotes = task.notes;
+      
+      // Optimistically update the task in state
+      setState((prev) => ({
+        ...prev,
+        taskLists: prev.taskLists.map(({ taskList, tasks }) => ({
+          taskList,
+          tasks: tasks.map((t) =>
+            t.id === task.id ? { ...t, ...updates } : t
+          ),
+        })),
+      }));
+
+      // Call server action
+      updateTask(task.listId, task.id, updates).then((result) => {
+        if (!result.success) {
+          // Rollback on error
+          setState((prev) => ({
+            ...prev,
+            taskLists: prev.taskLists.map(({ taskList, tasks }) => ({
+              taskList,
+              tasks: tasks.map((t) =>
+                t.id === task.id ? { ...t, title: previousTitle, notes: previousNotes } : t
+              ),
+            })),
+          }));
+          console.error("Failed to update task:", result.error);
+        }
+      });
+    },
+    []
+  );
+
   const value: TasksContextValue = {
     ...state,
     allTasks,
@@ -712,12 +794,14 @@ export function TasksProvider({ children }: TasksProviderProps) {
     nextTasks,
     waitingTasks,
     somedayTasks,
+    overdueTasks,
     otherLists,
     getTasksForDate: getTasksForDateFn,
     getTasksWithoutDueDate: getTasksWithoutDateFn,
     refresh,
     optimisticToggleComplete,
     optimisticDelete,
+    optimisticUpdate,
   };
 
   return (

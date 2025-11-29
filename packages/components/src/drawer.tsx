@@ -292,42 +292,44 @@ export function Drawer({
                 transition={{ type: "spring", stiffness: 260, damping: 26 }}
                 variants={baseMotionVariants}
               >
-                <header className="flex items-center justify-between border-b border-border p-4">
-                  <div>
-                    <Typography variant="title">
-                      {title}
-                    </Typography>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {showModeToggle && (
+                <div ref={contentRef} className="flex flex-1 flex-col overflow-hidden">
+                  <header className="flex items-center justify-between border-b border-border p-4">
+                    <div>
+                      <Typography variant="title">
+                        {title}
+                      </Typography>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {showModeToggle && (
+                        <Button
+                          onClick={toggleMode}
+                          size="icon"
+                          type="button"
+                          variant="ghost"
+                          aria-label={`Switch drawer to ${currentMode === "overlay" ? "push" : "overlay"} mode`}
+                        >
+                          <PanelRight className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
-                        onClick={toggleMode}
+                        className="drawer-close-button"
+                        onClick={closeDrawer}
                         size="icon"
                         type="button"
                         variant="ghost"
-                        aria-label={`Switch drawer to ${currentMode === "overlay" ? "push" : "overlay"} mode`}
+                        aria-label="Close drawer"
                       >
-                        <PanelRight className="h-4 w-4" />
+                        <X className="h-4 w-4" />
                       </Button>
-                    )}
-                    <Button
-                      className="drawer-close-button"
-                      onClick={closeDrawer}
-                      size="icon"
-                      type="button"
-                      variant="ghost"
-                      aria-label="Close drawer"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                    </div>
+                  </header>
+
+                  <div className={clsx("drawer-content flex-1 overflow-y-auto", className)}>
+                    {children}
                   </div>
-                </header>
 
-                <div className={clsx("drawer-content flex-1 overflow-y-auto", className)} ref={contentRef}>
-                  {children}
+                  {actions ? <footer className="drawer-actions border-t border-border p-4">{actions}</footer> : null}
                 </div>
-
-                {actions ? <footer className="drawer-actions border-t border-border p-4">{actions}</footer> : null}
               </motion.aside>
             </section>
           )}
