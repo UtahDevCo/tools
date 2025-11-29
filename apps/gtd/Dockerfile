@@ -33,7 +33,7 @@ COPY packages ./packages
 COPY --from=deps /app/node_modules ./node_modules
 
 # Build the app using node to run next (bun has issues with next build)
-RUN cd apps/gtd && node ./node_modules/next/dist/bin/next build
+RUN cd apps/gtd && node ../../node_modules/next/dist/bin/next build
 
 # ---- Runner ----
 FROM node:20-slim AS runner
