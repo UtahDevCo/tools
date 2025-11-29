@@ -22,6 +22,18 @@ export {
   SelectTrigger,
   SelectValue,
 } from "./src/ui/select";
+export {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogOverlay,
+  DialogPortal,
+  DialogTitle,
+  DialogTrigger,
+} from "./src/ui/dialog";
 
 // Custom components
 export { Drawer, DrawerViewport } from "./src/drawer";

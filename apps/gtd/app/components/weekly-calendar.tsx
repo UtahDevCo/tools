@@ -17,9 +17,11 @@ import {
   useLocalforage,
 } from "@repo/components";
 import { UserAvatar } from "@/components/user-avatar";
+import { useAuth } from "@/components/auth-provider";
 import { useTasks, type TaskWithListInfo } from "@/providers/tasks-provider";
 import { type TaskWithParsedDate, type TaskList } from "@/lib/google-tasks/types";
 import { TaskEditDrawer } from "./task-edit-drawer";
+import { LoginRequiredModal } from "./login-required-modal";
 
 type WeekDay = {
   date: Date;
@@ -45,6 +47,7 @@ const LOCALFORAGE_KEYS = {
 
 export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
   const [dayOffset, setDayOffset] = useState(0);
+  const { isAuthenticated } = useAuth();
   const { 
     getTasksForDate, 
     nextTasks, 
@@ -59,6 +62,9 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
   // Selected task for drawer
   const [selectedTask, setSelectedTask] = useState<TaskWithListInfo | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  
+  // Login required modal
+  const [showLoginModal, setShowLoginModal] = useState(false);
   
   // New task creation context
   const [newTaskContext, setNewTaskContext] = useState<{
@@ -124,9 +130,13 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
   }, []);
 
   const handleTaskClick = useCallback((task: TaskWithListInfo) => {
+    if (!isAuthenticated) {
+      setShowLoginModal(true);
+      return;
+    }
     setSelectedTask(task);
     setDrawerOpen(true);
-  }, []);
+  }, [isAuthenticated]);
 
   const handleDrawerClose = useCallback(() => {
     setDrawerOpen(false);
@@ -135,10 +145,14 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
   }, []);
 
   const handleNewTaskClick = useCallback((listId: string, listDisplayName: string, dueDate?: string) => {
+    if (!isAuthenticated) {
+      setShowLoginModal(true);
+      return;
+    }
     setSelectedTask(null);
     setNewTaskContext({ listId, listDisplayName, dueDate });
     setDrawerOpen(true);
-  }, []);
+  }, [isAuthenticated]);
 
   const handleKeydown = useCallback(
     (event: Event) => {
@@ -202,6 +216,10 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
         defaultListId={newTaskContext?.listId}
         defaultDueDate={newTaskContext?.dueDate}
         defaultListDisplayName={newTaskContext?.listDisplayName}
+      />
+      <LoginRequiredModal
+        open={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
       />
     </div>
   );
@@ -344,10 +362,21 @@ function WeekGrid({
   onNewTaskClick,
 }: WeekGridProps) {
   const { gtdLists } = useTasks();
+
+  // Flatten all days in order for mobile view
+  const allDaysInOrder = useMemo(() => {
+    return columns.flatMap((column) => {
+      if (column.type === "weekday") {
+        return [column.day];
+      }
+      return column.days;
+    });
+  }, [columns]);
+
   return (
     <div className="flex flex-col gap-2 px-4 pb-4">
-      {/* Day columns row */}
-      <div className="flex flex-col gap-2 lg:flex-row lg:gap-6 mb-8">
+      {/* Desktop: Day columns row */}
+      <div className="hidden lg:flex lg:flex-row lg:gap-6 mb-8">
         {columns.map((column, index) => {
           if (column.type === "weekday") {
             const tasks = getTasksForDate(column.day.date);
@@ -364,7 +393,7 @@ function WeekGrid({
             );
           }
           return (
-            <div key={`weekend-${index}`} className="hidden lg:flex lg:flex-1 lg:flex-col">
+            <div key={`weekend-${index}`} className="flex flex-1 flex-col">
               <WeekendColumn 
                 weekend={column.days}
                 getTasksForDate={getTasksForDate}
@@ -376,27 +405,24 @@ function WeekGrid({
             </div>
           );
         })}
+      </div>
 
-        {/* Mobile: Weekend days as individual rows */}
-        <div className="flex flex-col gap-2 lg:hidden">
-          {columns
-            .filter((col): col is DayColumn & { type: "weekend" } => col.type === "weekend")
-            .flatMap((col) => col.days)
-            .map((day) => {
-              const tasks = getTasksForDate(day.date);
-              return (
-                <WeekdayColumn 
-                  key={day.date.toISOString()} 
-                  day={day}
-                  tasks={tasks}
-                  tasksLoading={tasksLoading}
-                  onTaskClick={onTaskClick}
-                  onNewTaskClick={onNewTaskClick}
-                  activeListId={gtdLists?.active.id}
-                />
-              );
-            })}
-        </div>
+      {/* Mobile: All days in chronological order */}
+      <div className="flex flex-col gap-2 lg:hidden mb-8">
+        {allDaysInOrder.map((day) => {
+          const tasks = getTasksForDate(day.date);
+          return (
+            <WeekdayColumn 
+              key={day.date.toISOString()} 
+              day={day}
+              tasks={tasks}
+              tasksLoading={tasksLoading}
+              onTaskClick={onTaskClick}
+              onNewTaskClick={onNewTaskClick}
+              activeListId={gtdLists?.active.id}
+            />
+          );
+        })}
       </div>
 
       {/* GTD Sections with CSS columns masonry layout */}

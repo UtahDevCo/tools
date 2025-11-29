@@ -269,11 +269,10 @@ export function TasksProvider({ children }: TasksProviderProps) {
   const hasInitializedGTDRef = useRef(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  // Initialize GTD lists on mount
+  // Initialize GTD lists
   const initializeGTDLists = useCallback(async () => {
-    if (!isAuthenticated || hasInitializedGTDRef.current) return;
+    if (!isAuthenticated) return;
 
-    hasInitializedGTDRef.current = true;
     setState((prev) => ({ ...prev, isInitializingGTD: true }));
 
     try {
@@ -366,16 +365,23 @@ export function TasksProvider({ children }: TasksProviderProps) {
     }
   }, [isAuthenticated, refreshSession]);
 
-  // Initialize GTD lists on mount
+  // Reset refs when authentication state changes
+  useEffect(() => {
+    hasFetchedRef.current = false;
+    hasInitializedGTDRef.current = false;
+  }, [isAuthenticated]);
+
+  // Initialize GTD lists when authenticated
   useEffect(() => {
     if (isAuthenticated && !hasInitializedGTDRef.current) {
+      hasInitializedGTDRef.current = true;
       startTransition(() => {
         initializeGTDLists();
       });
     }
   }, [isAuthenticated, initializeGTDLists]);
 
-  // Fetch tasks on mount and when triggered (including demo data for signed-out users)
+  // Fetch tasks on mount and when authentication changes (including demo data for signed-out users)
   useEffect(() => {
     if (!hasFetchedRef.current) {
       hasFetchedRef.current = true;
@@ -383,7 +389,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
         fetchTasks();
       });
     }
-  }, [fetchTasks]);
+  }, [isAuthenticated, fetchTasks]);
 
   // Re-fetch when refresh is triggered
   useEffect(() => {
