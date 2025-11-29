@@ -37,6 +37,7 @@ export type TaskWithListInfo = TaskWithParsedDate & {
 function createDemoData(): {
   taskLists: { taskList: TaskList; tasks: TaskWithParsedDate[] }[];
   gtdLists: GTDLists;
+  completedTasksWithDueDates: TaskWithParsedDate[];
 } {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -228,12 +229,64 @@ function createDemoData(): {
     { taskList: demoGtdLists.someday, tasks: somedayTasks },
   ];
 
-  return { taskLists, gtdLists: demoGtdLists };
+  // Completed tasks with due dates (for calendar view only)
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  
+  const twoDaysAgo = new Date(today);
+  twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+
+  const completedTasksWithDueDates: TaskWithParsedDate[] = [
+    {
+      id: "demo-completed-1",
+      title: "Pick up replacement power coupling",
+      status: "completed",
+      kind: "tasks#task",
+      selfLink: "",
+      position: "00000000000000000001",
+      due: yesterday.toISOString(),
+      dueDate: yesterday,
+    },
+    {
+      id: "demo-completed-2",
+      title: "Clear debris from cargo hold",
+      status: "completed",
+      kind: "tasks#task",
+      selfLink: "",
+      position: "00000000000000000002",
+      due: yesterday.toISOString(),
+      dueDate: yesterday,
+    },
+    {
+      id: "demo-completed-3",
+      title: "Update star charts for Kessel sector",
+      status: "completed",
+      kind: "tasks#task",
+      selfLink: "",
+      position: "00000000000000000003",
+      due: twoDaysAgo.toISOString(),
+      dueDate: twoDaysAgo,
+    },
+    {
+      id: "demo-completed-4",
+      title: "Repair hull breach in cargo bay 3",
+      status: "completed",
+      kind: "tasks#task",
+      selfLink: "",
+      position: "00000000000000000004",
+      due: today.toISOString(),
+      dueDate: today,
+    },
+  ];
+
+  return { taskLists, gtdLists: demoGtdLists, completedTasksWithDueDates };
 }
 
 type TasksState = {
   taskLists: { taskList: TaskList; tasks: TaskWithParsedDate[] }[];
   gtdLists: GTDLists | null;
+  // Completed tasks with due dates (for calendar view only, last 30 days)
+  completedTasksWithDueDates: TaskWithListInfo[];
   isLoading: boolean;
   isInitializingGTD: boolean;
   error: string | null;
@@ -272,6 +325,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
   const [state, setState] = useState<TasksState>({
     taskLists: [],
     gtdLists: null,
+    completedTasksWithDueDates: [],
     isLoading: false,
     isInitializingGTD: false,
     error: null,
@@ -307,13 +361,64 @@ export function TasksProvider({ children }: TasksProviderProps) {
     }
   }, [isAuthenticated]);
 
+  // Fetch completed tasks with due dates (last 30 days) for calendar view
+  const fetchCompletedTasks = useCallback(async () => {
+    if (!isAuthenticated) return;
+
+    // Calculate date range: last 30 days
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+    try {
+      const result = await getAllTasks({
+        showCompleted: true,
+        dueMin: thirtyDaysAgo.toISOString(),
+      });
+
+      if (!result.success) {
+        console.error("Failed to fetch completed tasks:", result.error);
+        return;
+      }
+
+      // Extract only completed tasks with due dates
+      const completedWithDueDates: TaskWithListInfo[] = result.data.flatMap(
+        ({ taskList, tasks }) =>
+          tasks
+            .filter((task) => task.status === "completed" && task.dueDate)
+            .map((task) => ({
+              ...task,
+              listId: taskList.id,
+              listDisplayName: getTaskListDisplayName(taskList),
+              isGTDList: isGTDList(taskList),
+            }))
+      );
+
+      setState((prev) => ({
+        ...prev,
+        completedTasksWithDueDates: completedWithDueDates,
+      }));
+    } catch (error) {
+      console.error("Failed to fetch completed tasks:", error);
+    }
+  }, [isAuthenticated]);
+
   const fetchTasks = useCallback(async () => {
     if (!isAuthenticated) {
       // Use demo data for signed-out users
       const demoData = createDemoData();
+      // Add list info to completed demo tasks
+      const completedWithListInfo: TaskWithListInfo[] = demoData.completedTasksWithDueDates.map((task) => ({
+        ...task,
+        listId: demoData.gtdLists.active.id,
+        listDisplayName: "Active",
+        isGTDList: true,
+      }));
       setState({
         taskLists: demoData.taskLists,
         gtdLists: demoData.gtdLists,
+        completedTasksWithDueDates: completedWithListInfo,
         isLoading: false,
         isInitializingGTD: false,
         error: null,
@@ -343,6 +448,8 @@ export function TasksProvider({ children }: TasksProviderProps) {
                 error: null,
                 needsReauth: false,
               }));
+              // Fetch completed tasks after retry success
+              fetchCompletedTasks();
               return;
             }
           } catch {
@@ -367,6 +474,9 @@ export function TasksProvider({ children }: TasksProviderProps) {
         error: null,
         needsReauth: false,
       }));
+
+      // Fetch completed tasks with due dates (for calendar view)
+      fetchCompletedTasks();
     } catch (error) {
       console.error("Failed to fetch tasks:", error);
       setState((prev) => ({
@@ -377,7 +487,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
         needsReauth: false,
       }));
     }
-  }, [isAuthenticated, refreshSession]);
+  }, [isAuthenticated, refreshSession, fetchCompletedTasks]);
 
   // Reset refs when authentication state changes
   useEffect(() => {
@@ -473,7 +583,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
       }));
   }, [state.taskLists, state.gtdLists]);
 
-  // Get tasks for a specific date - returns Active list tasks and Other list tasks that have this due date
+  // Get tasks for a specific date - returns Active list tasks, Other list tasks, and completed tasks that have this due date
   const getTasksForDateFn = useCallback(
     (date: Date) => {
       const dateStr = date.toISOString().split("T")[0];
@@ -492,9 +602,15 @@ export function TasksProvider({ children }: TasksProviderProps) {
         })
       );
       
-      return [...activeTasksForDate, ...otherTasksForDate];
+      // Get completed tasks with this due date (for calendar view)
+      const completedTasksForDate = state.completedTasksWithDueDates.filter((task) => {
+        if (!task.dueDate) return false;
+        return task.dueDate.toISOString().split("T")[0] === dateStr;
+      });
+      
+      return [...activeTasksForDate, ...otherTasksForDate, ...completedTasksForDate];
     },
-    [activeTasks, otherLists]
+    [activeTasks, otherLists, state.completedTasksWithDueDates]
   );
 
   const getTasksWithoutDateFn = useCallback(
