@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Cloud, CloudOff, Loader2, RefreshCw } from "lucide-react";
 import {
   Typography,
   Button,
@@ -78,11 +78,58 @@ function CalendarToggleItem({
   );
 }
 
+type SyncStatus = "idle" | "syncing" | "synced" | "offline" | "error";
+
+function SyncStatusBadge({
+  status,
+  onSync,
+}: {
+  status: SyncStatus;
+  onSync: () => Promise<void>;
+}) {
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  async function handleSync() {
+    setIsSyncing(true);
+    try {
+      await onSync();
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
+  const statusConfig: Record<
+    SyncStatus,
+    { icon: typeof Cloud; label: string; className: string }
+  > = {
+    idle: { icon: Cloud, label: "Ready", className: "text-zinc-400" },
+    syncing: { icon: RefreshCw, label: "Syncing", className: "text-blue-500" },
+    synced: { icon: Cloud, label: "Synced", className: "text-green-500" },
+    offline: { icon: CloudOff, label: "Local only", className: "text-amber-500" },
+    error: { icon: CloudOff, label: "Sync error", className: "text-red-500" },
+  };
+
+  const { icon: Icon, label, className } = statusConfig[status];
+
+  return (
+    <button
+      onClick={handleSync}
+      disabled={isSyncing || status === "syncing"}
+      className="flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium transition-colors hover:bg-zinc-200 disabled:opacity-50"
+      title={status === "offline" ? "Click to retry sync" : "Click to force sync"}
+    >
+      <Icon
+        className={`size-3.5 ${className} ${status === "syncing" || isSyncing ? "animate-spin" : ""}`}
+      />
+      <span className={className}>{isSyncing ? "Syncing..." : label}</span>
+    </button>
+  );
+}
+
 export default function SettingsPage() {
-  const { settings, updateSetting, isLoading: settingsLoading } = useSettings();
+  const { settings, updateSetting, syncStatus, forceSync, isLoading: settingsLoading } = useSettings();
   const { signOut, isAuthenticated } = useAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [isCalendarSaving, setIsCalendarSaving] = useState(false);
   const [calendars, setCalendars] = useState<CalendarListEntry[]>([]);
   const [calendarsLoading, setCalendarsLoading] = useState(false);
@@ -114,67 +161,43 @@ export default function SettingsPage() {
     fetchCalendars();
   }, [fetchCalendars]);
 
-  async function handleSettingChange<K extends keyof typeof settings>(
+  // Local-first: updateSetting saves locally immediately, syncs to Firestore in background
+  function handleSettingChange<K extends keyof typeof settings>(
     key: K,
     value: (typeof settings)[K]
   ) {
-    setIsSaving(true);
-    try {
-      await updateSetting(key, value);
-      toast.success("Setting saved");
-    } catch (error) {
-      console.error("Failed to update setting:", error);
-      toast.error("Failed to save setting");
-    } finally {
-      setIsSaving(false);
-    }
+    updateSetting(key, value);
+    toast.success("Setting saved");
   }
 
   // Calendar selection uses a separate saving state to prevent blocking other UI
 
-  async function handleCalendarToggle(calendarId: string, enabled: boolean) {
+  function handleCalendarToggle(calendarId: string, enabled: boolean) {
     const currentIds = settings.selectedCalendarIds ?? [];
     const newIds = enabled
       ? [...currentIds, calendarId]
       : currentIds.filter((id) => id !== calendarId);
     
     setIsCalendarSaving(true);
-    try {
-      await updateSetting("selectedCalendarIds", newIds);
-      toast.success("Calendar updated");
-    } catch (error) {
-      console.error("Failed to update calendar selection:", error);
-      toast.error("Failed to update calendar");
-    } finally {
-      setIsCalendarSaving(false);
-    }
+    updateSetting("selectedCalendarIds", newIds);
+    toast.success("Calendar updated");
+    // Brief delay for visual feedback, then clear saving state
+    setTimeout(() => setIsCalendarSaving(false), 300);
   }
 
-  async function handleSelectAllCalendars() {
+  function handleSelectAllCalendars() {
     const allIds = calendars.map((c) => c.id);
     setIsCalendarSaving(true);
-    try {
-      await updateSetting("selectedCalendarIds", allIds);
-      toast.success("All calendars selected");
-    } catch (error) {
-      console.error("Failed to select all calendars:", error);
-      toast.error("Failed to update calendars");
-    } finally {
-      setIsCalendarSaving(false);
-    }
+    updateSetting("selectedCalendarIds", allIds);
+    toast.success("All calendars selected");
+    setTimeout(() => setIsCalendarSaving(false), 300);
   }
 
-  async function handleDeselectAllCalendars() {
+  function handleDeselectAllCalendars() {
     setIsCalendarSaving(true);
-    try {
-      await updateSetting("selectedCalendarIds", []);
-      toast.success("All calendars deselected");
-    } catch (error) {
-      console.error("Failed to deselect all calendars:", error);
-      toast.error("Failed to update calendars");
-    } finally {
-      setIsCalendarSaving(false);
-    }
+    updateSetting("selectedCalendarIds", []);
+    toast.success("All calendars deselected");
+    setTimeout(() => setIsCalendarSaving(false), 300);
   }
 
   async function handleSignOut() {
@@ -243,9 +266,10 @@ export default function SettingsPage() {
           </Button>
         </div>
 
-        <Typography variant="headline" className="mb-8">
-          Settings
-        </Typography>
+        <div className="mb-8 flex items-center justify-between">
+          <Typography variant="headline">Settings</Typography>
+          <SyncStatusBadge status={syncStatus} onSync={forceSync} />
+        </div>
 
         {/* Calendar Settings */}
         <SettingsSection title="Calendar">
@@ -262,7 +286,7 @@ export default function SettingsPage() {
               onCheckedChange={(checked) =>
                 handleSettingChange("showCalendarEvents", checked)
               }
-              disabled={isSaving}
+              
             />
           </div>
 
@@ -278,7 +302,7 @@ export default function SettingsPage() {
               onValueChange={(value) =>
                 handleSettingChange("calendarRefreshIntervalMinutes", parseInt(value, 10))
               }
-              disabled={isSaving}
+              
             >
               <SelectTrigger id="calendar-refresh-interval" className="w-full">
                 <SelectValue />
@@ -371,7 +395,7 @@ export default function SettingsPage() {
               onValueChange={(value) =>
                 handleSettingChange("defaultGtdList", value as "active" | "next" | "waiting" | "someday")
               }
-              disabled={isSaving}
+              
             >
               <SelectTrigger id="default-gtd-list" className="w-full">
                 <SelectValue />
@@ -395,7 +419,7 @@ export default function SettingsPage() {
               onValueChange={(value) =>
                 handleSettingChange("showCompletedDuration", parseInt(value, 10))
               }
-              disabled={isSaving}
+              
             >
               <SelectTrigger id="completed-duration" className="w-full">
                 <SelectValue />
@@ -426,7 +450,7 @@ export default function SettingsPage() {
               onCheckedChange={(checked: boolean) =>
                 handleSettingChange("mergeWeekendColumns", checked)
               }
-              disabled={isSaving}
+              
             />
           </div>
 
@@ -443,7 +467,7 @@ export default function SettingsPage() {
               onCheckedChange={(checked: boolean) =>
                 handleSettingChange("compactMode", checked)
               }
-              disabled={isSaving}
+              
             />
           </div>
         </SettingsSection>
@@ -463,7 +487,7 @@ export default function SettingsPage() {
               onCheckedChange={(checked: boolean) =>
                 handleSettingChange("skipMoveConfirmations", checked)
               }
-              disabled={isSaving}
+              
             />
           </div>
 
@@ -480,7 +504,7 @@ export default function SettingsPage() {
               onCheckedChange={(checked: boolean) =>
                 handleSettingChange("enableMultiSelectShortcuts", checked)
               }
-              disabled={isSaving}
+              
             />
           </div>
 
@@ -494,7 +518,7 @@ export default function SettingsPage() {
               onValueChange={(value) =>
                 handleSettingChange("undoWindowMs", parseInt(value, 10) * 1000)
               }
-              disabled={isSaving}
+              
             >
               <SelectTrigger id="undo-window" className="w-full">
                 <SelectValue />

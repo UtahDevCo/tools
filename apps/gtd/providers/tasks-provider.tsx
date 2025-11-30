@@ -554,9 +554,8 @@ export function TasksProvider({ children }: TasksProviderProps) {
     setState((prev) => ({ ...prev, calendarEventsLoading: true }));
 
     try {
-      const result = await getCalendarEventsForMonth(year, month, calendarIds);
-
-      console.log({ year, month, result, calendarIds });
+      // Convert from 1-indexed month to 0-indexed for the action
+      const result = await getCalendarEventsForMonth(year, month - 1, calendarIds);
 
       if (!result.success) {
         console.error("Failed to fetch calendar events:", result.error);

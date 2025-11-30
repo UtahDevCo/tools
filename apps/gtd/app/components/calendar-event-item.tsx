@@ -46,23 +46,20 @@ export function CalendarEventItem({
       <PopoverTrigger asChild>
         <div
           className={cn(
-            "flex min-h-9 h-9 items-center border-b-2 px-2 cursor-pointer transition-opacity hover:opacity-80",
-            colors.background,
-            colors.border,
-            colors.text
+            "flex min-h-9 h-9 items-center border-b-2 border-zinc-100 px-2 cursor-pointer transition-colors hover:bg-zinc-50"
           )}
         >
-          <span className="mr-1.5">📅</span>
+          <div className={cn("size-2.5 rounded-full mr-2 shrink-0", colors.background)} />
           <Typography
             variant="default"
-            className={cn("truncate text-sm flex-1", colors.text)}
+            className="truncate text-sm flex-1 px-1"
           >
             {event.summary || "Untitled Event"}
           </Typography>
           {startTime && (
             <Typography
               variant="light"
-              className={cn("ml-2 text-xs whitespace-nowrap", colors.text)}
+              className="ml-2 text-xs whitespace-nowrap text-zinc-500"
             >
               {startTime}
             </Typography>
@@ -70,7 +67,7 @@ export function CalendarEventItem({
           {isMultiDay && (
             <Typography
               variant="light"
-              className={cn("ml-2 text-xs whitespace-nowrap opacity-70", colors.text)}
+              className="ml-2 text-xs whitespace-nowrap text-zinc-400"
             >
               Day {dayNumber}/{totalDays}
             </Typography>

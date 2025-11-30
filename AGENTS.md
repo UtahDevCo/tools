@@ -145,7 +145,38 @@ TypeScript (repository uses Next.js and TypeScript under `web/`). Follow standar
 
 - The app is hosted locally at http://localhost:3000/
 - If the app is not available, it can be started by running `bun dev` at the project root.
-- The app should be automatically logged into a specific user account. If not, prompt me to set `AUTH_USER_ID_OVERRIDE` in `web/.env`.
+
+### MCP Browser Authentication
+
+Google blocks login attempts from automated browsers. To authenticate the MCP browser:
+
+1. **Log into localhost:3000** in your regular browser (Chrome, Safari, etc.)
+2. Cookies are **automatically exported** to `apps/gtd/scripts/mcp-cookies.json` on each login
+3. **Load cookies into MCP browser** by asking the agent to:
+   - Read `apps/gtd/scripts/mcp-cookies.json`
+   - Navigate to `http://localhost:3000`
+   - Use `evaluate_script` to set each cookie: `document.cookie = "name=value; path=/";`
+   - Reload the page
+
+The cookie export only works on localhost (development mode) for security.
+
+### MCP Browser Limitations
+
+**What works in the MCP browser:**
+
+- Google Tasks API operations (via server actions using cookies)
+- Google Calendar API operations (via server actions using cookies)
+- User settings (stored locally in IndexedDB, works without authentication)
+- All UI interactions and navigation
+
+**What does NOT work in the MCP browser:**
+
+- **Firestore writes** - Firebase Auth is stored in IndexedDB, which cannot be reliably injected into the MCP browser via Chrome DevTools Protocol (CDP). IndexedDB operations via CDP don't persist across script executions.
+- **Firebase Analytics** - Requires Firebase Auth initialization
+
+**Architecture decision:** Settings are stored **local-first** using `localforage` (IndexedDB). When Firebase Auth is available (normal browser), settings sync bidirectionally with Firestore using timestamp-based conflict resolution (newest wins). This ensures the app works fully in the MCP browser even without Firestore access.
+
+The settings provider (`apps/gtd/providers/settings-provider.tsx`) exposes a `syncStatus` field: `"idle" | "syncing" | "synced" | "offline" | "error"`. In the MCP browser, this will typically show `"offline"` since Firestore sync fails without Firebase Auth.
 
 ## Shadcn MCP server
 

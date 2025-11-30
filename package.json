@@ -12,6 +12,7 @@
     "check-types": "turbo run check-types"
   },
   "devDependencies": {
+    "baseline-browser-mapping": "^2.8.32",
     "prettier": "^3.7.1",
     "shadcn": "^3.5.0",
     "turbo": "^2.5.8",

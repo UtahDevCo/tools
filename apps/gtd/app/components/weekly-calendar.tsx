@@ -54,6 +54,7 @@ import { TaskEditDrawer } from "./task-edit-drawer";
 import { LoginRequiredModal } from "./login-required-modal";
 import { LoadingOverlay } from "./loading-overlay";
 import { CalendarEventItem } from "./calendar-event-item";
+import { CalendarHeader } from "./calendar/calendar-header";
 import { moveTasksToList, deleteTasks } from "@/lib/tasks-with-refresh";
 import { TIMEOUTS, UI, CACHE_KEYS } from "@/lib/constants";
 import { useSettings } from "@/providers/settings-provider";
@@ -481,141 +482,6 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
       />
       {showLoadingOverlay && <LoadingOverlay />}
     </div>
-  );
-}
-
-type CalendarHeaderProps = {
-  headerText: string;
-  headerTextShort: string;
-  onPrevious: () => void;
-  onNext: () => void;
-  onToday: () => void;
-  isAtToday: boolean;
-  isScrolled: boolean;
-};
-
-function CalendarHeader({
-  headerText,
-  headerTextShort,
-  onPrevious,
-  onNext,
-  onToday,
-  isAtToday,
-  isScrolled,
-}: CalendarHeaderProps) {
-  return (
-    <header className={cn(
-      "flex items-center justify-between px-4 py-4 sticky top-0 z-30 transition-colors duration-200",
-      isScrolled ? "bg-zinc-100" : "bg-white"
-    )}>
-      <Typography variant="headline" className="hidden md:block">{headerText}</Typography>
-      <Typography variant="headline" className="md:hidden">{headerTextShort}</Typography>
-      <div className="flex items-center gap-2">
-        <UserAvatar />
-        <SettingsDropdown />
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-10 rounded-full bg-zinc-800 text-white hover:bg-zinc-700"
-              onClick={onPrevious}
-            >
-              <ChevronLeft className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Previous (P)</p>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "h-10 rounded-full px-4 text-white",
-                isAtToday
-                  ? "bg-zinc-400 cursor-not-allowed"
-                  : "bg-orange-500 hover:bg-orange-600"
-              )}
-              onClick={onToday}
-              disabled={isAtToday}
-            >
-              Today
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Today (T)</p>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-10 rounded-full bg-zinc-800 text-white hover:bg-zinc-700"
-              onClick={onNext}
-            >
-              <ChevronRight className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Next (N)</p>
-          </TooltipContent>
-        </Tooltip>
-      </div>
-    </header>
-  );
-}
-
-function SettingsDropdown() {
-  const [isLocalhost] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.location.hostname === "localhost";
-  });
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-10 rounded-full bg-orange-300 hover:bg-orange-400"
-        >
-          <MoreVertical className="size-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuItem asChild>
-          <Link
-            href="/settings"
-          >
-            Settings
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link
-            href="https://tasks.google.com/tasks/"
-            target="_blank"
-          >
-            Google Tasks
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/policies">
-            Policies
-          </Link>
-        </DropdownMenuItem>
-        {isLocalhost && (
-          <DropdownMenuItem asChild>
-            <Link href="/playground">
-              Playground
-            </Link>
-          </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 
@@ -1127,6 +993,7 @@ function WeekdayColumn({
                 isSelected={selectedTaskIds.has(task.id)}
                 onEnterMultiSelect={onEnterMultiSelect}
                 onToggleSelection={onToggleTaskSelection}
+                showCircleIndicator
               />
             ))}
             {/* Always show at least one empty row on mobile */}
@@ -1155,6 +1022,7 @@ function WeekdayColumn({
             isSelected={selectedTaskIds.has(task.id)}
             onEnterMultiSelect={onEnterMultiSelect}
             onToggleSelection={onToggleTaskSelection}
+            showCircleIndicator
           />
         ))}
         {Array.from({ length: emptyRowCount }).map((_, i) => (
@@ -1536,6 +1404,8 @@ type TaskItemProps = {
   isSelected?: boolean;
   onEnterMultiSelect?: (taskId: string) => void;
   onToggleSelection?: (taskId: string) => void;
+  // Show circle indicator (for calendar view alignment with events)
+  showCircleIndicator?: boolean;
 };
 
 function TaskItem({ 
@@ -1548,6 +1418,7 @@ function TaskItem({
   isSelected = false,
   onEnterMultiSelect,
   onToggleSelection,
+  showCircleIndicator = false,
 }: TaskItemProps) {
   const isCompleted = task.status === "completed";
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1578,6 +1449,11 @@ function TaskItem({
         isSelected && "bg-orange-50"
       )}
     >
+      {/* Circle indicator for calendar view alignment */}
+      {showCircleIndicator && !isMultiSelectMode && (
+        <div className="size-2.5 rounded-full border border-zinc-400 bg-white ml-2 mr-2 shrink-0" />
+      )}
+
       {/* Checkbox for multi-select mode */}
       {isMultiSelectMode && (
         <div className="flex items-center justify-center w-7 shrink-0">
@@ -1709,6 +1585,7 @@ type ConnectedTaskItemProps = {
   isSelected?: boolean;
   onEnterMultiSelect?: (taskId: string) => void;
   onToggleSelection?: (taskId: string) => void;
+  showCircleIndicator?: boolean;
 };
 
 function ConnectedTaskItem({ 
@@ -1719,6 +1596,7 @@ function ConnectedTaskItem({
   isSelected = false,
   onEnterMultiSelect,
   onToggleSelection,
+  showCircleIndicator = false,
 }: ConnectedTaskItemProps) {
   const { optimisticToggleComplete, optimisticDelete, isOffline } = useTasks();
   const deleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1771,6 +1649,7 @@ function ConnectedTaskItem({
       isSelected={isSelected}
       onEnterMultiSelect={onEnterMultiSelect}
       onToggleSelection={onToggleSelection}
+      showCircleIndicator={showCircleIndicator}
     />
   );
 }

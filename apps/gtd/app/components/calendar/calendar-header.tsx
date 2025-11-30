@@ -1,8 +1,8 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, MoreVertical } from "lucide-react";
+import { ChevronLeft, ChevronRight, MoreVertical, RefreshCw } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Typography,
   Button,
@@ -14,8 +14,10 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from "@repo/components";
 import { UserAvatar } from "@/components/user-avatar";
+import { getCookiesForInjection } from "@/app/actions/mcp-cookies";
 
 type CalendarHeaderProps = {
   headerText: string;
@@ -109,10 +111,61 @@ export function CalendarHeader({
 }
 
 function SettingsDropdown() {
-  const [isLocalhost] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.location.hostname === "localhost";
-  });
+  const [isLocalhost, setIsLocalhost] = useState(false);
+  const [needsAuth, setNeedsAuth] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Check localhost status on mount (client-side only)
+  useEffect(() => {
+    const localhost = window.location.hostname === "localhost";
+    setIsLocalhost(localhost);
+
+    if (!localhost) return;
+
+    // Check if auth cookies are missing
+    const hasCookies = document.cookie.includes("gtd_access_token");
+    setNeedsAuth(!hasCookies);
+    console.log("[MCP Auth] Check:", { localhost, hasCookies, needsAuth: !hasCookies });
+
+    // Listen for 403 errors to show the refresh button
+    function handleAuthError(event: CustomEvent) {
+      if (event.detail?.status === 403) {
+        setNeedsAuth(true);
+      }
+    }
+
+    window.addEventListener("auth-error" as string, handleAuthError as EventListener);
+    return () => {
+      window.removeEventListener("auth-error" as string, handleAuthError as EventListener);
+    };
+  }, []);
+
+  async function handleRefreshAuth() {
+    setIsRefreshing(true);
+    try {
+      const result = await getCookiesForInjection();
+      if (result.success && result.cookies) {
+        // Inject cookies into the browser
+        for (const cookie of result.cookies) {
+          document.cookie = `${cookie.name}=${encodeURIComponent(cookie.value)}; path=/`;
+        }
+        console.log("[MCP Auth] Injected", result.cookies.length, "cookies");
+        setNeedsAuth(false);
+        // Reload to apply new auth
+        window.location.reload();
+      } else {
+        console.error("[MCP Auth] Failed:", result.message);
+        alert(result.message ?? "Failed to refresh auth");
+      }
+    } catch (error) {
+      console.error("[MCP Auth] Error:", error);
+      alert("Failed to refresh auth");
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
+
+  const showRefreshAuth = isLocalhost && needsAuth;
 
   return (
     <DropdownMenu>
@@ -141,6 +194,19 @@ function SettingsDropdown() {
           <DropdownMenuItem asChild>
             <Link href="/playground">Playground</Link>
           </DropdownMenuItem>
+        )}
+        {showRefreshAuth && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={handleRefreshAuth}
+              disabled={isRefreshing}
+              className="text-amber-600 focus:text-amber-600"
+            >
+              <RefreshCw className={cn("mr-2 size-4", isRefreshing && "animate-spin")} />
+              {isRefreshing ? "Refreshing..." : "Refresh auth"}
+            </DropdownMenuItem>
+          </>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

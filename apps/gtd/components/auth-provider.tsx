@@ -23,6 +23,10 @@ import {
   isTokenExpired,
 } from "@/app/actions/session";
 import {
+  exportCookiesForMcp,
+  saveFirebaseAuthData,
+} from "@/app/actions/mcp-cookies";
+import {
   setRefreshFunction,
   clearRefreshFunction,
 } from "@/lib/token-refresh";
@@ -46,6 +50,69 @@ type AuthContextValue = AuthState & {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+/**
+ * Export Firebase Auth IndexedDB data for MCP server use.
+ * This runs client-side and sends the data to a server action to save.
+ */
+async function exportFirebaseAuthForMcp(): Promise<void> {
+  try {
+    // Only run in development
+    if (process.env.NODE_ENV !== "development") return;
+
+    const authData = await new Promise<Array<{ fpiKey: string; value: unknown }>>(
+      (resolve, reject) => {
+        const request = indexedDB.open("firebaseLocalStorageDb", 1);
+
+        request.onerror = () => reject(request.error);
+
+        request.onsuccess = (event) => {
+          const db = (event.target as IDBOpenDBRequest).result;
+          
+          // Check if the object store exists
+          if (!db.objectStoreNames.contains("firebaseLocalStorage")) {
+            resolve([]);
+            return;
+          }
+          
+          const transaction = db.transaction(["firebaseLocalStorage"], "readonly");
+          const store = transaction.objectStore("firebaseLocalStorage");
+          const getAllRequest = store.getAll();
+          const getAllKeysRequest = store.getAllKeys();
+
+          const results: Array<{ fpiKey: string; value: unknown }> = [];
+
+          getAllRequest.onsuccess = () => {
+            getAllKeysRequest.onsuccess = () => {
+              const values = getAllRequest.result;
+              const keys = getAllKeysRequest.result;
+              
+              for (let i = 0; i < keys.length; i++) {
+                results.push({
+                  fpiKey: String(keys[i]),
+                  value: values[i],
+                });
+              }
+              resolve(results);
+            };
+          };
+
+          getAllRequest.onerror = () => reject(getAllRequest.error);
+        };
+      }
+    );
+
+    if (authData.length > 0) {
+      const result = await saveFirebaseAuthData(authData);
+      if (result.success) {
+        console.log("[MCP] Firebase Auth data exported for MCP server");
+      }
+    }
+  } catch (error) {
+    // Silently ignore - this is just for dev convenience
+    console.debug("[MCP] Firebase Auth export failed:", error);
+  }
+}
 
 type AuthProviderProps = {
   children: ReactNode;
@@ -126,6 +193,18 @@ export function AuthProvider({ children, initialUser = null }: AuthProviderProps
         expiresAt: result.tokens.expiresAt,
       });
 
+      // Auto-export cookies for MCP server (localhost only)
+      exportCookiesForMcp().then((result) => {
+        if (result.success) {
+          console.log("[MCP] Cookies auto-exported for MCP server");
+        }
+      }).catch(() => {
+        // Silently ignore - this is just for dev convenience
+      });
+
+      // Also export Firebase Auth IndexedDB data for MCP server
+      exportFirebaseAuthForMcp();
+
       setUser(serializedUser);
       setAnalyticsUserId(serializedUser.uid);
       trackLoginSuccess();
@@ -194,6 +273,14 @@ export function AuthProvider({ children, initialUser = null }: AuthProviderProps
             user: serializedUser,
             expiresAt: result.tokens.expiresAt,
           });
+
+          // Auto-export cookies for MCP server (localhost only)
+          exportCookiesForMcp().catch(() => {
+            // Silently ignore
+          });
+
+          // Also export Firebase Auth IndexedDB data for MCP server
+          exportFirebaseAuthForMcp();
 
           setUser(serializedUser);
         } catch (error) {
