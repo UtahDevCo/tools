@@ -165,7 +165,7 @@ function SettingsDropdown() {
     }
   }
 
-  const showRefreshAuth = isLocalhost && needsAuth;
+  const showRefreshAuth = isLocalhost;
 
   return (
     <DropdownMenu>
