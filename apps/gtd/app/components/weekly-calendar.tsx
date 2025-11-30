@@ -56,6 +56,7 @@ const WEEKDAY_TASK_ROWS = 10;
 const WEEKEND_TASK_ROWS = 4;
 const LOCALFORAGE_KEYS = {
   SORT: "gtd-list-sort-preference",
+  SKIP_MOVE_CONFIRM: "gtd-skip-move-confirm",
 };
 
 export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
@@ -94,12 +95,12 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showMoveConfirm, setShowMoveConfirm] = useState<{ listId: string; listName: string; dueDate?: string } | null>(null);
 
-  // Localforage for sort order preference
+  // Localforage for user preferences
   const {
-    values: [sortPreference],
+    values: [sortPreference, skipMoveConfirm],
     setItem,
-  } = useLocalforage<[SortPreference | null]>(
-    [LOCALFORAGE_KEYS.SORT],
+  } = useLocalforage<[SortPreference | null, boolean | null]>(
+    [LOCALFORAGE_KEYS.SORT, LOCALFORAGE_KEYS.SKIP_MOVE_CONFIRM],
     { storeName: "gtd-settings" }
   );
 
@@ -192,6 +193,8 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
   const handleEnterMultiSelect = useCallback((taskId: string) => {
     setIsMultiSelectMode(true);
     setSelectedTaskIds(new Set([taskId]));
+    // Default to move targeting mode when entering via move button
+    setIsMoveTargetingActive(true);
   }, []);
 
   const handleToggleTaskSelection = useCallback((taskId: string) => {
@@ -220,10 +223,6 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
     setIsMoveTargetingActive(false);
   }, []);
 
-  const handleSelectMoveTarget = useCallback((listId: string, listName: string, dueDate?: string) => {
-    setShowMoveConfirm({ listId, listName, dueDate });
-  }, []);
-
   // Get all tasks for the selected IDs
   const { allTasks, refresh } = useTasks();
 
@@ -231,9 +230,8 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
     return allTasks.filter((task) => selectedTaskIds.has(task.id));
   }, [allTasks, selectedTaskIds]);
 
-  const handleConfirmMove = useCallback(async () => {
-    if (!showMoveConfirm) return;
-
+  // Core move function used by both direct move and confirmed move
+  const performMove = useCallback(async (targetListId: string, targetListName: string, targetDueDate?: string) => {
     const selectedTasks = getSelectedTasks();
     const tasksToMove = selectedTasks.map((task) => ({
       listId: task.listId,
@@ -241,13 +239,13 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
       title: task.title,
       notes: task.notes ?? undefined,
       // Use the target due date if moving to a date column, otherwise keep existing
-      due: showMoveConfirm.dueDate ?? task.due ?? undefined,
+      due: targetDueDate ?? task.due ?? undefined,
     }));
 
-    const result = await moveTasksToList(tasksToMove, showMoveConfirm.listId);
+    const result = await moveTasksToList(tasksToMove, targetListId);
 
     if (result.success) {
-      toast(`Moved ${result.data.moved} task${result.data.moved !== 1 ? "s" : ""} to ${showMoveConfirm.listName}`);
+      toast(`Moved ${result.data.moved} task${result.data.moved !== 1 ? "s" : ""} to ${targetListName}`);
       if (result.data.failed > 0) {
         toast(`Failed to move ${result.data.failed} task${result.data.failed !== 1 ? "s" : ""}`, { duration: 5000 });
       }
@@ -256,9 +254,28 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
       toast("Failed to move tasks", { duration: 5000 });
     }
 
-    setShowMoveConfirm(null);
     handleExitMultiSelect();
-  }, [showMoveConfirm, getSelectedTasks, refresh, handleExitMultiSelect]);
+  }, [getSelectedTasks, refresh, handleExitMultiSelect]);
+
+  const handleSelectMoveTarget = useCallback((listId: string, listName: string, dueDate?: string) => {
+    if (skipMoveConfirm) {
+      // Skip confirmation and move directly
+      performMove(listId, listName, dueDate);
+    } else {
+      // Show confirmation dialog
+      setShowMoveConfirm({ listId, listName, dueDate });
+    }
+  }, [skipMoveConfirm, performMove]);
+
+  const handleConfirmMove = useCallback(async () => {
+    if (!showMoveConfirm) return;
+    await performMove(showMoveConfirm.listId, showMoveConfirm.listName, showMoveConfirm.dueDate);
+    setShowMoveConfirm(null);
+  }, [showMoveConfirm, performMove]);
+
+  const handleToggleSkipMoveConfirm = useCallback((skip: boolean) => {
+    setItem(LOCALFORAGE_KEYS.SKIP_MOVE_CONFIRM, skip);
+  }, [setItem]);
 
   const handleConfirmDelete = useCallback(async () => {
     const selectedTasks = getSelectedTasks();
@@ -291,13 +308,8 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
         return;
       }
 
-      // Escape exits multi-select mode
+      // Escape exits multi-select mode entirely
       if (e.key === "Escape") {
-        if (isMoveTargetingActive) {
-          e.preventDefault();
-          setIsMoveTargetingActive(false);
-          return;
-        }
         if (isMultiSelectMode) {
           e.preventDefault();
           handleExitMultiSelect();
@@ -316,7 +328,7 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
         handleToday();
       }
     },
-    [handlePrevious, handleNext, handleToday, isMultiSelectMode, isMoveTargetingActive, handleExitMultiSelect]
+    [handlePrevious, handleNext, handleToday, isMultiSelectMode, handleExitMultiSelect]
   );
 
   useKeydown({ isActive: true, callback: handleKeydown }, [handleKeydown]);
@@ -404,6 +416,8 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
         selectedCount={selectedTaskIds.size}
         targetListName={showMoveConfirm?.listName ?? ""}
         onConfirm={handleConfirmMove}
+        skipConfirm={skipMoveConfirm ?? false}
+        onSkipConfirmChange={handleToggleSkipMoveConfirm}
       />
 
       <TaskEditDrawer
@@ -1797,33 +1811,32 @@ function MultiSelectActionsBar({
       
       <div className="w-px h-6 bg-zinc-200" />
       
-      {isMoveTargetingActive ? (
-        <Typography variant="default" className="text-sm text-orange-600 font-medium">
-          Select a list to move to
-        </Typography>
-      ) : (
-        <>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onMove}
-            className="h-8 gap-1.5 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-          >
-            <Move className="size-4" />
-            Move
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onDelete}
-            className="h-8 gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50"
-          >
-            <Trash2 className="size-4" />
-            Delete
-          </Button>
-        </>
-      )}
+      {/* Move button - highlighted when active, clickable to activate if not */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={isMoveTargetingActive ? undefined : onMove}
+        className={cn(
+          "h-8 gap-1.5",
+          isMoveTargetingActive 
+            ? "bg-orange-100 text-orange-700 cursor-default" 
+            : "text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+        )}
+      >
+        <Move className="size-4" />
+        Move
+      </Button>
+      
+      {/* Delete button - always available */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onDelete}
+        className="h-8 gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50"
+      >
+        <Trash2 className="size-4" />
+        Delete
+      </Button>
       
       <div className="w-px h-6 bg-zinc-200" />
       
@@ -1882,6 +1895,8 @@ type ConfirmMoveDialogProps = {
   selectedCount: number;
   targetListName: string;
   onConfirm: () => void;
+  skipConfirm: boolean;
+  onSkipConfirmChange: (skip: boolean) => void;
 };
 
 function ConfirmMoveDialog({
@@ -1890,6 +1905,8 @@ function ConfirmMoveDialog({
   selectedCount,
   targetListName,
   onConfirm,
+  skipConfirm,
+  onSkipConfirmChange,
 }: ConfirmMoveDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1900,6 +1917,19 @@ function ConfirmMoveDialog({
             Move the selected task{selectedCount !== 1 ? "s" : ""} to <strong>{targetListName}</strong>?
           </DialogDescription>
         </DialogHeader>
+        <div className="flex items-center gap-2 py-2">
+          <Checkbox
+            id="skip-move-confirm"
+            checked={skipConfirm}
+            onCheckedChange={(checked) => onSkipConfirmChange(checked === true)}
+          />
+          <label 
+            htmlFor="skip-move-confirm" 
+            className="text-sm text-zinc-600 cursor-pointer select-none"
+          >
+            Don&apos;t ask again
+          </label>
+        </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
