@@ -13,6 +13,10 @@ import {
   Popover,
   PopoverTrigger,
   PopoverContent,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
   useKeydown,
   useLocalforage,
   toast,
@@ -132,7 +136,8 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
   startDate.setDate(today.getDate() + dayOffset);
 
   const { days, columns } = getDaysForFourColumns(startDate);
-  const headerText = formatDateRange(days);
+  const headerText = formatDateRange(days, false);
+  const headerTextShort = formatDateRange(days, true);
 
   const handlePrevious = useCallback(() => {
     setDayOffset((prev) => prev - 4);
@@ -338,6 +343,7 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
     <div className={cn("flex h-screen flex-col px-1 bg-white", className)}>
       <CalendarHeader
         headerText={headerText}
+        headerTextShort={headerTextShort}
         onPrevious={handlePrevious}
         onNext={handleNext}
         onToday={handleToday}
@@ -418,6 +424,7 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
 
 type CalendarHeaderProps = {
   headerText: string;
+  headerTextShort: string;
   onPrevious: () => void;
   onNext: () => void;
   onToday: () => void;
@@ -427,6 +434,7 @@ type CalendarHeaderProps = {
 
 function CalendarHeader({
   headerText,
+  headerTextShort,
   onPrevious,
   onNext,
   onToday,
@@ -438,10 +446,11 @@ function CalendarHeader({
       "flex items-center justify-between px-4 py-4 sticky top-0 z-30 transition-colors duration-200",
       isScrolled ? "bg-zinc-100" : "bg-white"
     )}>
-      <Typography variant="headline">{headerText}</Typography>
+      <Typography variant="headline" className="hidden md:block">{headerText}</Typography>
+      <Typography variant="headline" className="md:hidden">{headerTextShort}</Typography>
       <div className="flex items-center gap-2">
         <UserAvatar />
-        <SettingsPopover />
+        <SettingsDropdown />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -498,10 +507,15 @@ function CalendarHeader({
   );
 }
 
-function SettingsPopover() {
+function SettingsDropdown() {
+  const [isLocalhost] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.location.hostname === "localhost";
+  });
+
   return (
-    <Popover>
-      <PopoverTrigger asChild>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
           size="icon"
@@ -509,18 +523,25 @@ function SettingsPopover() {
         >
           <MoreVertical className="size-4" />
         </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-48">
-        <nav className="flex flex-col gap-2">
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuItem asChild>
           <Link
-            href="/playground"
-            className="text-sm hover:text-orange-500 transition-colors"
+            href="https://tasks.google.com/tasks/"
+            target="_blank"
           >
-            Playground
+            Google Tasks
           </Link>
-        </nav>
-      </PopoverContent>
-    </Popover>
+        </DropdownMenuItem>
+        {isLocalhost && (
+          <DropdownMenuItem asChild>
+            <Link href="/playground">
+              Playground
+            </Link>
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -1067,7 +1088,8 @@ function SectionColumn({
   onToggleTaskSelection: (taskId: string) => void;
   onSelectMoveTarget: (listId: string, listName: string, dueDate?: string) => void;
 }) {
-  const emptyRowCount = Math.max(0, SECTION_MIN_ROWS - tasks.length);
+  const desktopEmptyRowCount = Math.max(0, SECTION_MIN_ROWS - tasks.length);
+  const mobileEmptyRowCount = Math.max(0, 1 - tasks.length);
 
   const handleHeaderClick = isMoveTargetingActive && listId
     ? () => onSelectMoveTarget(listId, title)
@@ -1095,13 +1117,29 @@ function SectionColumn({
         />
       ))}
 
-      {/* Empty rows to fill minimum height - clickable for new tasks */}
-      {Array.from({ length: emptyRowCount }).map((_, i) => (
-        <TaskRow 
-          key={`empty-${i}`} 
-          onClick={listId ? () => onNewTaskClick(listId, title) : undefined}
-        />
-      ))}
+      {/* Empty rows - 1 on mobile, up to SECTION_MIN_ROWS on desktop */}
+      <div className="md:hidden">
+        {Array.from({ length: mobileEmptyRowCount }).map((_, i) => (
+          <TaskRow 
+            key={`empty-mobile-${i}`} 
+            onClick={listId ? () => onNewTaskClick(listId, title) : undefined}
+          />
+        ))}
+        {/* Always show at least one empty row on mobile for adding tasks */}
+        {tasks.length > 0 && (
+          <TaskRow 
+            onClick={listId ? () => onNewTaskClick(listId, title) : undefined}
+          />
+        )}
+      </div>
+      <div className="hidden md:block">
+        {Array.from({ length: desktopEmptyRowCount }).map((_, i) => (
+          <TaskRow 
+            key={`empty-desktop-${i}`} 
+            onClick={listId ? () => onNewTaskClick(listId, title) : undefined}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -1123,6 +1161,8 @@ function OverdueColumn({
   onEnterMultiSelect,
   onToggleTaskSelection,
 }: OverdueColumnProps) {
+  const desktopEmptyRowCount = Math.max(0, SECTION_MIN_ROWS - tasks.length);
+
   return (
     <div className="flex flex-col break-inside-avoid mb-6">
       {/* Overdue header - red warning styling */}
@@ -1144,6 +1184,13 @@ function OverdueColumn({
           onToggleSelection={onToggleTaskSelection}
         />
       ))}
+
+      {/* Empty rows for consistent height on desktop */}
+      <div className="hidden md:block">
+        {Array.from({ length: desktopEmptyRowCount }).map((_, i) => (
+          <TaskRow key={`empty-desktop-${i}`} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -1906,23 +1953,12 @@ function isWeekend(date: Date): boolean {
   return dayOfWeek === 0 || dayOfWeek === 6; // Sunday = 0, Saturday = 6
 }
 
-function formatDateRange(days: WeekDay[]): string {
+function formatDateRange(days: WeekDay[], short: boolean = false): string {
   if (days.length === 0) return "";
 
   const firstDay = days[0];
-  const lastDay = days[days.length - 1];
+  const firstMonth = firstDay.date.toLocaleDateString("en-US", { month: short ? "short" : "long" });
+  const year = firstDay.date.getFullYear();
 
-  const firstMonth = firstDay.date.toLocaleDateString("en-US", { month: "long" });
-  const lastMonth = lastDay.date.toLocaleDateString("en-US", { month: "long" });
-  const year = lastDay.date.getFullYear();
-
-  // If same month, show "November 2025"
-  // If different months, show "Nov - Dec 2025"
-  if (firstMonth === lastMonth) {
-    return `${firstMonth} ${year}`;
-  }
-
-  const firstMonthShort = firstDay.date.toLocaleDateString("en-US", { month: "short" });
-  const lastMonthShort = lastDay.date.toLocaleDateString("en-US", { month: "short" });
-  return `${firstMonthShort} - ${lastMonthShort} ${year}`;
+  return `${firstMonth} ${year}`;
 }

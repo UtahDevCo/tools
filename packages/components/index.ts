@@ -35,6 +35,23 @@ export {
   DialogTrigger,
 } from "./src/ui/dialog";
 export { Checkbox } from "./src/ui/checkbox";
+export {
+  DropdownMenu,
+  DropdownMenuPortal,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuItem,
+  DropdownMenuCheckboxItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+} from "./src/ui/dropdown-menu";
 
 // Custom components
 export { Drawer, DrawerViewport } from "./src/drawer";

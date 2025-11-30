@@ -154,7 +154,12 @@ export function TaskEditDrawer({
   // Check if selected list is "Active"
   const isActiveList = gtdLists && selectedListId === gtdLists.active.id;
 
+  // Form validation
+  const isFormValid =
+    title.trim().length > 0 && (selectedListId || defaultListId);
+
   const handleSave = useCallback(async () => {
+    if (!isFormValid) return;
     setIsSaving(true);
 
     try {
@@ -202,6 +207,7 @@ export function TaskEditDrawer({
     }
   }, [
     isCreateMode,
+    isFormValid,
     task,
     title,
     notes,
@@ -259,6 +265,14 @@ export function TaskEditDrawer({
   // Check if selected list is an "Other" list (non-GTD)
   const isOtherList = otherListOptions.some((l) => l.id === selectedListId);
 
+  // Handle form submission via Enter key
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey && isFormValid && !isSaving) {
+      e.preventDefault();
+      handleSave();
+    }
+  };
+
   return (
     <Drawer
       open={open}
@@ -270,7 +284,7 @@ export function TaskEditDrawer({
         <div className="flex flex-row-reverse gap-2 justify-end">
           <Button
             onClick={handleSave}
-            disabled={isSaving || !title.trim()}
+            disabled={isSaving || !isFormValid}
             tabIndex={0}
           >
             {isSaving ? "Saving..." : isCreateMode ? "Create" : "Save"}
@@ -300,7 +314,7 @@ export function TaskEditDrawer({
         </div>
       }
     >
-      <div ref={drawerContentRef} className="p-4 space-y-4">
+      <div ref={drawerContentRef} className="p-4 space-y-4" onKeyDown={handleKeyDown}>
         {/* Title */}
         <div>
           <Label htmlFor="task-title">Title</Label>
@@ -321,6 +335,12 @@ export function TaskEditDrawer({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Add notes..."
+            onKeyDown={(e) => {
+              // Allow Shift+Enter for newlines in textarea
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.stopPropagation();
+              }
+            }}
           />
         </div>
 
