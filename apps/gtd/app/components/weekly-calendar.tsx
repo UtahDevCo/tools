@@ -34,6 +34,7 @@ import { useTasks, type TaskWithListInfo } from "@/providers/tasks-provider";
 import { type TaskWithParsedDate, type TaskList } from "@/lib/google-tasks/types";
 import { TaskEditDrawer } from "./task-edit-drawer";
 import { LoginRequiredModal } from "./login-required-modal";
+import { LoadingOverlay } from "./loading-overlay";
 import { moveTasksToList, deleteTasks } from "@/lib/tasks-with-refresh";
 
 type WeekDay = {
@@ -71,7 +72,8 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
     otherLists,
     isLoading: tasksLoading, 
     error, 
-    needsReauth 
+    needsReauth,
+    showLoadingOverlay,
   } = useTasks();
 
   // Selected task for drawer
@@ -432,6 +434,7 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
         open={showLoginModal}
         onClose={() => setShowLoginModal(false)}
       />
+      {showLoadingOverlay && <LoadingOverlay />}
     </div>
   );
 }

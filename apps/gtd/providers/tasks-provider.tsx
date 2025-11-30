@@ -320,6 +320,7 @@ type TasksState = {
   // Completed tasks with due dates (for calendar view only, last 30 days)
   completedTasksWithDueDates: TaskWithListInfo[];
   isLoading: boolean;
+  isInitializing: boolean; // True when authenticated but haven't loaded real data yet
   isInitializingGTD: boolean;
   error: string | null;
   needsReauth: boolean;
@@ -351,6 +352,8 @@ type TasksContextValue = TasksState & {
   optimisticUpdate: (task: TaskWithListInfo, updates: { title?: string; notes?: string }) => void;
   // Offline state
   isOffline: boolean;
+  // Show loading overlay when authenticated but initializing
+  showLoadingOverlay: boolean;
 };
 
 const TasksContext = createContext<TasksContextValue | null>(null);
@@ -410,7 +413,7 @@ function deserializeCompletedTasks(cached: CachedCompletedTasks): TaskWithListIn
 }
 
 export function TasksProvider({ children }: TasksProviderProps) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const { isOffline } = useOffline();
   
   // LocalForage for caching tasks
@@ -427,6 +430,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
     gtdLists: null,
     completedTasksWithDueDates: [],
     isLoading: false,
+    isInitializing: true, // Start as initializing until we determine auth state
     isInitializingGTD: false,
     error: null,
     needsReauth: false,
@@ -525,6 +529,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
         gtdLists: demoData.gtdLists,
         completedTasksWithDueDates: completedWithListInfo,
         isLoading: false,
+        isInitializing: false,
         isInitializingGTD: false,
         error: null,
         needsReauth: false,
@@ -544,6 +549,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
         gtdLists: cachedGtdLists ?? null,
         completedTasksWithDueDates: completedWithListInfo,
         isLoading: false,
+        isInitializing: false,
         isInitializingGTD: false,
         error: null,
         needsReauth: false,
@@ -552,7 +558,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
       return;
     }
 
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
+    setState((prev) => ({ ...prev, isLoading: true, isInitializing: false, error: null }));
 
     try {
       // Token refresh is handled automatically by withAutoRefresh wrapper
@@ -570,6 +576,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
             gtdLists: cachedGtdLists ?? null,
             completedTasksWithDueDates: completedWithListInfo,
             isLoading: false,
+            isInitializing: false,
             isInitializingGTD: false,
             error: null,
             needsReauth: result.needsReauth ?? false,
@@ -582,6 +589,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
           ...prev,
           taskLists: [],
           isLoading: false,
+          isInitializing: false,
           error: result.error,
           needsReauth: result.needsReauth ?? false,
         }));
@@ -592,6 +600,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
         ...prev,
         taskLists: result.data,
         isLoading: false,
+        isInitializing: false,
         error: null,
         needsReauth: false,
       }));
@@ -615,6 +624,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
           gtdLists: cachedGtdLists ?? null,
           completedTasksWithDueDates: completedWithListInfo,
           isLoading: false,
+          isInitializing: false,
           isInitializingGTD: false,
           error: null,
           needsReauth: false,
@@ -627,6 +637,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
         ...prev,
         taskLists: [],
         isLoading: false,
+        isInitializing: false,
         error: "Failed to fetch tasks",
         needsReauth: false,
       }));
@@ -906,6 +917,11 @@ export function TasksProvider({ children }: TasksProviderProps) {
     []
   );
 
+  // Show loading overlay when:
+  // 1. Auth is still loading (we don't know if user is authenticated yet)
+  // 2. User is authenticated but tasks are still initializing (haven't loaded real data)
+  const showLoadingOverlay = isAuthLoading || (isAuthenticated && state.isInitializing);
+
   const value: TasksContextValue = {
     ...state,
     allTasks,
@@ -922,6 +938,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
     optimisticDelete,
     optimisticUpdate,
     isOffline,
+    showLoadingOverlay,
   };
 
   return (
