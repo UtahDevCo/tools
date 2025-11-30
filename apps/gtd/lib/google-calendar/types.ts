@@ -1,5 +1,26 @@
 import { z } from "zod";
 
+// Calendar list entry schema (for listing user's calendars)
+export const CalendarListEntrySchema = z.object({
+  id: z.string(),
+  summary: z.string().optional(), // Calendar name
+  description: z.string().optional(),
+  primary: z.boolean().optional(),
+  backgroundColor: z.string().optional(), // Hex color like "#9fe1e7"
+  foregroundColor: z.string().optional(),
+  accessRole: z.enum(["freeBusyReader", "reader", "writer", "owner"]).optional(),
+  selected: z.boolean().optional(), // Whether shown in Google Calendar UI
+});
+
+export const CalendarListResponseSchema = z.object({
+  kind: z.string().default("calendar#calendarList"),
+  items: z.array(CalendarListEntrySchema).optional(),
+  nextPageToken: z.string().optional(),
+});
+
+export type CalendarListEntry = z.infer<typeof CalendarListEntrySchema>;
+export type CalendarListResponse = z.infer<typeof CalendarListResponseSchema>;
+
 // Google Calendar API response schemas
 export const CalendarEventAttendeeSchema = z.object({
   email: z.string().optional(),

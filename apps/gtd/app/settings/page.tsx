@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import {
@@ -17,6 +17,8 @@ import {
 import { useSettings } from "@/providers/settings-provider";
 import { useAuth } from "@/components/auth-provider";
 import { toast } from "@repo/components";
+import { getCalendarList } from "@/lib/calendar-with-refresh";
+import type { CalendarListEntry } from "@/lib/google-calendar/types";
 
 function SettingsSection({
   title,
@@ -35,11 +37,82 @@ function SettingsSection({
   );
 }
 
+function CalendarToggleItem({
+  calendar,
+  isSelected,
+  onToggle,
+  disabled,
+}: {
+  calendar: CalendarListEntry;
+  isSelected: boolean;
+  onToggle: (enabled: boolean) => void;
+  disabled: boolean;
+}) {
+  const displayName = calendar.summary ?? "Unnamed Calendar";
+  const isPrimary = calendar.primary ?? false;
+  
+  return (
+    <div className="flex items-center justify-between gap-3 py-1">
+      <div className="flex items-center gap-3">
+        {/* Color indicator using calendar's native backgroundColor */}
+        <div
+          className="size-4 shrink-0 rounded"
+          style={{ backgroundColor: calendar.backgroundColor ?? "#4285f4" }}
+        />
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-zinc-900">{displayName}</span>
+          {isPrimary && (
+            <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-500">
+              Primary
+            </span>
+          )}
+        </div>
+      </div>
+      <Switch
+        checked={isSelected}
+        onCheckedChange={onToggle}
+        disabled={disabled}
+        aria-label={`Toggle ${displayName} calendar`}
+      />
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { settings, updateSetting, isLoading: settingsLoading } = useSettings();
-  const { signOut } = useAuth();
+  const { signOut, isAuthenticated } = useAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCalendarSaving, setIsCalendarSaving] = useState(false);
+  const [calendars, setCalendars] = useState<CalendarListEntry[]>([]);
+  const [calendarsLoading, setCalendarsLoading] = useState(false);
+
+  // Fetch available calendars on mount
+  const fetchCalendars = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
+    setCalendarsLoading(true);
+    try {
+      const result = await getCalendarList();
+      if (result.success) {
+        // Sort: primary first, then alphabetically by summary
+        const sorted = result.data.sort((a, b) => {
+          if (a.primary) return -1;
+          if (b.primary) return 1;
+          return (a.summary ?? "").localeCompare(b.summary ?? "");
+        });
+        setCalendars(sorted);
+      }
+    } catch (error) {
+      console.error("Failed to fetch calendars:", error);
+    } finally {
+      setCalendarsLoading(false);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    fetchCalendars();
+  }, [fetchCalendars]);
 
   async function handleSettingChange<K extends keyof typeof settings>(
     key: K,
@@ -54,6 +127,53 @@ export default function SettingsPage() {
       toast.error("Failed to save setting");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  // Calendar selection uses a separate saving state to prevent blocking other UI
+
+  async function handleCalendarToggle(calendarId: string, enabled: boolean) {
+    const currentIds = settings.selectedCalendarIds ?? [];
+    const newIds = enabled
+      ? [...currentIds, calendarId]
+      : currentIds.filter((id) => id !== calendarId);
+    
+    setIsCalendarSaving(true);
+    try {
+      await updateSetting("selectedCalendarIds", newIds);
+      toast.success("Calendar updated");
+    } catch (error) {
+      console.error("Failed to update calendar selection:", error);
+      toast.error("Failed to update calendar");
+    } finally {
+      setIsCalendarSaving(false);
+    }
+  }
+
+  async function handleSelectAllCalendars() {
+    const allIds = calendars.map((c) => c.id);
+    setIsCalendarSaving(true);
+    try {
+      await updateSetting("selectedCalendarIds", allIds);
+      toast.success("All calendars selected");
+    } catch (error) {
+      console.error("Failed to select all calendars:", error);
+      toast.error("Failed to update calendars");
+    } finally {
+      setIsCalendarSaving(false);
+    }
+  }
+
+  async function handleDeselectAllCalendars() {
+    setIsCalendarSaving(true);
+    try {
+      await updateSetting("selectedCalendarIds", []);
+      toast.success("All calendars deselected");
+    } catch (error) {
+      console.error("Failed to deselect all calendars:", error);
+      toast.error("Failed to update calendars");
+    } finally {
+      setIsCalendarSaving(false);
     }
   }
 
@@ -172,6 +292,70 @@ export default function SettingsPage() {
                 <SelectItem value="60">1 hour</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Calendars to Display */}
+          <div>
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <Label>Calendars to display</Label>
+                <Typography variant="default" color="muted" className="mt-1">
+                  Select which calendars to show in the weekly view
+                </Typography>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSelectAllCalendars}
+                  disabled={isCalendarSaving || calendarsLoading}
+                >
+                  All
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDeselectAllCalendars}
+                  disabled={isCalendarSaving || calendarsLoading}
+                >
+                  None
+                </Button>
+              </div>
+            </div>
+            
+            {calendarsLoading ? (
+              <div className="flex items-center gap-2 py-4 text-zinc-500">
+                <Loader2 className="size-4 animate-spin" />
+                <span>Loading calendars...</span>
+              </div>
+            ) : calendars.length === 0 ? (
+              <div className="py-4 text-zinc-500">
+                <Typography variant="default" color="muted">
+                  No calendars found. Sign in to see your calendars.
+                </Typography>
+              </div>
+            ) : (
+              <div className="space-y-2 rounded-lg border border-zinc-200 p-3">
+                {calendars.map((calendar) => {
+                  const isSelected = (settings.selectedCalendarIds ?? []).includes(calendar.id);
+                  return (
+                    <CalendarToggleItem
+                      key={calendar.id}
+                      calendar={calendar}
+                      isSelected={isSelected}
+                      onToggle={(enabled) => handleCalendarToggle(calendar.id, enabled)}
+                      disabled={isCalendarSaving}
+                    />
+                  );
+                })}
+              </div>
+            )}
+            
+            <Typography variant="default" color="muted" className="mt-2 text-sm">
+              {(settings.selectedCalendarIds ?? []).length === 0
+                ? "Primary calendar only"
+                : `${(settings.selectedCalendarIds ?? []).length} calendar${(settings.selectedCalendarIds ?? []).length === 1 ? "" : "s"} selected`}
+            </Typography>
           </div>
         </SettingsSection>
 

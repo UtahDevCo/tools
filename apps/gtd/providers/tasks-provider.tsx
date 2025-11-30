@@ -532,6 +532,9 @@ export function TasksProvider({ children }: TasksProviderProps) {
     const date = new Date(year, month - 1);
     const monthKey = getMonthKey(date);
     
+    // Get selected calendar IDs from settings (empty = primary only)
+    const calendarIds = settings.selectedCalendarIds ?? [];
+    
     // Check cache first
     const cacheKey = `${CACHE_KEYS.CALENDAR_EVENTS_PREFIX}${monthKey}`;
     try {
@@ -551,7 +554,9 @@ export function TasksProvider({ children }: TasksProviderProps) {
     setState((prev) => ({ ...prev, calendarEventsLoading: true }));
 
     try {
-      const result = await getCalendarEventsForMonth(year, month);
+      const result = await getCalendarEventsForMonth(year, month, calendarIds);
+
+      console.log({ year, month, result, calendarIds });
 
       if (!result.success) {
         console.error("Failed to fetch calendar events:", result.error);
@@ -575,7 +580,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
       console.error("Failed to fetch calendar events:", error);
       setState((prev) => ({ ...prev, calendarEventsLoading: false }));
     }
-  }, [isAuthenticated, isOffline, settings.showCalendarEvents]);
+  }, [isAuthenticated, isOffline, settings.showCalendarEvents, settings.selectedCalendarIds]);
 
   const refreshCalendar = useCallback(async () => {
     if (!settings.showCalendarEvents) return;

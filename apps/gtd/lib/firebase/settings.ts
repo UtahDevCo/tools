@@ -1,4 +1,10 @@
-import { doc, getDoc, setDoc, onSnapshot, type Unsubscribe } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  onSnapshot,
+  type Unsubscribe,
+} from "firebase/firestore";
 import { getFirebaseFirestore } from "./config";
 import { z } from "zod";
 
@@ -7,9 +13,12 @@ export const UserSettingsSchema = z.object({
   // Calendar settings
   showCalendarEvents: z.boolean().default(true),
   calendarRefreshIntervalMinutes: z.number().min(1).max(60).default(5),
+  selectedCalendarIds: z.array(z.string()).default([]), // Empty = primary only
 
   // Task settings
-  defaultGtdList: z.enum(["active", "next", "waiting", "someday"]).default("next"),
+  defaultGtdList: z
+    .enum(["active", "next", "waiting", "someday"])
+    .default("next"),
   showCompletedDuration: z.number().min(1).max(90).default(30), // days
 
   // Display settings

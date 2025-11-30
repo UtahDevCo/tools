@@ -1,8 +1,10 @@
 import { calendar_v3, auth } from "@googleapis/calendar";
 import {
   CalendarEventsResponseSchema,
+  CalendarListResponseSchema,
   type CalendarEvent,
   type CalendarEventWithParsedDate,
+  type CalendarListEntry,
   parseCalendarEvent,
 } from "./types";
 
@@ -11,6 +13,35 @@ export function createCalendarClient(accessToken: string): calendar_v3.Calendar 
   oauth2Client.setCredentials({ access_token: accessToken });
 
   return new calendar_v3.Calendar({ auth: oauth2Client });
+}
+
+/**
+ * Fetch user's calendar list
+ */
+export async function listCalendars(
+  client: calendar_v3.Calendar
+): Promise<CalendarListEntry[]> {
+  const allCalendars: CalendarListEntry[] = [];
+  let pageToken: string | undefined = undefined;
+
+  do {
+    const response = await client.calendarList.list({
+      pageToken,
+      showHidden: false,
+      showDeleted: false,
+    });
+
+    const parsed = CalendarListResponseSchema.parse(response.data, {
+      reportInput: true,
+    });
+
+    if (parsed.items) {
+      allCalendars.push(...parsed.items);
+    }
+    pageToken = parsed.nextPageToken;
+  } while (pageToken);
+
+  return allCalendars;
 }
 
 /**

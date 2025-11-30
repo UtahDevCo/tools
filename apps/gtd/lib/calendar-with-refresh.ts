@@ -14,8 +14,9 @@ import { withAutoRefresh } from "@/lib/token-refresh";
 import {
   getCalendarEventsForMonth as getCalendarEventsForMonthAction,
   getCalendarEvents as getCalendarEventsAction,
+  getCalendarList as getCalendarListAction,
 } from "@/app/actions/calendar";
-import type { CalendarEventWithParsedDate } from "@/lib/google-calendar/types";
+import type { CalendarEventWithParsedDate, CalendarListEntry } from "@/lib/google-calendar/types";
 
 /**
  * Get month key for caching (YYYY-MM format)
@@ -32,21 +33,32 @@ type CalendarResult<T> =
   | { success: false; error: string; needsReauth?: boolean };
 
 /**
+ * Get list of user's calendars with automatic token refresh on expiration.
+ */
+export async function getCalendarList(): Promise<CalendarResult<CalendarListEntry[]>> {
+  return withAutoRefresh(() => getCalendarListAction());
+}
+
+/**
  * Get calendar events for a specific month with automatic token refresh on expiration.
+ * @param calendarIds - Array of calendar IDs to fetch. Empty array = primary only.
  */
 export async function getCalendarEventsForMonth(
   year: number,
-  month: number
+  month: number,
+  calendarIds: string[] = []
 ): Promise<CalendarResult<CalendarEventWithParsedDate[]>> {
-  return withAutoRefresh(() => getCalendarEventsForMonthAction(year, month));
+  return withAutoRefresh(() => getCalendarEventsForMonthAction(year, month, calendarIds));
 }
 
 /**
  * Get calendar events for a date range with automatic token refresh on expiration.
+ * @param calendarIds - Array of calendar IDs to fetch. Empty array = primary only.
  */
 export async function getCalendarEvents(
   timeMin: string,
-  timeMax: string
+  timeMax: string,
+  calendarIds: string[] = []
 ): Promise<CalendarResult<CalendarEventWithParsedDate[]>> {
-  return withAutoRefresh(() => getCalendarEventsAction(timeMin, timeMax));
+  return withAutoRefresh(() => getCalendarEventsAction(timeMin, timeMax, calendarIds));
 }
