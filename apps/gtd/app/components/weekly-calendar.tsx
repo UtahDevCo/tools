@@ -34,7 +34,7 @@ import { useTasks, type TaskWithListInfo } from "@/providers/tasks-provider";
 import { type TaskWithParsedDate, type TaskList } from "@/lib/google-tasks/types";
 import { TaskEditDrawer } from "./task-edit-drawer";
 import { LoginRequiredModal } from "./login-required-modal";
-import { moveTasksToList, deleteTasks } from "@/app/actions/tasks";
+import { moveTasksToList, deleteTasks } from "@/lib/tasks-with-refresh";
 
 type WeekDay = {
   date: Date;

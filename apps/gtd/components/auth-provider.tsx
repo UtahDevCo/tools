@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import {
@@ -21,6 +22,10 @@ import {
   getUserFromCookies,
   isTokenExpired,
 } from "@/app/actions/session";
+import {
+  setRefreshFunction,
+  clearRefreshFunction,
+} from "@/lib/token-refresh";
 
 type AuthState = {
   user: SerializableUser | null;
@@ -44,6 +49,9 @@ type AuthProviderProps = {
 export function AuthProvider({ children, initialUser = null }: AuthProviderProps) {
   const [user, setUser] = useState<SerializableUser | null>(initialUser);
   const [isLoading, setIsLoading] = useState(!initialUser);
+  
+  // Use ref to track if refresh is in progress to prevent concurrent refreshes
+  const isRefreshingRef = useRef(false);
 
   const isAuthenticated = !!user;
 
@@ -124,6 +132,8 @@ export function AuthProvider({ children, initialUser = null }: AuthProviderProps
   const signOut = useCallback(async () => {
     setIsLoading(true);
     try {
+      // Clear the refresh function before signing out
+      clearRefreshFunction();
       await firebaseSignOut();
       await clearSessionCookies();
       setUser(null);
@@ -136,9 +146,52 @@ export function AuthProvider({ children, initialUser = null }: AuthProviderProps
   }, []);
 
   const refreshSession = useCallback(async () => {
-    // Re-authenticate to get fresh tokens
-    await signIn();
+    // Prevent concurrent refresh attempts
+    if (isRefreshingRef.current) {
+      return;
+    }
+    isRefreshingRef.current = true;
+    try {
+      // Re-authenticate to get fresh tokens
+      await signIn();
+    } finally {
+      isRefreshingRef.current = false;
+    }
   }, [signIn]);
+
+  // Register the refresh function with the token coordinator
+  // This allows automatic token refresh from any part of the app
+  useEffect(() => {
+    if (isAuthenticated) {
+      setRefreshFunction(async () => {
+        // Prevent concurrent refresh attempts
+        if (isRefreshingRef.current) {
+          return;
+        }
+        isRefreshingRef.current = true;
+        try {
+          const result = await firebaseSignIn();
+          const serializedUser = serializeUser(result.user);
+
+          await setSessionCookies({
+            accessToken: result.tokens.accessToken,
+            user: serializedUser,
+            expiresAt: result.tokens.expiresAt,
+          });
+
+          setUser(serializedUser);
+        } finally {
+          isRefreshingRef.current = false;
+        }
+      });
+    } else {
+      clearRefreshFunction();
+    }
+
+    return () => {
+      clearRefreshFunction();
+    };
+  }, [isAuthenticated]);
 
   const value: AuthContextValue = {
     user,

@@ -23,7 +23,7 @@ import {
   DialogTitle,
 } from "@repo/components";
 import { useTasks, type TaskWithListInfo } from "@/providers/tasks-provider";
-import { updateTask, createTask, deleteTask } from "@/app/actions/tasks";
+import { updateTask, createTask, deleteTask } from "@/lib/tasks-with-refresh";
 
 type TaskEditDrawerProps = {
   task: TaskWithListInfo | null;

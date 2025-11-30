@@ -19,7 +19,7 @@ import {
   deleteTask,
   updateTask,
   type GTDLists,
-} from "@/app/actions/tasks";
+} from "@/lib/tasks-with-refresh";
 import {
   type TaskList,
   type TaskWithParsedDate,
@@ -410,7 +410,7 @@ function deserializeCompletedTasks(cached: CachedCompletedTasks): TaskWithListIn
 }
 
 export function TasksProvider({ children }: TasksProviderProps) {
-  const { isAuthenticated, refreshSession } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { isOffline } = useOffline();
   
   // LocalForage for caching tasks
@@ -555,35 +555,11 @@ export function TasksProvider({ children }: TasksProviderProps) {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
+      // Token refresh is handled automatically by withAutoRefresh wrapper
       const result = await getAllTasks({ showCompleted: false });
 
       if (!result.success) {
-        // If token expired, try to refresh session
-        if (result.needsReauth) {
-          try {
-            await refreshSession();
-            // Retry after refresh
-            const retryResult = await getAllTasks({ showCompleted: false });
-            if (retryResult.success) {
-              setState((prev) => ({
-                ...prev,
-                taskLists: retryResult.data,
-                isLoading: false,
-                error: null,
-                needsReauth: false,
-              }));
-              // Cache the results
-              setCacheItem(CACHE_KEYS.TASK_LISTS, serializeTaskLists(retryResult.data));
-              // Fetch completed tasks after retry success
-              fetchCompletedTasks();
-              return;
-            }
-          } catch {
-            // Refresh failed, user needs to sign in again
-          }
-        }
-
-        // If network error and we have cached data, use it
+        // If we have cached data, use it even on error
         if (isCacheLoaded && cachedTaskLists) {
           const taskLists = deserializeTaskLists(cachedTaskLists);
           const completedWithListInfo: TaskWithListInfo[] = cachedCompletedTasks
@@ -655,7 +631,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
         needsReauth: false,
       }));
     }
-  }, [isAuthenticated, refreshSession, fetchCompletedTasks, isOffline, isCacheLoaded, cachedTaskLists, cachedGtdLists, cachedCompletedTasks, setCacheItem]);
+  }, [isAuthenticated, fetchCompletedTasks, isOffline, isCacheLoaded, cachedTaskLists, cachedGtdLists, cachedCompletedTasks, setCacheItem]);
 
   // Reset refs when authentication state changes
   useEffect(() => {
