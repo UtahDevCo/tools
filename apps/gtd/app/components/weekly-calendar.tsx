@@ -48,11 +48,14 @@ import { UserAvatar } from "@/components/user-avatar";
 import { useAuth } from "@/components/auth-provider";
 import { useTasks, type TaskWithListInfo } from "@/providers/tasks-provider";
 import { type TaskWithParsedDate, type TaskList } from "@/lib/google-tasks/types";
+import { type CalendarEventWithParsedDate } from "@/lib/google-calendar/types";
 import { TaskEditDrawer } from "./task-edit-drawer";
 import { LoginRequiredModal } from "./login-required-modal";
 import { LoadingOverlay } from "./loading-overlay";
+import { CalendarEventItem } from "./calendar-event-item";
 import { moveTasksToList, deleteTasks } from "@/lib/tasks-with-refresh";
 import { TIMEOUTS, UI, CACHE_KEYS } from "@/lib/constants";
+import { useSettings } from "@/providers/settings-provider";
 
 type WeekDay = {
   date: Date;
@@ -77,8 +80,10 @@ const { UNDO_WINDOW, CLICK_DEBOUNCE } = TIMEOUTS;
 export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
   const [dayOffset, setDayOffset] = useState(0);
   const { isAuthenticated } = useAuth();
+  const { settings } = useSettings();
   const { 
-    getTasksForDate, 
+    getTasksForDate,
+    getEventsForDate,
     nextTasks, 
     waitingTasks, 
     somedayTasks,
@@ -387,6 +392,8 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
         <WeekGrid 
           columns={columns} 
           getTasksForDate={getTasksForDate}
+          getEventsForDate={getEventsForDate}
+          showCalendarEvents={settings.showCalendarEvents}
           nextTasks={nextTasks}
           waitingTasks={waitingTasks}
           somedayTasks={somedayTasks}
@@ -558,6 +565,13 @@ function SettingsDropdown() {
       <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuItem asChild>
           <Link
+            href="/settings"
+          >
+            Settings
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link
             href="https://tasks.google.com/tasks/"
             target="_blank"
           >
@@ -632,6 +646,8 @@ type OtherListData = {
 type WeekGridProps = {
   columns: DayColumn[];
   getTasksForDate: (date: Date) => TaskWithListInfo[];
+  getEventsForDate: (date: Date) => CalendarEventWithParsedDate[];
+  showCalendarEvents: boolean;
   nextTasks: TaskWithListInfo[];
   waitingTasks: TaskWithListInfo[];
   somedayTasks: TaskWithListInfo[];
@@ -654,6 +670,8 @@ type WeekGridProps = {
 function WeekGrid({ 
   columns, 
   getTasksForDate,
+  getEventsForDate,
+  showCalendarEvents,
   nextTasks,
   waitingTasks,
   somedayTasks,
@@ -690,11 +708,13 @@ function WeekGrid({
         {columns.map((column, index) => {
           if (column.type === "weekday") {
             const tasks = getTasksForDate(column.day.date);
+            const events = showCalendarEvents ? getEventsForDate(column.day.date) : [];
             return (
               <WeekdayColumn 
                 key={column.day.date.toISOString()} 
                 day={column.day}
                 tasks={tasks}
+                events={events}
                 tasksLoading={tasksLoading}
                 onTaskClick={onTaskClick}
                 onNewTaskClick={onNewTaskClick}
@@ -713,6 +733,8 @@ function WeekGrid({
               <WeekendColumn 
                 weekend={column.days}
                 getTasksForDate={getTasksForDate}
+                getEventsForDate={getEventsForDate}
+                showCalendarEvents={showCalendarEvents}
                 tasksLoading={tasksLoading}
                 onTaskClick={onTaskClick}
                 onNewTaskClick={onNewTaskClick}
@@ -733,11 +755,13 @@ function WeekGrid({
       <div className="flex flex-col gap-2 lg:hidden mb-8">
         {allDaysInOrder.map((day) => {
           const tasks = getTasksForDate(day.date);
+          const events = showCalendarEvents ? getEventsForDate(day.date) : [];
           return (
             <WeekdayColumn 
               key={day.date.toISOString()} 
               day={day}
               tasks={tasks}
+              events={events}
               tasksLoading={tasksLoading}
               onTaskClick={onTaskClick}
               onNewTaskClick={onNewTaskClick}
@@ -1001,6 +1025,7 @@ function ListColumn({
 function WeekdayColumn({ 
   day, 
   tasks,
+  events,
   tasksLoading,
   onTaskClick,
   onNewTaskClick,
@@ -1014,6 +1039,7 @@ function WeekdayColumn({
 }: { 
   day: WeekDay;
   tasks: TaskWithListInfo[];
+  events: CalendarEventWithParsedDate[];
   tasksLoading: boolean;
   onTaskClick: (task: TaskWithListInfo) => void;
   onNewTaskClick: (listId: string, listDisplayName: string, dueDate?: string) => void;
@@ -1031,7 +1057,7 @@ function WeekdayColumn({
   const dateStr = day.date.toISOString().split("T")[0];
 
   // Calculate empty rows needed
-  const emptyRowCount = Math.max(0, WEEKDAY_ROWS - tasks.length);
+  const emptyRowCount = Math.max(0, WEEKDAY_ROWS - tasks.length - events.length);
 
   const handleEmptyRowClick = activeListId 
     ? () => onNewTaskClick(activeListId, "Active", dateStr)
@@ -1059,6 +1085,15 @@ function WeekdayColumn({
           <TaskRow />
         ) : (
           <>
+            {events.map((event) => (
+              <CalendarEventItem
+                key={`${event.id}-${event.dayNumber}`}
+                event={event}
+                isFirstDay={event.isFirstDay}
+                dayNumber={event.dayNumber}
+                totalDays={event.totalDays}
+              />
+            ))}
             {tasks.map((task) => (
               <ConnectedTaskItem 
                 key={task.id} 
@@ -1078,6 +1113,15 @@ function WeekdayColumn({
 
       {/* Desktop: Task items + empty rows */}
       <div className="hidden lg:block">
+        {events.map((event) => (
+          <CalendarEventItem
+            key={`${event.id}-${event.dayNumber}`}
+            event={event}
+            isFirstDay={event.isFirstDay}
+            dayNumber={event.dayNumber}
+            totalDays={event.totalDays}
+          />
+        ))}
         {tasks.map((task) => (
           <ConnectedTaskItem 
             key={task.id} 
@@ -1096,9 +1140,6 @@ function WeekdayColumn({
     </div>
   );
 }
-
-// Extract from constants for cleaner code
-const SECTION_EMPTY_ROWS = SECTION_MIN_ROWS;
 
 function SectionColumn({ 
   title, 
@@ -1235,6 +1276,8 @@ function OverdueColumn({
 function WeekendColumn({ 
   weekend,
   getTasksForDate,
+  getEventsForDate,
+  showCalendarEvents,
   tasksLoading,
   onTaskClick,
   onNewTaskClick,
@@ -1248,6 +1291,8 @@ function WeekendColumn({
 }: { 
   weekend: WeekDay[];
   getTasksForDate: (date: Date) => TaskWithListInfo[];
+  getEventsForDate: (date: Date) => CalendarEventWithParsedDate[];
+  showCalendarEvents: boolean;
   tasksLoading: boolean;
   onTaskClick: (task: TaskWithListInfo) => void;
   onNewTaskClick: (listId: string, listDisplayName: string, dueDate?: string) => void;
@@ -1271,7 +1316,8 @@ function WeekendColumn({
         });
         const dateStr = day.date.toISOString().split("T")[0];
         const tasks = getTasksForDate(day.date);
-        const emptyRowCount = Math.max(0, WEEKEND_ROWS - tasks.length);
+        const events = showCalendarEvents ? getEventsForDate(day.date) : [];
+        const emptyRowCount = Math.max(0, WEEKEND_ROWS - tasks.length - events.length);
 
         const handleEmptyRowClick = activeListId 
           ? () => onNewTaskClick(activeListId, "Active", dateStr)
@@ -1301,6 +1347,15 @@ function WeekendColumn({
               ))
             ) : (
               <>
+                {events.map((event) => (
+                  <CalendarEventItem
+                    key={`${event.id}-${event.dayNumber}`}
+                    event={event}
+                    isFirstDay={event.isFirstDay}
+                    dayNumber={event.dayNumber}
+                    totalDays={event.totalDays}
+                  />
+                ))}
                 {tasks.map((task) => (
                   <ConnectedTaskItem 
                     key={task.id} 

@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, type Auth } from "firebase/auth";
+import { getFirestore, type Firestore } from "firebase/firestore";
 import { z } from "zod";
 
 // Validate environment variables at module load time
@@ -42,11 +43,17 @@ export function getFirebaseAuth(): Auth {
   return getAuth(app);
 }
 
+export function getFirebaseFirestore(): Firestore {
+  const app = getFirebaseApp();
+  return getFirestore(app);
+}
+
 export function createGoogleAuthProvider(): GoogleAuthProvider {
   const provider = new GoogleAuthProvider();
 
-  // Add Google Tasks API scope for full read/write access
+  // Add Google Tasks and Calendar API scopes
   provider.addScope("https://www.googleapis.com/auth/tasks");
+  provider.addScope("https://www.googleapis.com/auth/calendar.readonly");
 
   // Force account selection on each sign-in
   provider.setCustomParameters({

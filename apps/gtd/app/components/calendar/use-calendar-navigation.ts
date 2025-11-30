@@ -2,10 +2,6 @@
 
 import { useState, useCallback } from "react";
 
-type CalendarState = {
-  dayOffset: number;
-};
-
 /**
  * Hook to manage calendar navigation state (previous, next, today)
  */

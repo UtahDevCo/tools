@@ -35,6 +35,7 @@ export {
   DialogTrigger,
 } from "./src/ui/dialog";
 export { Checkbox } from "./src/ui/checkbox";
+export { Switch } from "./src/ui/switch";
 export {
   DropdownMenu,
   DropdownMenuPortal,

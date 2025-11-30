@@ -27,7 +27,10 @@ import {
 import { isGTDList, getTaskListDisplayName } from "@/lib/google-tasks/gtd-utils";
 import { useAuth } from "@/components/auth-provider";
 import { useOffline } from "@/providers/offline-provider";
+import { useSettings } from "@/providers/settings-provider";
 import { useLocalforage } from "@repo/components";
+import { getCalendarEventsForMonth, getMonthKey } from "@/lib/calendar-with-refresh";
+import type { CalendarEventWithParsedDate } from "@/lib/google-calendar/types";
 
 // Extended task with list info
 export type TaskWithListInfo = TaskWithParsedDate & {
@@ -312,6 +315,7 @@ const CACHE_KEYS = {
   TASK_LISTS: "gtd-task-lists",
   GTD_LISTS: "gtd-lists",
   COMPLETED_TASKS: "gtd-completed-tasks",
+  CALENDAR_EVENTS_PREFIX: "gtd-calendar-events-",
 } as const;
 
 type TasksState = {
@@ -319,6 +323,9 @@ type TasksState = {
   gtdLists: GTDLists | null;
   // Completed tasks with due dates (for calendar view only, last 30 days)
   completedTasksWithDueDates: TaskWithListInfo[];
+  // Calendar events by month (YYYY-MM -> events)
+  calendarEventsByMonth: Map<string, CalendarEventWithParsedDate[]>;
+  calendarEventsLoading: boolean;
   isLoading: boolean;
   isInitializing: boolean; // True when authenticated but haven't loaded real data yet
   isInitializingGTD: boolean;
@@ -342,8 +349,10 @@ type TasksContextValue = TasksState & {
   otherLists: { taskList: TaskList; displayName: string; tasks: TaskWithListInfo[] }[];
   // Date-based getters (for calendar)
   getTasksForDate: (date: Date) => TaskWithListInfo[];
+  getEventsForDate: (date: Date) => CalendarEventWithParsedDate[];
   getTasksWithoutDueDate: () => TaskWithListInfo[];
   refresh: () => void;
+  refreshCalendar: () => Promise<void>;
   // Expose gtdLists for components that need to check list IDs
   gtdLists: GTDLists | null;
   // Optimistic updates
@@ -415,6 +424,7 @@ function deserializeCompletedTasks(cached: CachedCompletedTasks): TaskWithListIn
 export function TasksProvider({ children }: TasksProviderProps) {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const { isOffline } = useOffline();
+  const { settings } = useSettings();
   
   // LocalForage for caching tasks
   const { values: cachedValues, setItem: setCacheItem, isLoaded: isCacheLoaded } = useLocalforage<
@@ -429,6 +439,8 @@ export function TasksProvider({ children }: TasksProviderProps) {
     taskLists: [],
     gtdLists: null,
     completedTasksWithDueDates: [],
+    calendarEventsByMonth: new Map(),
+    calendarEventsLoading: false,
     isLoading: false,
     isInitializing: true, // Start as initializing until we determine auth state
     isInitializingGTD: false,
@@ -439,6 +451,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
   const hasFetchedRef = useRef(false);
   const hasInitializedGTDRef = useRef(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const calendarRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize GTD lists
   const initializeGTDLists = useCallback(async () => {
@@ -513,6 +526,90 @@ export function TasksProvider({ children }: TasksProviderProps) {
     }
   }, [isAuthenticated, isOffline, setCacheItem]);
 
+  const fetchCalendarEventsForMonth = useCallback(async (year: number, month: number) => {
+    if (!isAuthenticated || isOffline || !settings.showCalendarEvents) return;
+
+    const date = new Date(year, month - 1);
+    const monthKey = getMonthKey(date);
+    
+    // Check cache first
+    const cacheKey = `${CACHE_KEYS.CALENDAR_EVENTS_PREFIX}${monthKey}`;
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const events = JSON.parse(cached) as CalendarEventWithParsedDate[];
+        setState((prev) => {
+          const newMap = new Map(prev.calendarEventsByMonth);
+          newMap.set(monthKey, events);
+          return { ...prev, calendarEventsByMonth: newMap };
+        });
+      }
+    } catch (error) {
+      console.error("Failed to parse cached calendar events:", error);
+    }
+
+    setState((prev) => ({ ...prev, calendarEventsLoading: true }));
+
+    try {
+      const result = await getCalendarEventsForMonth(year, month);
+
+      if (!result.success) {
+        console.error("Failed to fetch calendar events:", result.error);
+        setState((prev) => ({ ...prev, calendarEventsLoading: false }));
+        return;
+      }
+
+      setState((prev) => {
+        const newMap = new Map(prev.calendarEventsByMonth);
+        newMap.set(monthKey, result.data);
+        return { ...prev, calendarEventsByMonth: newMap, calendarEventsLoading: false };
+      });
+      
+      // Cache the events
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(result.data));
+      } catch (error) {
+        console.error("Failed to cache calendar events:", error);
+      }
+    } catch (error) {
+      console.error("Failed to fetch calendar events:", error);
+      setState((prev) => ({ ...prev, calendarEventsLoading: false }));
+    }
+  }, [isAuthenticated, isOffline, settings.showCalendarEvents]);
+
+  const refreshCalendar = useCallback(async () => {
+    if (!settings.showCalendarEvents) return;
+
+    // Clear cache
+    const keysToDelete: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(CACHE_KEYS.CALENDAR_EVENTS_PREFIX)) {
+        keysToDelete.push(key);
+      }
+    }
+    keysToDelete.forEach(key => localStorage.removeItem(key));
+
+    // Clear state
+    setState((prev) => ({ ...prev, calendarEventsByMonth: new Map() }));
+
+    // Refetch visible months (current month ± 1)
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+
+    const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+    const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+    const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
+    const nextYear = currentMonth === 12 ? currentYear + 1 : currentYear;
+
+    await Promise.all([
+      fetchCalendarEventsForMonth(prevYear, prevMonth),
+      fetchCalendarEventsForMonth(currentYear, currentMonth),
+      fetchCalendarEventsForMonth(nextYear, nextMonth),
+    ]);
+  }, [settings.showCalendarEvents, fetchCalendarEventsForMonth]);
+
   const fetchTasks = useCallback(async () => {
     if (!isAuthenticated) {
       // Use demo data for signed-out users
@@ -528,6 +625,8 @@ export function TasksProvider({ children }: TasksProviderProps) {
         taskLists: demoData.taskLists,
         gtdLists: demoData.gtdLists,
         completedTasksWithDueDates: completedWithListInfo,
+        calendarEventsByMonth: new Map(),
+        calendarEventsLoading: false,
         isLoading: false,
         isInitializing: false,
         isInitializingGTD: false,
@@ -548,6 +647,8 @@ export function TasksProvider({ children }: TasksProviderProps) {
         taskLists,
         gtdLists: cachedGtdLists ?? null,
         completedTasksWithDueDates: completedWithListInfo,
+        calendarEventsByMonth: new Map(),
+        calendarEventsLoading: false,
         isLoading: false,
         isInitializing: false,
         isInitializingGTD: false,
@@ -575,6 +676,8 @@ export function TasksProvider({ children }: TasksProviderProps) {
             taskLists,
             gtdLists: cachedGtdLists ?? null,
             completedTasksWithDueDates: completedWithListInfo,
+            calendarEventsByMonth: new Map(),
+            calendarEventsLoading: false,
             isLoading: false,
             isInitializing: false,
             isInitializingGTD: false,
@@ -623,6 +726,8 @@ export function TasksProvider({ children }: TasksProviderProps) {
           taskLists,
           gtdLists: cachedGtdLists ?? null,
           completedTasksWithDueDates: completedWithListInfo,
+          calendarEventsByMonth: new Map(),
+          calendarEventsLoading: false,
           isLoading: false,
           isInitializing: false,
           isInitializingGTD: false,
@@ -685,6 +790,38 @@ export function TasksProvider({ children }: TasksProviderProps) {
   const refresh = useCallback(() => {
     setRefreshTrigger((prev) => prev + 1);
   }, []);
+
+  // Auto-refresh calendar events based on settings interval
+  useEffect(() => {
+    // Clear existing interval
+    if (calendarRefreshIntervalRef.current) {
+      clearInterval(calendarRefreshIntervalRef.current);
+      calendarRefreshIntervalRef.current = null;
+    }
+
+    if (!settings.showCalendarEvents || !isAuthenticated || isOffline) {
+      return;
+    }
+
+    // Set up new interval
+    const intervalMinutes = settings.calendarRefreshIntervalMinutes || 5;
+    const intervalMs = intervalMinutes * 60 * 1000;
+
+    calendarRefreshIntervalRef.current = setInterval(() => {
+      refreshCalendar();
+    }, intervalMs);
+
+    // Initial fetch
+    refreshCalendar();
+
+    // Cleanup on unmount or when dependencies change
+    return () => {
+      if (calendarRefreshIntervalRef.current) {
+        clearInterval(calendarRefreshIntervalRef.current);
+        calendarRefreshIntervalRef.current = null;
+      }
+    };
+  }, [settings.showCalendarEvents, settings.calendarRefreshIntervalMinutes, isAuthenticated, isOffline, refreshCalendar]);
 
   // Convert tasks to include list info (excluding pending deletions)
   const allTasks = useMemo<TaskWithListInfo[]>(() => {
@@ -922,6 +1059,53 @@ export function TasksProvider({ children }: TasksProviderProps) {
   // 2. User is authenticated but tasks are still initializing (haven't loaded real data)
   const showLoadingOverlay = isAuthLoading || (isAuthenticated && state.isInitializing);
 
+  const getEventsForDate = useCallback((date: Date): CalendarEventWithParsedDate[] => {
+    const monthKey = getMonthKey(date);
+    
+    const eventsForMonth = state.calendarEventsByMonth.get(monthKey) || [];
+    
+    // Filter events to those that overlap with the date
+    const dateStart = new Date(date);
+    dateStart.setHours(0, 0, 0, 0);
+    const dateEnd = new Date(date);
+    dateEnd.setHours(23, 59, 59, 999);
+    
+    return eventsForMonth
+      .filter(event => {
+        if (!event.startDate || !event.endDate) return false;
+        const eventStart = new Date(event.startDate);
+        const eventEnd = new Date(event.endDate);
+        // Event overlaps with date if: event starts before date ends AND event ends after date starts
+        return eventStart <= dateEnd && eventEnd >= dateStart;
+      })
+      .map(event => {
+        // Calculate multi-day information
+        if (!event.startDate || !event.endDate) {
+          return { ...event, isFirstDay: true, dayNumber: 1, totalDays: 1 };
+        }
+        const eventStart = new Date(event.startDate);
+        eventStart.setHours(0, 0, 0, 0);
+        const eventEnd = new Date(event.endDate);
+        eventEnd.setHours(0, 0, 0, 0);
+        
+        const daysDiff = Math.floor((eventEnd.getTime() - eventStart.getTime()) / (1000 * 60 * 60 * 24));
+        const totalDays = daysDiff + 1;
+        const isFirstDay = dateStart.getTime() === eventStart.getTime();
+        
+        let dayNumber = 1;
+        if (!isFirstDay) {
+          dayNumber = Math.floor((dateStart.getTime() - eventStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        }
+        
+        return {
+          ...event,
+          isFirstDay,
+          dayNumber,
+          totalDays,
+        };
+      });
+  }, [state.calendarEventsByMonth]);
+
   const value: TasksContextValue = {
     ...state,
     allTasks,
@@ -933,6 +1117,8 @@ export function TasksProvider({ children }: TasksProviderProps) {
     otherLists,
     getTasksForDate: getTasksForDateFn,
     getTasksWithoutDueDate: getTasksWithoutDateFn,
+    getEventsForDate,
+    refreshCalendar,
     refresh,
     optimisticToggleComplete,
     optimisticDelete,

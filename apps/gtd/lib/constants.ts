@@ -46,6 +46,7 @@ export const CACHE_KEYS = {
   COMPLETED_TASKS: "gtd-completed-tasks",
   SORT_PREFERENCE: "gtd-list-sort-preference",
   SKIP_MOVE_CONFIRM: "gtd-skip-move-confirm",
+  CALENDAR_EVENTS_PREFIX: "gtd-calendar-events-", // Suffix with YYYY-MM for month-based caching
 } as const;
 
 /**

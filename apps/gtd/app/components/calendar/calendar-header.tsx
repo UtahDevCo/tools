@@ -132,6 +132,9 @@ function SettingsDropdown() {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
+          <Link href="/settings">Settings</Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
           <Link href="/policies">Policies</Link>
         </DropdownMenuItem>
         {isLocalhost && (
