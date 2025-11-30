@@ -26,6 +26,12 @@ import {
   setRefreshFunction,
   clearRefreshFunction,
 } from "@/lib/token-refresh";
+import {
+  setAnalyticsUserId,
+  trackLoginSuccess,
+  trackLogoutSuccess,
+  trackTokenRefreshFailed,
+} from "@/lib/firebase/analytics";
 
 type AuthState = {
   user: SerializableUser | null;
@@ -121,6 +127,8 @@ export function AuthProvider({ children, initialUser = null }: AuthProviderProps
       });
 
       setUser(serializedUser);
+      setAnalyticsUserId(serializedUser.uid);
+      trackLoginSuccess();
     } catch (error) {
       console.error("Sign in failed:", error);
       throw error;
@@ -137,6 +145,7 @@ export function AuthProvider({ children, initialUser = null }: AuthProviderProps
       await firebaseSignOut();
       await clearSessionCookies();
       setUser(null);
+      trackLogoutSuccess();
     } catch (error) {
       console.error("Sign out failed:", error);
       throw error;
@@ -157,6 +166,8 @@ export function AuthProvider({ children, initialUser = null }: AuthProviderProps
       await signIn();
     } catch (error) {
       console.error('Session refresh failed:', error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      trackTokenRefreshFailed(errorMsg);
       throw error;
     } finally {
       isRefreshingRef.current = false;

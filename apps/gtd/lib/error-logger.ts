@@ -1,8 +1,10 @@
+import { logError as logAnalyticsError } from "./firebase/analytics";
+
 /**
  * Centralized error logging utility.
  * 
  * In development: logs to console
- * In production: can be extended to send to Firebase Crashlytics or other services
+ * In production: sends to Firebase Analytics
  */
 
 type ErrorContext = {
@@ -37,11 +39,8 @@ export function logError(error: unknown, context: ErrorContext = {}): void {
     timestamp: new Date().toISOString(),
   });
 
-  // TODO: Send to Firebase Crashlytics in production
-  // if (process.env.NODE_ENV === 'production') {
-  //   // Firebase Crashlytics logging would go here
-  //   // See monitoring recommendations in the code review
-  // }
+  // Send to Firebase Analytics
+  logAnalyticsError(error, context);
 }
 
 /**

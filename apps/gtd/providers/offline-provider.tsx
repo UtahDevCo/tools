@@ -4,8 +4,13 @@ import {
   createContext,
   useContext,
   useSyncExternalStore,
+  useEffect,
   type ReactNode,
 } from "react";
+import {
+  trackOfflineModeDetected,
+  trackOnlineModeRestored,
+} from "@/lib/firebase/analytics";
 
 type OfflineContextValue = {
   isOnline: boolean;
@@ -52,6 +57,15 @@ export function OfflineProvider({ children }: OfflineProviderProps) {
     isOnline,
     isOffline: !isOnline,
   };
+
+  // Track offline/online status changes
+  useEffect(() => {
+    if (!isOnline) {
+      trackOfflineModeDetected();
+    } else {
+      trackOnlineModeRestored();
+    }
+  }, [isOnline]);
 
   return (
     <OfflineContext.Provider value={value}>{children}</OfflineContext.Provider>

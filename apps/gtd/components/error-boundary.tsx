@@ -82,7 +82,7 @@ function DefaultErrorFallback({ error }: { error: Error | null }) {
         </div>
 
         <p className="mb-4 text-sm text-zinc-600">
-          The application encountered an unexpected error. This has been logged and we'll look into it.
+          The application encountered an unexpected error. This has been logged and we&apos;ll look into it.
         </p>
 
         {error && (
