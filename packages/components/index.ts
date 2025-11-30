@@ -34,6 +34,7 @@ export {
   DialogTitle,
   DialogTrigger,
 } from "./src/ui/dialog";
+export { Checkbox } from "./src/ui/checkbox";
 
 // Custom components
 export { Drawer, DrawerViewport } from "./src/drawer";

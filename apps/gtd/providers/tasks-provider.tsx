@@ -684,13 +684,16 @@ export function TasksProvider({ children }: TasksProviderProps) {
   }, [isAuthenticated, fetchTasks]);
 
   // Re-fetch when refresh is triggered
+  // Note: fetchTasks is intentionally omitted from deps to prevent infinite loops
+  // when cache values change. We only want to re-fetch when refreshTrigger changes.
   useEffect(() => {
     if (refreshTrigger > 0 && hasFetchedRef.current) {
       startTransition(() => {
         fetchTasks();
       });
     }
-  }, [refreshTrigger, fetchTasks]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTrigger]);
 
   const refresh = useCallback(() => {
     setRefreshTrigger((prev) => prev + 1);

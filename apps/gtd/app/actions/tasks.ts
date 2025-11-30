@@ -277,3 +277,95 @@ export async function uncompleteTask(
     return { success: false, error: "Failed to uncomplete task" };
   }
 }
+
+/**
+ * Convert a date string to RFC 3339 format for Google Tasks API.
+ * Handles both YYYY-MM-DD and full ISO strings.
+ */
+function toRfc3339(dateStr?: string): string | undefined {
+  if (!dateStr) return undefined;
+  // If it's already a full ISO string, return as-is
+  if (dateStr.includes("T")) return dateStr;
+  // Otherwise, it's YYYY-MM-DD format, add time component (midnight UTC)
+  return `${dateStr}T00:00:00.000Z`;
+}
+
+/**
+ * Move multiple tasks to a destination list.
+ * Since Google Tasks API doesn't support cross-list moves,
+ * this creates tasks in the destination and deletes from source.
+ * If a task is already in the destination list, it just updates the due date.
+ */
+export async function moveTasksToList(
+  tasks: { listId: string; taskId: string; title: string; notes?: string; due?: string }[],
+  destinationListId: string
+): Promise<TasksResult<{ moved: number; failed: number }>> {
+  const result = await getAuthenticatedClient();
+
+  if ("error" in result) {
+    return { success: false, error: result.error, needsReauth: result.needsReauth };
+  }
+
+  let moved = 0;
+  let failed = 0;
+
+  for (const task of tasks) {
+    try {
+      const dueRfc3339 = toRfc3339(task.due);
+
+      // If already in destination list, just update the due date
+      if (task.listId === destinationListId) {
+        await updateTaskApi(result.client, task.listId, task.taskId, {
+          due: dueRfc3339,
+        });
+        moved++;
+        continue;
+      }
+
+      // Create in destination list
+      await createTaskApi(result.client, destinationListId, {
+        title: task.title,
+        notes: task.notes,
+        due: dueRfc3339,
+      });
+
+      // Delete from source list
+      await deleteTaskApi(result.client, task.listId, task.taskId);
+
+      moved++;
+    } catch (error) {
+      console.error(`Failed to move task ${task.taskId}:`, error);
+      failed++;
+    }
+  }
+
+  return { success: true, data: { moved, failed } };
+}
+
+/**
+ * Delete multiple tasks across lists.
+ */
+export async function deleteTasks(
+  tasks: { listId: string; taskId: string }[]
+): Promise<TasksResult<{ deleted: number; failed: number }>> {
+  const result = await getAuthenticatedClient();
+
+  if ("error" in result) {
+    return { success: false, error: result.error, needsReauth: result.needsReauth };
+  }
+
+  let deleted = 0;
+  let failed = 0;
+
+  for (const task of tasks) {
+    try {
+      await deleteTaskApi(result.client, task.listId, task.taskId);
+      deleted++;
+    } catch (error) {
+      console.error(`Failed to delete task ${task.taskId}:`, error);
+      failed++;
+    }
+  }
+
+  return { success: true, data: { deleted, failed } };
+}

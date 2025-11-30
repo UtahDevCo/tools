@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, MoreVertical, Pencil, Check, Trash2, ArrowUpDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, MoreVertical, Pencil, Check, Trash2, ArrowUpDown, Move, X } from "lucide-react";
 import {
   Typography,
   Button,
@@ -16,6 +16,13 @@ import {
   useKeydown,
   useLocalforage,
   toast,
+  Checkbox,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@repo/components";
 import { UserAvatar } from "@/components/user-avatar";
 import { useAuth } from "@/components/auth-provider";
@@ -23,6 +30,7 @@ import { useTasks, type TaskWithListInfo } from "@/providers/tasks-provider";
 import { type TaskWithParsedDate, type TaskList } from "@/lib/google-tasks/types";
 import { TaskEditDrawer } from "./task-edit-drawer";
 import { LoginRequiredModal } from "./login-required-modal";
+import { moveTasksToList, deleteTasks } from "@/app/actions/tasks";
 
 type WeekDay = {
   date: Date;
@@ -75,6 +83,13 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
     dueDate?: string;
   } | null>(null);
 
+  // Multi-select state
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  const [isMoveTargetingActive, setIsMoveTargetingActive] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showMoveConfirm, setShowMoveConfirm] = useState<{ listId: string; listName: string; dueDate?: string } | null>(null);
+
   // Localforage for sort order preference
   const {
     values: [sortPreference],
@@ -121,14 +136,26 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
 
   const handlePrevious = useCallback(() => {
     setDayOffset((prev) => prev - 4);
+    // Clear selection on navigation
+    setIsMultiSelectMode(false);
+    setSelectedTaskIds(new Set());
+    setIsMoveTargetingActive(false);
   }, []);
 
   const handleNext = useCallback(() => {
     setDayOffset((prev) => prev + 4);
+    // Clear selection on navigation
+    setIsMultiSelectMode(false);
+    setSelectedTaskIds(new Set());
+    setIsMoveTargetingActive(false);
   }, []);
 
   const handleToday = useCallback(() => {
     setDayOffset(0);
+    // Clear selection on navigation
+    setIsMultiSelectMode(false);
+    setSelectedTaskIds(new Set());
+    setIsMoveTargetingActive(false);
   }, []);
 
   const handleTaskClick = useCallback((task: TaskWithListInfo) => {
@@ -156,12 +183,121 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
     setDrawerOpen(true);
   }, [isAuthenticated]);
 
+  // Multi-select handlers
+  const handleEnterMultiSelect = useCallback((taskId: string) => {
+    setIsMultiSelectMode(true);
+    setSelectedTaskIds(new Set([taskId]));
+  }, []);
+
+  const handleToggleTaskSelection = useCallback((taskId: string) => {
+    setSelectedTaskIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(taskId)) {
+        newSet.delete(taskId);
+      } else {
+        newSet.add(taskId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const handleExitMultiSelect = useCallback(() => {
+    setIsMultiSelectMode(false);
+    setSelectedTaskIds(new Set());
+    setIsMoveTargetingActive(false);
+  }, []);
+
+  const handleStartMoveTargeting = useCallback(() => {
+    setIsMoveTargetingActive(true);
+  }, []);
+
+  const handleCancelMoveTargeting = useCallback(() => {
+    setIsMoveTargetingActive(false);
+  }, []);
+
+  const handleSelectMoveTarget = useCallback((listId: string, listName: string, dueDate?: string) => {
+    setShowMoveConfirm({ listId, listName, dueDate });
+  }, []);
+
+  // Get all tasks for the selected IDs
+  const { allTasks, refresh } = useTasks();
+
+  const getSelectedTasks = useCallback(() => {
+    return allTasks.filter((task) => selectedTaskIds.has(task.id));
+  }, [allTasks, selectedTaskIds]);
+
+  const handleConfirmMove = useCallback(async () => {
+    if (!showMoveConfirm) return;
+
+    const selectedTasks = getSelectedTasks();
+    const tasksToMove = selectedTasks.map((task) => ({
+      listId: task.listId,
+      taskId: task.id,
+      title: task.title,
+      notes: task.notes ?? undefined,
+      // Use the target due date if moving to a date column, otherwise keep existing
+      due: showMoveConfirm.dueDate ?? task.due ?? undefined,
+    }));
+
+    const result = await moveTasksToList(tasksToMove, showMoveConfirm.listId);
+
+    if (result.success) {
+      toast(`Moved ${result.data.moved} task${result.data.moved !== 1 ? "s" : ""} to ${showMoveConfirm.listName}`);
+      if (result.data.failed > 0) {
+        toast(`Failed to move ${result.data.failed} task${result.data.failed !== 1 ? "s" : ""}`, { duration: 5000 });
+      }
+      refresh();
+    } else {
+      toast("Failed to move tasks", { duration: 5000 });
+    }
+
+    setShowMoveConfirm(null);
+    handleExitMultiSelect();
+  }, [showMoveConfirm, getSelectedTasks, refresh, handleExitMultiSelect]);
+
+  const handleConfirmDelete = useCallback(async () => {
+    const selectedTasks = getSelectedTasks();
+    const tasksToDelete = selectedTasks.map((task) => ({
+      listId: task.listId,
+      taskId: task.id,
+    }));
+
+    const result = await deleteTasks(tasksToDelete);
+
+    if (result.success) {
+      toast(`Deleted ${result.data.deleted} task${result.data.deleted !== 1 ? "s" : ""}`);
+      if (result.data.failed > 0) {
+        toast(`Failed to delete ${result.data.failed} task${result.data.failed !== 1 ? "s" : ""}`, { duration: 5000 });
+      }
+      refresh();
+    } else {
+      toast("Failed to delete tasks", { duration: 5000 });
+    }
+
+    setShowDeleteConfirm(false);
+    handleExitMultiSelect();
+  }, [getSelectedTasks, refresh, handleExitMultiSelect]);
+
   const handleKeydown = useCallback(
     (event: Event) => {
       const e = event as KeyboardEvent;
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") {
         return;
+      }
+
+      // Escape exits multi-select mode
+      if (e.key === "Escape") {
+        if (isMoveTargetingActive) {
+          e.preventDefault();
+          setIsMoveTargetingActive(false);
+          return;
+        }
+        if (isMultiSelectMode) {
+          e.preventDefault();
+          handleExitMultiSelect();
+          return;
+        }
       }
 
       if (e.key === "p" || e.key === "P") {
@@ -175,7 +311,7 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
         handleToday();
       }
     },
-    [handlePrevious, handleNext, handleToday]
+    [handlePrevious, handleNext, handleToday, isMultiSelectMode, isMoveTargetingActive, handleExitMultiSelect]
   );
 
   useKeydown({ isActive: true, callback: handleKeydown }, [handleKeydown]);
@@ -227,8 +363,43 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
           onSortOrderChange={setSortOrder}
           onTaskClick={handleTaskClick}
           onNewTaskClick={handleNewTaskClick}
+          isMultiSelectMode={isMultiSelectMode}
+          selectedTaskIds={selectedTaskIds}
+          isMoveTargetingActive={isMoveTargetingActive}
+          onEnterMultiSelect={handleEnterMultiSelect}
+          onToggleTaskSelection={handleToggleTaskSelection}
+          onSelectMoveTarget={handleSelectMoveTarget}
         />
       </div>
+
+      {/* Multi-select actions bar */}
+      {isMultiSelectMode && selectedTaskIds.size > 0 && (
+        <MultiSelectActionsBar
+          selectedCount={selectedTaskIds.size}
+          isMoveTargetingActive={isMoveTargetingActive}
+          onMove={handleStartMoveTargeting}
+          onDelete={() => setShowDeleteConfirm(true)}
+          onCancel={isMoveTargetingActive ? handleCancelMoveTargeting : handleExitMultiSelect}
+        />
+      )}
+
+      {/* Delete confirmation dialog */}
+      <ConfirmDeleteDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        selectedCount={selectedTaskIds.size}
+        onConfirm={handleConfirmDelete}
+      />
+
+      {/* Move confirmation dialog */}
+      <ConfirmMoveDialog
+        open={!!showMoveConfirm}
+        onOpenChange={(open) => !open && setShowMoveConfirm(null)}
+        selectedCount={selectedTaskIds.size}
+        targetListName={showMoveConfirm?.listName ?? ""}
+        onConfirm={handleConfirmMove}
+      />
+
       <TaskEditDrawer
         task={selectedTask}
         open={drawerOpen}
@@ -414,6 +585,13 @@ type WeekGridProps = {
   onSortOrderChange: (order: ListSortOrder) => void;
   onTaskClick: (task: TaskWithListInfo) => void;
   onNewTaskClick: (listId: string, listDisplayName: string, dueDate?: string) => void;
+  // Multi-select props
+  isMultiSelectMode: boolean;
+  selectedTaskIds: Set<string>;
+  isMoveTargetingActive: boolean;
+  onEnterMultiSelect: (taskId: string) => void;
+  onToggleTaskSelection: (taskId: string) => void;
+  onSelectMoveTarget: (listId: string, listName: string, dueDate?: string) => void;
 };
 
 function WeekGrid({ 
@@ -429,6 +607,12 @@ function WeekGrid({
   onSortOrderChange,
   onTaskClick,
   onNewTaskClick,
+  isMultiSelectMode,
+  selectedTaskIds,
+  isMoveTargetingActive,
+  onEnterMultiSelect,
+  onToggleTaskSelection,
+  onSelectMoveTarget,
 }: WeekGridProps) {
   const { gtdLists } = useTasks();
 
@@ -458,6 +642,12 @@ function WeekGrid({
                 onTaskClick={onTaskClick}
                 onNewTaskClick={onNewTaskClick}
                 activeListId={gtdLists?.active.id}
+                isMultiSelectMode={isMultiSelectMode}
+                selectedTaskIds={selectedTaskIds}
+                isMoveTargetingActive={isMoveTargetingActive}
+                onEnterMultiSelect={onEnterMultiSelect}
+                onToggleTaskSelection={onToggleTaskSelection}
+                onSelectMoveTarget={onSelectMoveTarget}
               />
             );
           }
@@ -470,6 +660,12 @@ function WeekGrid({
                 onTaskClick={onTaskClick}
                 onNewTaskClick={onNewTaskClick}
                 activeListId={gtdLists?.active.id}
+                isMultiSelectMode={isMultiSelectMode}
+                selectedTaskIds={selectedTaskIds}
+                isMoveTargetingActive={isMoveTargetingActive}
+                onEnterMultiSelect={onEnterMultiSelect}
+                onToggleTaskSelection={onToggleTaskSelection}
+                onSelectMoveTarget={onSelectMoveTarget}
               />
             </div>
           );
@@ -489,6 +685,12 @@ function WeekGrid({
               onTaskClick={onTaskClick}
               onNewTaskClick={onNewTaskClick}
               activeListId={gtdLists?.active.id}
+              isMultiSelectMode={isMultiSelectMode}
+              selectedTaskIds={selectedTaskIds}
+              isMoveTargetingActive={isMoveTargetingActive}
+              onEnterMultiSelect={onEnterMultiSelect}
+              onToggleTaskSelection={onToggleTaskSelection}
+              onSelectMoveTarget={onSelectMoveTarget}
             />
           );
         })}
@@ -509,6 +711,10 @@ function WeekGrid({
             <OverdueColumn
               tasks={overdueTasks}
               onTaskClick={onTaskClick}
+              isMultiSelectMode={isMultiSelectMode}
+              selectedTaskIds={selectedTaskIds}
+              onEnterMultiSelect={onEnterMultiSelect}
+              onToggleTaskSelection={onToggleTaskSelection}
             />
           )}
           <SectionColumn 
@@ -516,21 +722,39 @@ function WeekGrid({
             tasks={nextTasks} 
             listId={gtdLists?.next.id} 
             onTaskClick={onTaskClick} 
-            onNewTaskClick={onNewTaskClick} 
+            onNewTaskClick={onNewTaskClick}
+            isMultiSelectMode={isMultiSelectMode}
+            selectedTaskIds={selectedTaskIds}
+            isMoveTargetingActive={isMoveTargetingActive}
+            onEnterMultiSelect={onEnterMultiSelect}
+            onToggleTaskSelection={onToggleTaskSelection}
+            onSelectMoveTarget={onSelectMoveTarget}
           />
           <SectionColumn 
             title="Waiting" 
             tasks={waitingTasks} 
             listId={gtdLists?.waiting.id} 
             onTaskClick={onTaskClick} 
-            onNewTaskClick={onNewTaskClick} 
+            onNewTaskClick={onNewTaskClick}
+            isMultiSelectMode={isMultiSelectMode}
+            selectedTaskIds={selectedTaskIds}
+            isMoveTargetingActive={isMoveTargetingActive}
+            onEnterMultiSelect={onEnterMultiSelect}
+            onToggleTaskSelection={onToggleTaskSelection}
+            onSelectMoveTarget={onSelectMoveTarget}
           />
           <SectionColumn 
             title="Someday" 
             tasks={somedayTasks} 
             listId={gtdLists?.someday.id} 
             onTaskClick={onTaskClick} 
-            onNewTaskClick={onNewTaskClick} 
+            onNewTaskClick={onNewTaskClick}
+            isMultiSelectMode={isMultiSelectMode}
+            selectedTaskIds={selectedTaskIds}
+            isMoveTargetingActive={isMoveTargetingActive}
+            onEnterMultiSelect={onEnterMultiSelect}
+            onToggleTaskSelection={onToggleTaskSelection}
+            onSelectMoveTarget={onSelectMoveTarget}
           />
         </div>
       </div>
@@ -543,6 +767,12 @@ function WeekGrid({
           onSortOrderChange={onSortOrderChange}
           onTaskClick={onTaskClick}
           onNewTaskClick={onNewTaskClick}
+          isMultiSelectMode={isMultiSelectMode}
+          selectedTaskIds={selectedTaskIds}
+          isMoveTargetingActive={isMoveTargetingActive}
+          onEnterMultiSelect={onEnterMultiSelect}
+          onToggleTaskSelection={onToggleTaskSelection}
+          onSelectMoveTarget={onSelectMoveTarget}
         />
       )}
     </div>
@@ -555,6 +785,12 @@ type OtherListsSectionProps = {
   onSortOrderChange: (order: ListSortOrder) => void;
   onTaskClick: (task: TaskWithListInfo) => void;
   onNewTaskClick: (listId: string, listDisplayName: string, dueDate?: string) => void;
+  isMultiSelectMode: boolean;
+  selectedTaskIds: Set<string>;
+  isMoveTargetingActive: boolean;
+  onEnterMultiSelect: (taskId: string) => void;
+  onToggleTaskSelection: (taskId: string) => void;
+  onSelectMoveTarget: (listId: string, listName: string, dueDate?: string) => void;
 };
 
 function OtherListsSection({
@@ -563,6 +799,12 @@ function OtherListsSection({
   onSortOrderChange,
   onTaskClick,
   onNewTaskClick,
+  isMultiSelectMode,
+  selectedTaskIds,
+  isMoveTargetingActive,
+  onEnterMultiSelect,
+  onToggleTaskSelection,
+  onSelectMoveTarget,
 }: OtherListsSectionProps) {
   return (
     <div className="mt-8">
@@ -582,6 +824,12 @@ function OtherListsSection({
             list={list}
             onTaskClick={onTaskClick}
             onNewTaskClick={onNewTaskClick}
+            isMultiSelectMode={isMultiSelectMode}
+            selectedTaskIds={selectedTaskIds}
+            isMoveTargetingActive={isMoveTargetingActive}
+            onEnterMultiSelect={onEnterMultiSelect}
+            onToggleTaskSelection={onToggleTaskSelection}
+            onSelectMoveTarget={onSelectMoveTarget}
           />
         ))}
       </div>
@@ -633,17 +881,41 @@ type ListColumnProps = {
   list: OtherListData;
   onTaskClick: (task: TaskWithListInfo) => void;
   onNewTaskClick: (listId: string, listDisplayName: string, dueDate?: string) => void;
+  isMultiSelectMode: boolean;
+  selectedTaskIds: Set<string>;
+  isMoveTargetingActive: boolean;
+  onEnterMultiSelect: (taskId: string) => void;
+  onToggleTaskSelection: (taskId: string) => void;
+  onSelectMoveTarget: (listId: string, listName: string, dueDate?: string) => void;
 };
 
 const LIST_MIN_ROWS = 1;
 
-function ListColumn({ list, onTaskClick, onNewTaskClick }: ListColumnProps) {
+function ListColumn({ 
+  list, 
+  onTaskClick, 
+  onNewTaskClick,
+  isMultiSelectMode,
+  selectedTaskIds,
+  isMoveTargetingActive,
+  onEnterMultiSelect,
+  onToggleTaskSelection,
+  onSelectMoveTarget,
+}: ListColumnProps) {
   const emptyRowCount = Math.max(LIST_MIN_ROWS, LIST_MIN_ROWS - list.tasks.length);
+
+  const handleHeaderClick = isMoveTargetingActive
+    ? () => onSelectMoveTarget(list.taskList.id, list.displayName)
+    : undefined;
 
   return (
     <div className="flex flex-col break-inside-avoid mb-6">
       {/* List header - matches DayHeader styling */}
-      <ColumnHeader title={list.displayName} />
+      <ColumnHeader 
+        title={list.displayName} 
+        isMoveTargetingActive={isMoveTargetingActive}
+        onClick={handleHeaderClick}
+      />
 
       {/* Task items */}
       {list.tasks.map((task) => (
@@ -651,6 +923,10 @@ function ListColumn({ list, onTaskClick, onNewTaskClick }: ListColumnProps) {
           key={task.id}
           task={task}
           onEdit={() => onTaskClick(task)}
+          isMultiSelectMode={isMultiSelectMode}
+          isSelected={selectedTaskIds.has(task.id)}
+          onEnterMultiSelect={onEnterMultiSelect}
+          onToggleSelection={onToggleTaskSelection}
         />
       ))}
 
@@ -672,6 +948,12 @@ function WeekdayColumn({
   onTaskClick,
   onNewTaskClick,
   activeListId,
+  isMultiSelectMode,
+  selectedTaskIds,
+  isMoveTargetingActive,
+  onEnterMultiSelect,
+  onToggleTaskSelection,
+  onSelectMoveTarget,
 }: { 
   day: WeekDay;
   tasks: TaskWithListInfo[];
@@ -679,6 +961,12 @@ function WeekdayColumn({
   onTaskClick: (task: TaskWithListInfo) => void;
   onNewTaskClick: (listId: string, listDisplayName: string, dueDate?: string) => void;
   activeListId?: string;
+  isMultiSelectMode: boolean;
+  selectedTaskIds: Set<string>;
+  isMoveTargetingActive: boolean;
+  onEnterMultiSelect: (taskId: string) => void;
+  onToggleTaskSelection: (taskId: string) => void;
+  onSelectMoveTarget: (listId: string, listName: string, dueDate?: string) => void;
 }) {
   const dayNum = day.date.getDate();
   const monthShort = day.date.toLocaleDateString("en-US", { month: "short" });
@@ -692,6 +980,10 @@ function WeekdayColumn({
     ? () => onNewTaskClick(activeListId, "Active", dateStr)
     : undefined;
 
+  const handleHeaderClick = isMoveTargetingActive && activeListId
+    ? () => onSelectMoveTarget(activeListId, `Active (${dayNum} ${monthShort})`, dateStr)
+    : undefined;
+
   return (
     <div className="flex flex-col lg:flex-1">
       {/* Day header */}
@@ -700,6 +992,8 @@ function WeekdayColumn({
         monthShort={monthShort}
         dayName={dayName}
         isToday={day.isToday}
+        isMoveTargetingActive={isMoveTargetingActive}
+        onClick={handleHeaderClick}
       />
 
       {/* Mobile: Task items + always at least one empty row */}
@@ -713,6 +1007,10 @@ function WeekdayColumn({
                 key={task.id} 
                 task={task} 
                 onEdit={() => onTaskClick(task)}
+                isMultiSelectMode={isMultiSelectMode}
+                isSelected={selectedTaskIds.has(task.id)}
+                onEnterMultiSelect={onEnterMultiSelect}
+                onToggleSelection={onToggleTaskSelection}
               />
             ))}
             {/* Always show at least one empty row on mobile */}
@@ -728,6 +1026,10 @@ function WeekdayColumn({
             key={task.id} 
             task={task} 
             onEdit={() => onTaskClick(task)}
+            isMultiSelectMode={isMultiSelectMode}
+            isSelected={selectedTaskIds.has(task.id)}
+            onEnterMultiSelect={onEnterMultiSelect}
+            onToggleSelection={onToggleTaskSelection}
           />
         ))}
         {Array.from({ length: emptyRowCount }).map((_, i) => (
@@ -746,19 +1048,39 @@ function SectionColumn({
   listId,
   onTaskClick,
   onNewTaskClick,
+  isMultiSelectMode,
+  selectedTaskIds,
+  isMoveTargetingActive,
+  onEnterMultiSelect,
+  onToggleTaskSelection,
+  onSelectMoveTarget,
 }: { 
   title: string; 
   tasks: TaskWithListInfo[];
   listId?: string;
   onTaskClick: (task: TaskWithListInfo) => void;
   onNewTaskClick: (listId: string, listDisplayName: string, dueDate?: string) => void;
+  isMultiSelectMode: boolean;
+  selectedTaskIds: Set<string>;
+  isMoveTargetingActive: boolean;
+  onEnterMultiSelect: (taskId: string) => void;
+  onToggleTaskSelection: (taskId: string) => void;
+  onSelectMoveTarget: (listId: string, listName: string, dueDate?: string) => void;
 }) {
   const emptyRowCount = Math.max(0, SECTION_MIN_ROWS - tasks.length);
+
+  const handleHeaderClick = isMoveTargetingActive && listId
+    ? () => onSelectMoveTarget(listId, title)
+    : undefined;
 
   return (
     <div className="flex flex-col break-inside-avoid mb-6">
       {/* Section header - matches ColumnHeader styling */}
-      <ColumnHeader title={title} />
+      <ColumnHeader 
+        title={title} 
+        isMoveTargetingActive={isMoveTargetingActive}
+        onClick={handleHeaderClick}
+      />
 
       {/* Task items */}
       {tasks.map((task) => (
@@ -766,6 +1088,10 @@ function SectionColumn({
           key={task.id}
           task={task}
           onEdit={() => onTaskClick(task)}
+          isMultiSelectMode={isMultiSelectMode}
+          isSelected={selectedTaskIds.has(task.id)}
+          onEnterMultiSelect={onEnterMultiSelect}
+          onToggleSelection={onToggleTaskSelection}
         />
       ))}
 
@@ -783,9 +1109,20 @@ function SectionColumn({
 type OverdueColumnProps = {
   tasks: TaskWithListInfo[];
   onTaskClick: (task: TaskWithListInfo) => void;
+  isMultiSelectMode: boolean;
+  selectedTaskIds: Set<string>;
+  onEnterMultiSelect: (taskId: string) => void;
+  onToggleTaskSelection: (taskId: string) => void;
 };
 
-function OverdueColumn({ tasks, onTaskClick }: OverdueColumnProps) {
+function OverdueColumn({ 
+  tasks, 
+  onTaskClick,
+  isMultiSelectMode,
+  selectedTaskIds,
+  onEnterMultiSelect,
+  onToggleTaskSelection,
+}: OverdueColumnProps) {
   return (
     <div className="flex flex-col break-inside-avoid mb-6">
       {/* Overdue header - red warning styling */}
@@ -801,6 +1138,10 @@ function OverdueColumn({ tasks, onTaskClick }: OverdueColumnProps) {
           key={task.id}
           task={task}
           onEdit={() => onTaskClick(task)}
+          isMultiSelectMode={isMultiSelectMode}
+          isSelected={selectedTaskIds.has(task.id)}
+          onEnterMultiSelect={onEnterMultiSelect}
+          onToggleSelection={onToggleTaskSelection}
         />
       ))}
     </div>
@@ -814,6 +1155,12 @@ function WeekendColumn({
   onTaskClick,
   onNewTaskClick,
   activeListId,
+  isMultiSelectMode,
+  selectedTaskIds,
+  isMoveTargetingActive,
+  onEnterMultiSelect,
+  onToggleTaskSelection,
+  onSelectMoveTarget,
 }: { 
   weekend: WeekDay[];
   getTasksForDate: (date: Date) => TaskWithListInfo[];
@@ -821,6 +1168,12 @@ function WeekendColumn({
   onTaskClick: (task: TaskWithListInfo) => void;
   onNewTaskClick: (listId: string, listDisplayName: string, dueDate?: string) => void;
   activeListId?: string;
+  isMultiSelectMode: boolean;
+  selectedTaskIds: Set<string>;
+  isMoveTargetingActive: boolean;
+  onEnterMultiSelect: (taskId: string) => void;
+  onToggleTaskSelection: (taskId: string) => void;
+  onSelectMoveTarget: (listId: string, listName: string, dueDate?: string) => void;
 }) {
   return (
     <div className="flex flex-1 flex-col">
@@ -840,6 +1193,10 @@ function WeekendColumn({
           ? () => onNewTaskClick(activeListId, "Active", dateStr)
           : undefined;
 
+        const handleHeaderClick = isMoveTargetingActive && activeListId
+          ? () => onSelectMoveTarget(activeListId, `Active (${dayNum} ${monthShort})`, dateStr)
+          : undefined;
+
         return (
           <div key={day.date.toISOString()}>
             {/* Add spacing between weekend days */}
@@ -850,6 +1207,8 @@ function WeekendColumn({
               monthShort={monthShort}
               dayName={dayName}
               isToday={day.isToday}
+              isMoveTargetingActive={isMoveTargetingActive}
+              onClick={handleHeaderClick}
             />
 
             {tasksLoading ? (
@@ -863,6 +1222,10 @@ function WeekendColumn({
                     key={task.id} 
                     task={task} 
                     onEdit={() => onTaskClick(task)}
+                    isMultiSelectMode={isMultiSelectMode}
+                    isSelected={selectedTaskIds.has(task.id)}
+                    onEnterMultiSelect={onEnterMultiSelect}
+                    onToggleSelection={onToggleTaskSelection}
                   />
                 ))}
                 {Array.from({ length: emptyRowCount }).map((_, i) => (
@@ -877,9 +1240,33 @@ function WeekendColumn({
   );
 }
 
-function ColumnHeader({ title }: { title: string }) {
+function ColumnHeader({ 
+  title,
+  isMoveTargetingActive,
+  onClick,
+}: { 
+  title: string;
+  isMoveTargetingActive?: boolean;
+  onClick?: () => void;
+}) {
+  const isClickable = isMoveTargetingActive && onClick;
+  
   return (
-    <div className="flex h-9 items-center border-black border-b-2">
+    <div 
+      className={cn(
+        "flex h-9 items-center border-black border-b-2 transition-colors",
+        isClickable && "cursor-pointer bg-orange-100 hover:bg-orange-300"
+      )}
+      onClick={onClick}
+      role={isClickable ? "button" : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onKeyDown={isClickable ? (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      } : undefined}
+    >
       <Typography variant="title" className="text-zinc-900">
         {title}
       </Typography>
@@ -893,20 +1280,36 @@ function DayHeader({
   monthShort,
   dayName,
   isToday,
+  isMoveTargetingActive,
+  onClick,
 }: {
   className?: string;
   dayNum: number;
   monthShort: string;
   dayName: string;
   isToday: boolean;
+  isMoveTargetingActive?: boolean;
+  onClick?: () => void;
 }) {
+  const isClickable = isMoveTargetingActive && onClick;
+
   return (
     <div
       className={cn(
-        "flex h-9 items-center justify-between border-black border-b-2",
+        "flex h-9 items-center justify-between border-black border-b-2 transition-colors",
         isToday && "border-b-orange-500",
+        isClickable && "cursor-pointer bg-orange-100 hover:bg-orange-300",
         className
       )}
+      onClick={onClick}
+      role={isClickable ? "button" : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onKeyDown={isClickable ? (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      } : undefined}
     >
       <Typography
         variant="title"
@@ -962,6 +1365,11 @@ type TaskItemProps = {
   onToggleComplete?: () => void;
   onDelete?: () => void;
   isDemo?: boolean;
+  // Multi-select props
+  isMultiSelectMode?: boolean;
+  isSelected?: boolean;
+  onEnterMultiSelect?: (taskId: string) => void;
+  onToggleSelection?: (taskId: string) => void;
 };
 
 function TaskItem({ 
@@ -970,14 +1378,27 @@ function TaskItem({
   onToggleComplete,
   onDelete,
   isDemo = false,
+  isMultiSelectMode = false,
+  isSelected = false,
+  onEnterMultiSelect,
+  onToggleSelection,
 }: TaskItemProps) {
   const isCompleted = task.status === "completed";
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleDoubleClick = useCallback(() => {
-    if (isDemo) return;
+    if (isDemo || isMultiSelectMode) return;
     onEdit?.();
-  }, [isDemo, onEdit]);
+  }, [isDemo, isMultiSelectMode, onEdit]);
+
+  const handleCheckboxChange = useCallback(() => {
+    onToggleSelection?.(task.id);
+  }, [task.id, onToggleSelection]);
+
+  const handleMoveClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onEnterMultiSelect?.(task.id);
+  }, [task.id, onEnterMultiSelect]);
 
   return (
     <div
@@ -987,9 +1408,21 @@ function TaskItem({
         "group/task relative flex min-h-9 h-9 w-full items-center border-b-2 border-zinc-100 text-left transition-colors",
         "hover:bg-zinc-50 focus-within:bg-zinc-50",
         "focus:outline-none focus:ring-0",
-        isCompleted && "opacity-60"
+        isCompleted && "opacity-60",
+        isSelected && "bg-orange-50"
       )}
     >
+      {/* Checkbox for multi-select mode */}
+      {isMultiSelectMode && (
+        <div className="flex items-center justify-center w-7 shrink-0">
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={handleCheckboxChange}
+            className="size-4"
+          />
+        </div>
+      )}
+
       {/* Task title - double-click opens edit drawer */}
       <Typography
         variant="default"
@@ -1002,82 +1435,101 @@ function TaskItem({
         {task.title}
       </Typography>
 
-      {/* Action buttons overlay - appears on hover/focus */}
-      <div
-        className={cn(
-          "absolute right-0 top-0 bottom-0 flex items-center gap-0.5 pr-1",
-          "opacity-0 group-hover/task:opacity-100 group-focus-within/task:opacity-100",
-          "transition-opacity duration-150",
-          // Gradient background to fade over text
-          "bg-linear-to-l from-zinc-50 via-zinc-50 to-transparent",
-          "pl-6"
-        )}
-      >
-        {/* Edit button */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit?.();
-              }}
-              className="flex size-7 items-center justify-center rounded text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200 transition-colors"
-              disabled={isDemo}
-            >
-              <Pencil className="size-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="top">
-            <p>Edit</p>
-          </TooltipContent>
-        </Tooltip>
+      {/* Action buttons overlay - appears on hover/focus, hidden in multi-select mode */}
+      {!isMultiSelectMode && (
+        <div
+          className={cn(
+            "absolute right-0 top-0 bottom-0 flex items-center gap-0.5 pr-1",
+            "opacity-0 group-hover/task:opacity-100 group-focus-within/task:opacity-100",
+            "transition-opacity duration-150",
+            // Gradient background to fade over text
+            "bg-linear-to-l from-zinc-50 via-zinc-50 to-transparent",
+            "pl-6"
+          )}
+        >
+          {/* Move button - enters multi-select mode */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={handleMoveClick}
+                className="flex size-7 items-center justify-center rounded text-zinc-500 hover:text-orange-600 hover:bg-orange-100 transition-colors"
+                disabled={isDemo}
+              >
+                <Move className="size-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>Move</p>
+            </TooltipContent>
+          </Tooltip>
 
-        {/* Mark complete/incomplete button */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleComplete?.();
-              }}
-              className={cn(
-                "flex size-7 items-center justify-center rounded transition-colors",
-                isCompleted 
-                  ? "text-green-600 hover:text-green-700 hover:bg-green-100"
-                  : "text-zinc-500 hover:text-green-600 hover:bg-green-100"
-              )}
-              disabled={isDemo}
-            >
-              <Check className="size-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="top">
-            <p>{isCompleted ? "Mark incomplete" : "Mark complete"}</p>
-          </TooltipContent>
-        </Tooltip>
+          {/* Edit button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit?.();
+                }}
+                className="flex size-7 items-center justify-center rounded text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200 transition-colors"
+                disabled={isDemo}
+              >
+                <Pencil className="size-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>Edit</p>
+            </TooltipContent>
+          </Tooltip>
 
-        {/* Delete button */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete?.();
-              }}
-              className="flex size-7 items-center justify-center rounded text-zinc-500 hover:text-red-600 hover:bg-red-100 transition-colors"
-              disabled={isDemo}
-            >
-              <Trash2 className="size-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="top">
-            <p>Delete</p>
-          </TooltipContent>
-        </Tooltip>
-      </div>
+          {/* Mark complete/incomplete button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleComplete?.();
+                }}
+                className={cn(
+                  "flex size-7 items-center justify-center rounded transition-colors",
+                  isCompleted 
+                    ? "text-green-600 hover:text-green-700 hover:bg-green-100"
+                    : "text-zinc-500 hover:text-green-600 hover:bg-green-100"
+                )}
+                disabled={isDemo}
+              >
+                <Check className="size-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>{isCompleted ? "Mark incomplete" : "Mark complete"}</p>
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Delete button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete?.();
+                }}
+                className="flex size-7 items-center justify-center rounded text-zinc-500 hover:text-red-600 hover:bg-red-100 transition-colors"
+                disabled={isDemo}
+              >
+                <Trash2 className="size-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>Delete</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
     </div>
   );
 }
@@ -1087,9 +1539,21 @@ type ConnectedTaskItemProps = {
   task: TaskWithListInfo;
   onEdit: () => void;
   isDemo?: boolean;
+  isMultiSelectMode?: boolean;
+  isSelected?: boolean;
+  onEnterMultiSelect?: (taskId: string) => void;
+  onToggleSelection?: (taskId: string) => void;
 };
 
-function ConnectedTaskItem({ task, onEdit, isDemo = false }: ConnectedTaskItemProps) {
+function ConnectedTaskItem({ 
+  task, 
+  onEdit, 
+  isDemo = false,
+  isMultiSelectMode = false,
+  isSelected = false,
+  onEnterMultiSelect,
+  onToggleSelection,
+}: ConnectedTaskItemProps) {
   const { optimisticToggleComplete, optimisticDelete, isOffline } = useTasks();
   const deleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -1137,6 +1601,10 @@ function ConnectedTaskItem({ task, onEdit, isDemo = false }: ConnectedTaskItemPr
       onToggleComplete={handleToggleComplete}
       onDelete={handleDelete}
       isDemo={isDemo || isOffline}
+      isMultiSelectMode={isMultiSelectMode}
+      isSelected={isSelected}
+      onEnterMultiSelect={onEnterMultiSelect}
+      onToggleSelection={onToggleSelection}
     />
   );
 }
@@ -1145,9 +1613,20 @@ function ConnectedTaskItem({ task, onEdit, isDemo = false }: ConnectedTaskItemPr
 type OverdueTaskItemProps = {
   task: TaskWithListInfo;
   onEdit: () => void;
+  isMultiSelectMode?: boolean;
+  isSelected?: boolean;
+  onEnterMultiSelect?: (taskId: string) => void;
+  onToggleSelection?: (taskId: string) => void;
 };
 
-function OverdueTaskItem({ task, onEdit }: OverdueTaskItemProps) {
+function OverdueTaskItem({ 
+  task, 
+  onEdit,
+  isMultiSelectMode = false,
+  isSelected = false,
+  onEnterMultiSelect,
+  onToggleSelection,
+}: OverdueTaskItemProps) {
   const { optimisticToggleComplete, optimisticDelete, isOffline } = useTasks();
   const completeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1234,7 +1713,151 @@ function OverdueTaskItem({ task, onEdit }: OverdueTaskItemProps) {
       onToggleComplete={handleToggleComplete}
       onDelete={handleDelete}
       isDemo={isOffline}
+      isMultiSelectMode={isMultiSelectMode}
+      isSelected={isSelected}
+      onEnterMultiSelect={onEnterMultiSelect}
+      onToggleSelection={onToggleSelection}
     />
+  );
+}
+
+// Multi-select actions bar - fixed position top right
+type MultiSelectActionsBarProps = {
+  selectedCount: number;
+  isMoveTargetingActive: boolean;
+  onMove: () => void;
+  onDelete: () => void;
+  onCancel: () => void;
+};
+
+function MultiSelectActionsBar({
+  selectedCount,
+  isMoveTargetingActive,
+  onMove,
+  onDelete,
+  onCancel,
+}: MultiSelectActionsBarProps) {
+  return (
+    <div className="fixed top-4 right-4 z-50 flex items-center gap-2 bg-white border border-zinc-200 rounded-lg shadow-lg px-3 py-2">
+      <Typography variant="default" className="text-sm text-zinc-600">
+        {selectedCount} selected
+      </Typography>
+      
+      <div className="w-px h-6 bg-zinc-200" />
+      
+      {isMoveTargetingActive ? (
+        <Typography variant="default" className="text-sm text-orange-600 font-medium">
+          Select a list to move to
+        </Typography>
+      ) : (
+        <>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onMove}
+            className="h-8 gap-1.5 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+          >
+            <Move className="size-4" />
+            Move
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDelete}
+            className="h-8 gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50"
+          >
+            <Trash2 className="size-4" />
+            Delete
+          </Button>
+        </>
+      )}
+      
+      <div className="w-px h-6 bg-zinc-200" />
+      
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onCancel}
+        className="h-8 gap-1.5"
+      >
+        <X className="size-4" />
+        Cancel
+      </Button>
+    </div>
+  );
+}
+
+// Confirmation dialogs
+type ConfirmDeleteDialogProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  selectedCount: number;
+  onConfirm: () => void;
+};
+
+function ConfirmDeleteDialog({
+  open,
+  onOpenChange,
+  selectedCount,
+  onConfirm,
+}: ConfirmDeleteDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete {selectedCount} task{selectedCount !== 1 ? "s" : ""}?</DialogTitle>
+          <DialogDescription>
+            This action cannot be undone. The selected task{selectedCount !== 1 ? "s" : ""} will be permanently deleted.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={onConfirm}>
+            Delete
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+type ConfirmMoveDialogProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  selectedCount: number;
+  targetListName: string;
+  onConfirm: () => void;
+};
+
+function ConfirmMoveDialog({
+  open,
+  onOpenChange,
+  selectedCount,
+  targetListName,
+  onConfirm,
+}: ConfirmMoveDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Move {selectedCount} task{selectedCount !== 1 ? "s" : ""}?</DialogTitle>
+          <DialogDescription>
+            Move the selected task{selectedCount !== 1 ? "s" : ""} to <strong>{targetListName}</strong>?
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={onConfirm}>
+            Move
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
