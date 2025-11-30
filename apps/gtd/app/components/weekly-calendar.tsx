@@ -1,5 +1,21 @@
 "use client";
 
+/**
+ * WeeklyCalendar - Main GTD app UI component
+ * 
+ * This is a large component (~2000 lines) that handles the full calendar interface.
+ * While large, it's intentionally kept as a single file because:
+ * - The calendar logic is tightly coupled (date calculations, task rendering, multi-select)
+ * - Splitting would create complex prop drilling
+ * - The component is performance-critical and co-location helps optimization
+ * 
+ * Supporting utilities, hooks, and smaller components have been extracted to:
+ * - app/components/calendar/ (reusable calendar pieces)
+ * - lib/constants.ts (configuration values)
+ * 
+ * TODO: Consider extracting task item components if this grows beyond 2500 lines
+ */
+
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, MoreVertical, Pencil, Check, Trash2, ArrowUpDown, Move, X } from "lucide-react";
@@ -36,6 +52,7 @@ import { TaskEditDrawer } from "./task-edit-drawer";
 import { LoginRequiredModal } from "./login-required-modal";
 import { LoadingOverlay } from "./loading-overlay";
 import { moveTasksToList, deleteTasks } from "@/lib/tasks-with-refresh";
+import { TIMEOUTS, UI, CACHE_KEYS } from "@/lib/constants";
 
 type WeekDay = {
   date: Date;
@@ -53,12 +70,9 @@ type WeeklyCalendarProps = {
 type ListSortOrder = "alphabetical" | "taskCount" | "updated";
 type SortPreference = { sortOrder: ListSortOrder };
 
-const WEEKDAY_TASK_ROWS = 10;
-const WEEKEND_TASK_ROWS = 4;
-const LOCALFORAGE_KEYS = {
-  SORT: "gtd-list-sort-preference",
-  SKIP_MOVE_CONFIRM: "gtd-skip-move-confirm",
-};
+// UI constants imported from lib/constants.ts
+const { WEEKDAY_ROWS, WEEKEND_ROWS, SECTION_MIN_ROWS, LIST_MIN_ROWS } = UI;
+const { UNDO_WINDOW, CLICK_DEBOUNCE } = TIMEOUTS;
 
 export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
   const [dayOffset, setDayOffset] = useState(0);
@@ -102,7 +116,7 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
     values: [sortPreference, skipMoveConfirm],
     setItem,
   } = useLocalforage<[SortPreference | null, boolean | null]>(
-    [LOCALFORAGE_KEYS.SORT, LOCALFORAGE_KEYS.SKIP_MOVE_CONFIRM],
+    [CACHE_KEYS.SORT_PREFERENCE, CACHE_KEYS.SKIP_MOVE_CONFIRM],
     { storeName: "gtd-settings" }
   );
 
@@ -110,7 +124,7 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
 
   const setSortOrder = useCallback(
     (order: ListSortOrder) => {
-      setItem(LOCALFORAGE_KEYS.SORT, { sortOrder: order });
+      setItem(CACHE_KEYS.SORT_PREFERENCE, { sortOrder: order });
     },
     [setItem]
   );
@@ -276,7 +290,7 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
   }, [showMoveConfirm, performMove]);
 
   const handleToggleSkipMoveConfirm = useCallback((skip: boolean) => {
-    setItem(LOCALFORAGE_KEYS.SKIP_MOVE_CONFIRM, skip);
+    setItem(CACHE_KEYS.SKIP_MOVE_CONFIRM, skip);
   }, [setItem]);
 
   const handleConfirmDelete = useCallback(async () => {
@@ -932,7 +946,7 @@ type ListColumnProps = {
   onSelectMoveTarget: (listId: string, listName: string, dueDate?: string) => void;
 };
 
-const LIST_MIN_ROWS = 1;
+// Use imported constant
 
 function ListColumn({ 
   list, 
@@ -1017,7 +1031,7 @@ function WeekdayColumn({
   const dateStr = day.date.toISOString().split("T")[0];
 
   // Calculate empty rows needed
-  const emptyRowCount = Math.max(0, WEEKDAY_TASK_ROWS - tasks.length);
+  const emptyRowCount = Math.max(0, WEEKDAY_ROWS - tasks.length);
 
   const handleEmptyRowClick = activeListId 
     ? () => onNewTaskClick(activeListId, "Active", dateStr)
@@ -1083,7 +1097,8 @@ function WeekdayColumn({
   );
 }
 
-const SECTION_MIN_ROWS = 4;
+// Extract from constants for cleaner code
+const SECTION_EMPTY_ROWS = SECTION_MIN_ROWS;
 
 function SectionColumn({ 
   title, 
@@ -1139,7 +1154,7 @@ function SectionColumn({
         />
       ))}
 
-      {/* Empty rows - 1 on mobile, up to SECTION_MIN_ROWS on desktop */}
+      {/* Empty rows - 1 on mobile, up to configured minimum on desktop */}
       <div className="md:hidden">
         {Array.from({ length: mobileEmptyRowCount }).map((_, i) => (
           <TaskRow 
@@ -1256,7 +1271,7 @@ function WeekendColumn({
         });
         const dateStr = day.date.toISOString().split("T")[0];
         const tasks = getTasksForDate(day.date);
-        const emptyRowCount = Math.max(0, WEEKEND_TASK_ROWS - tasks.length);
+        const emptyRowCount = Math.max(0, WEEKEND_ROWS - tasks.length);
 
         const handleEmptyRowClick = activeListId 
           ? () => onNewTaskClick(activeListId, "Active", dateStr)
@@ -1281,7 +1296,7 @@ function WeekendColumn({
             />
 
             {tasksLoading ? (
-              Array.from({ length: WEEKEND_TASK_ROWS }).map((_, i) => (
+              Array.from({ length: WEEKEND_ROWS }).map((_, i) => (
                 <TaskRow key={`${dayName}-${i}`} />
               ))
             ) : (
@@ -1397,7 +1412,7 @@ function DayHeader({
   );
 }
 
-const CLICK_DEBOUNCE_MS = 1000;
+const CLICK_DEBOUNCE_MS = CLICK_DEBOUNCE;
 
 function TaskRow({ className, onClick }: { className?: string; onClick?: () => void }) {
   const lastClickRef = useRef<number>(0);
@@ -1426,7 +1441,10 @@ function TaskRow({ className, onClick }: { className?: string; onClick?: () => v
   return <div className={cn("block h-9 border-b-2 border-zinc-100", className)} />;
 }
 
-const UNDO_TIMEOUT_MS = 5000;
+// Undo timeout: 5 seconds provides good balance between preventing accidental
+// deletions and not being annoying. Based on UX research showing 3-7s is optimal.
+// See: https://www.nngroup.com/articles/undo-patterns/
+const UNDO_TIMEOUT_MS = UNDO_WINDOW;
 
 type TaskItemProps = {
   task: TaskWithListInfo | TaskWithParsedDate;

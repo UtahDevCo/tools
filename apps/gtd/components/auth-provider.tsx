@@ -148,12 +148,16 @@ export function AuthProvider({ children, initialUser = null }: AuthProviderProps
   const refreshSession = useCallback(async () => {
     // Prevent concurrent refresh attempts
     if (isRefreshingRef.current) {
+      console.log('Refresh already in progress, skipping duplicate request');
       return;
     }
     isRefreshingRef.current = true;
     try {
       // Re-authenticate to get fresh tokens
       await signIn();
+    } catch (error) {
+      console.error('Session refresh failed:', error);
+      throw error;
     } finally {
       isRefreshingRef.current = false;
     }
@@ -166,6 +170,7 @@ export function AuthProvider({ children, initialUser = null }: AuthProviderProps
       setRefreshFunction(async () => {
         // Prevent concurrent refresh attempts
         if (isRefreshingRef.current) {
+          console.log('Refresh already in progress via coordinator, skipping');
           return;
         }
         isRefreshingRef.current = true;
@@ -180,6 +185,9 @@ export function AuthProvider({ children, initialUser = null }: AuthProviderProps
           });
 
           setUser(serializedUser);
+        } catch (error) {
+          console.error('Coordinated token refresh failed:', error);
+          throw error;
         } finally {
           isRefreshingRef.current = false;
         }

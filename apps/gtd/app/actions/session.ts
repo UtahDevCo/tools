@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { TIMEOUTS } from "@/lib/constants";
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -91,9 +92,8 @@ export async function isTokenExpired(): Promise<boolean> {
     return true;
   }
 
-  // Consider token expired 5 minutes before actual expiry for safety
-  const bufferMs = 5 * 60 * 1000;
-  return Date.now() > expiry - bufferMs;
+  // Use centralized constant for token refresh buffer
+  return Date.now() > expiry - TIMEOUTS.TOKEN_REFRESH_BUFFER;
 }
 
 export async function clearSessionCookies(): Promise<void> {
