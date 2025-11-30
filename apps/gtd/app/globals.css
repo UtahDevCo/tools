@@ -124,102 +124,13 @@
 }
 
 /* Loading animation utilities */
-@keyframes spin-slow {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes dash {
-  0% {
-    stroke-dashoffset: 339.292;
-  }
-  50% {
-    stroke-dashoffset: 84.823;
-  }
-  100% {
-    stroke-dashoffset: 339.292;
-  }
-}
-
-@keyframes bounce-subtle {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-4px);
-  }
-}
-
-@keyframes arrow-down {
-  0%, 100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  50% {
-    opacity: 0.6;
-    transform: translateY(4px);
-  }
-}
-
-@keyframes task-check {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.85;
-  }
-}
-
-@keyframes orbit {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes orbit-delayed {
-  from {
-    transform: rotate(180deg);
-  }
-  to {
-    transform: rotate(540deg);
-  }
+@keyframes gtd-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 @layer utilities {
-  .animate-spin-slow {
-    animation: spin-slow 4s linear infinite;
-  }
-  
-  .animate-dash {
-    animation: dash 2s ease-in-out infinite;
-  }
-  
-  .animate-bounce-subtle {
-    animation: bounce-subtle 2s ease-in-out infinite;
-  }
-  
-  .animate-arrow-down {
-    animation: arrow-down 1.2s ease-in-out infinite;
-  }
-  
-  .animate-task-check {
-    animation: task-check 1.5s ease-in-out infinite;
-  }
-  
-  .animate-orbit {
-    transform-origin: 70px 70px;
-    animation: orbit 6s linear infinite;
-  }
-  
-  .animate-orbit-delayed {
-    transform-origin: 70px 70px;
-    animation: orbit-delayed 6s linear infinite;
+  .animate-gtd-spin {
+    animation: gtd-spin 2s linear infinite;
   }
 }

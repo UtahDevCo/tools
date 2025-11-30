@@ -1,0 +1,45 @@
+<svg width="100px" height="100px" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    /* Define colors */
+    :root {
+      --gtd-black: #000000;
+      --gtd-white: #ffffff;
+    }
+
+    /* The spinning animation */
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* The "breathing" animation for the dashes */
+    @keyframes dash {
+      0% { stroke-dasharray: 20, 231; stroke-dashoffset: 0; }
+      50% { stroke-dasharray: 80, 171; stroke-dashoffset: -50; }
+      100% { stroke-dasharray: 20, 231; stroke-dashoffset: -251; }
+    }
+
+    .spinner-group {
+      transform-origin: 50px 50px;
+      /* Combine spinning and dashing for dynamic effect */
+      animation: spin 2s linear infinite;
+    }
+    
+    .spinner-border {
+       /* approx circumference is 251 */
+       stroke-dasharray: 60, 191; 
+       stroke-linecap: round;
+       /* Optional: Add the dash animation for more dynamic breaking/stretching
+       animation: dash 3s ease-in-out infinite; 
+       */
+    }
+  </style>
+
+  <circle cx="50" cy="50" r="40" fill="#ffffff" />
+
+  <path d="M32 50 L45 63 L68 38" fill="none" stroke="#000000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <g class="spinner-group">
+    <circle class="spinner-border" cx="50" cy="50" r="40" fill="none" stroke="#000000" stroke-width="6" />
+  </g>
+</svg>
