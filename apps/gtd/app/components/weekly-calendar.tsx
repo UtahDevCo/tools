@@ -18,6 +18,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, MoreVertical, Pencil, Check, Trash2, ArrowUpDown, Move, X } from "lucide-react";
 import {
   Typography,
@@ -78,7 +79,30 @@ const { WEEKDAY_ROWS, WEEKEND_ROWS, SECTION_MIN_ROWS, LIST_MIN_ROWS } = UI;
 const { UNDO_WINDOW, CLICK_DEBOUNCE } = TIMEOUTS;
 
 export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
-  const [dayOffset, setDayOffset] = useState(0);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  
+  // Read dayOffset from URL, defaulting to 0 (today)
+  const dayOffset = useMemo(() => {
+    const offsetParam = searchParams.get("offset");
+    if (offsetParam === null) return 0;
+    const parsed = parseInt(offsetParam, 10);
+    return isNaN(parsed) ? 0 : parsed;
+  }, [searchParams]);
+  
+  // Helper to update URL with new offset
+  const setDayOffset = useCallback((newOffset: number | ((prev: number) => number)) => {
+    const resolvedOffset = typeof newOffset === "function" ? newOffset(dayOffset) : newOffset;
+    const params = new URLSearchParams(searchParams.toString());
+    if (resolvedOffset === 0) {
+      params.delete("offset");
+    } else {
+      params.set("offset", resolvedOffset.toString());
+    }
+    const queryString = params.toString();
+    router.replace(queryString ? `?${queryString}` : "/", { scroll: false });
+  }, [dayOffset, searchParams, router]);
+  
   const { isAuthenticated } = useAuth();
   const { settings } = useSettings();
   const { 
@@ -167,7 +191,7 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
     setIsMultiSelectMode(false);
     setSelectedTaskIds(new Set());
     setIsMoveTargetingActive(false);
-  }, []);
+  }, [setDayOffset]);
 
   const handleNext = useCallback(() => {
     setDayOffset((prev) => prev + 4);
@@ -175,7 +199,7 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
     setIsMultiSelectMode(false);
     setSelectedTaskIds(new Set());
     setIsMoveTargetingActive(false);
-  }, []);
+  }, [setDayOffset]);
 
   const handleToday = useCallback(() => {
     setDayOffset(0);
@@ -183,7 +207,7 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
     setIsMultiSelectMode(false);
     setSelectedTaskIds(new Set());
     setIsMoveTargetingActive(false);
-  }, []);
+  }, [setDayOffset]);
 
   const handleTaskClick = useCallback((task: TaskWithListInfo) => {
     if (!isAuthenticated) {
