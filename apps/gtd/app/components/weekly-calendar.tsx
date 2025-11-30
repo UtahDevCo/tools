@@ -533,6 +533,11 @@ function SettingsDropdown() {
             Google Tasks
           </Link>
         </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/policies">
+            Policies
+          </Link>
+        </DropdownMenuItem>
         {isLocalhost && (
           <DropdownMenuItem asChild>
             <Link href="/playground">

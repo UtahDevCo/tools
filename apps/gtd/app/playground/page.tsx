@@ -1,7 +1,8 @@
-import { Typography } from "@repo/components";
+import { Button, Typography } from "@repo/components";
 import Link from "next/link";
 import { Type, FormInput, RectangleHorizontal } from "lucide-react";
-
+import { ArrowLeft } from "lucide-react";
+  
 const PLAYGROUND_ROUTES = [
   {
     href: "/playground/typography",
@@ -26,6 +27,15 @@ const PLAYGROUND_ROUTES = [
 export default function PlaygroundPage() {
   return (
     <main className="min-h-screen p-8 max-w-4xl mx-auto">
+      <div className="mb-8">
+        <Button variant="ghost" size="sm" asChild>
+          <Link href="/" className="flex items-center gap-2">
+            <ArrowLeft className="size-4" />
+            Back to app
+          </Link>
+        </Button>
+      </div>
+
       <Typography variant="headline" className="mb-2">
         Playground
       </Typography>
@@ -44,7 +54,10 @@ export default function PlaygroundPage() {
               <route.icon className="h-6 w-6 text-muted-foreground group-hover:text-orange-600 transition-colors" />
             </div>
             <div>
-              <Typography variant="subtitle" className="group-hover:text-orange-600 transition-colors">
+              <Typography
+                variant="subtitle"
+                className="group-hover:text-orange-600 transition-colors"
+              >
                 {route.name}
               </Typography>
               <Typography variant="light" color="muted">
