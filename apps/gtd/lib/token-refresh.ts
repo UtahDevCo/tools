@@ -33,7 +33,34 @@ export function clearRefreshFunction(): void {
 }
 
 /**
+ * Wait for the window to gain focus before proceeding.
+ * This prevents popups from stealing focus from other applications.
+ * Returns immediately if the window is already focused.
+ */
+function waitForWindowFocus(): Promise<void> {
+  // Check if we're in a browser environment
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return Promise.resolve();
+  }
+
+  // If already focused, return immediately
+  if (document.hasFocus()) {
+    return Promise.resolve();
+  }
+
+  // Wait for focus event
+  return new Promise((resolve) => {
+    const handleFocus = () => {
+      window.removeEventListener("focus", handleFocus);
+      resolve();
+    };
+    window.addEventListener("focus", handleFocus);
+  });
+}
+
+/**
  * Attempt to refresh the session. Only one refresh will occur at a time.
+ * Waits for window focus before triggering the popup to avoid stealing focus.
  * Returns true if refresh succeeded, false if it failed.
  */
 async function doRefresh(): Promise<boolean> {
@@ -51,6 +78,10 @@ async function doRefresh(): Promise<boolean> {
       return false;
     }
   }
+
+  // Wait for window focus before triggering the auth popup
+  // This prevents the popup from stealing focus when user is in another app
+  await waitForWindowFocus();
 
   // Start a new refresh
   pendingRefresh = refreshFunction();

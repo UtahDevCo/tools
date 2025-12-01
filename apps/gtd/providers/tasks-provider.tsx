@@ -919,20 +919,19 @@ export function TasksProvider({ children }: TasksProviderProps) {
     return allTasks.filter((task) => task.listId === state.gtdLists?.someday.id);
   }, [allTasks, state.gtdLists]);
 
-  // Overdue tasks - incomplete tasks with due date before today
+  // Overdue tasks - incomplete tasks with due date before today (not including today)
   const overdueTasks = useMemo<TaskWithListInfo[]>(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Use ISO date string comparison to avoid timezone issues
+    const todayStr = new Date().toISOString().split("T")[0];
     
     return allTasks.filter((task) => {
       // Must be incomplete
       if (task.status === "completed") return false;
       // Must have a due date
       if (!task.dueDate) return false;
-      // Due date must be before today
-      const dueDate = new Date(task.dueDate);
-      dueDate.setHours(0, 0, 0, 0);
-      return dueDate < today;
+      // Due date must be strictly before today (not including today)
+      const dueDateStr = task.dueDate.toISOString().split("T")[0];
+      return dueDateStr < todayStr;
     });
   }, [allTasks]);
 

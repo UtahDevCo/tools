@@ -875,7 +875,8 @@ function ListColumn({
   onSelectMoveTarget,
 }: ListColumnProps) {
   const sortedTasks = useMemo(() => sortByPriority(list.tasks), [list.tasks]);
-  const emptyRowCount = Math.max(LIST_MIN_ROWS, LIST_MIN_ROWS - sortedTasks.length);
+  // Always show at least 1 empty row, or fill up to LIST_MIN_ROWS if tasks < LIST_MIN_ROWS
+  const emptyRowCount = Math.max(1, LIST_MIN_ROWS - sortedTasks.length);
 
   const handleHeaderClick = isMoveTargetingActive
     ? () => onSelectMoveTarget(list.taskList.id, list.displayName)
@@ -948,8 +949,8 @@ function WeekdayColumn({
   const dayName = day.date.toLocaleDateString("en-US", { weekday: "short" });
   const dateStr = day.date.toISOString().split("T")[0];
 
-  // Calculate empty rows needed
-  const emptyRowCount = Math.max(0, WEEKDAY_ROWS - tasks.length - events.length);
+  // Calculate empty rows needed - always have at least 1 for adding new tasks
+  const emptyRowCount = Math.max(1, WEEKDAY_ROWS - tasks.length - events.length);
 
   const handleEmptyRowClick = activeListId 
     ? () => onNewTaskClick(activeListId, "Active", dateStr)
@@ -1061,8 +1062,9 @@ function SectionColumn({
   onSelectMoveTarget: (listId: string, listName: string, dueDate?: string) => void;
 }) {
   const sortedTasks = useMemo(() => sortByPriority(tasks), [tasks]);
-  const desktopEmptyRowCount = Math.max(0, SECTION_MIN_ROWS - sortedTasks.length);
-  const mobileEmptyRowCount = Math.max(0, 1 - sortedTasks.length);
+  // Always show at least 1 empty row, or fill up to SECTION_MIN_ROWS if tasks < SECTION_MIN_ROWS
+  const desktopEmptyRowCount = Math.max(1, SECTION_MIN_ROWS - sortedTasks.length);
+  const mobileEmptyRowCount = 1; // Always show 1 empty row on mobile
 
   const handleHeaderClick = isMoveTargetingActive && listId
     ? () => onSelectMoveTarget(listId, title)
@@ -1092,18 +1094,9 @@ function SectionColumn({
 
       {/* Empty rows - 1 on mobile, up to configured minimum on desktop */}
       <div className="md:hidden">
-        {Array.from({ length: mobileEmptyRowCount }).map((_, i) => (
-          <TaskRow 
-            key={`empty-mobile-${i}`} 
-            onClick={listId ? () => onNewTaskClick(listId, title) : undefined}
-          />
-        ))}
-        {/* Always show at least one empty row on mobile for adding tasks */}
-        {sortedTasks.length > 0 && (
-          <TaskRow 
-            onClick={listId ? () => onNewTaskClick(listId, title) : undefined}
-          />
-        )}
+        <TaskRow 
+          onClick={listId ? () => onNewTaskClick(listId, title) : undefined}
+        />
       </div>
       <div className="hidden md:block">
         {Array.from({ length: desktopEmptyRowCount }).map((_, i) => (
@@ -1213,7 +1206,8 @@ function WeekendColumn({
         const dateStr = day.date.toISOString().split("T")[0];
         const tasks = sortByPriority(getTasksForDate(day.date));
         const events = showCalendarEvents ? getEventsForDate(day.date) : [];
-        const emptyRowCount = Math.max(0, WEEKEND_ROWS - tasks.length - events.length);
+        // Always have at least 1 empty row for adding new tasks
+        const emptyRowCount = Math.max(1, WEEKEND_ROWS - tasks.length - events.length);
 
         const handleEmptyRowClick = activeListId 
           ? () => onNewTaskClick(activeListId, "Active", dateStr)
