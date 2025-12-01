@@ -10,6 +10,7 @@ import {
   PopoverTrigger,
   Typography,
 } from "@repo/components";
+import Link from "next/link";
 import { useAuth } from "./auth-provider";
 
 export function UserAvatar() {
@@ -25,14 +26,24 @@ export function UserAvatar() {
 
   if (!isAuthenticated || !user) {
     return (
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-10 gap-2 rounded-full bg-orange-400 px-4 text-white hover:bg-orange-600"
-        onClick={() => signIn()}
-      >
-        Sign in
-      </Button>
+      <div className="flex items-center gap-4">
+        <Link
+          href="/policies"
+          className="text-sm text-zinc-600 hover:text-zinc-900 hover:underline"
+        >
+          <Button variant="ghost" size="sm" className="h-10 gap-2 rounded-full px-4">
+            Policies
+          </Button>
+        </Link>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-10 gap-2 rounded-full bg-orange-400 px-4 text-white hover:bg-orange-600"
+          onClick={() => signIn()}
+        >
+          Sign in
+        </Button>
+      </div>
     );
   }
 
@@ -44,7 +55,10 @@ export function UserAvatar() {
         <button className="rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2">
           <Avatar className="size-10 bg-zinc-800 text-white cursor-pointer hover:ring-2 hover:ring-orange-500">
             {user.photoURL && (
-              <AvatarImage src={user.photoURL} alt={user.displayName ?? "User"} />
+              <AvatarImage
+                src={user.photoURL}
+                alt={user.displayName ?? "User"}
+              />
             )}
             <AvatarFallback className="bg-zinc-800 text-xs font-medium text-white">
               {initials}
@@ -70,7 +84,11 @@ export function UserAvatar() {
               <Typography variant="strong" className="truncate">
                 {user.displayName ?? "User"}
               </Typography>
-              <Typography variant="default" color="muted" className="truncate text-xs">
+              <Typography
+                variant="default"
+                color="muted"
+                className="truncate text-xs"
+              >
                 {user.email}
               </Typography>
             </div>
@@ -90,10 +108,7 @@ export function UserAvatar() {
   );
 }
 
-function getInitials(
-  displayName: string | null,
-  email: string | null
-): string {
+function getInitials(displayName: string | null, email: string | null): string {
   if (displayName) {
     const parts = displayName.split(" ");
     if (parts.length >= 2) {
