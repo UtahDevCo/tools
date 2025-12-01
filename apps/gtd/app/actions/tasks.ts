@@ -11,6 +11,8 @@ import {
   deleteTask as deleteTaskApi,
   completeTask as completeTaskApi,
   uncompleteTask as uncompleteTaskApi,
+  moveTask as moveTaskApi,
+  createSubtask as createSubtaskApi,
   ensureGTDListsExist,
   isGTDList,
   getTaskListDisplayName,
@@ -368,4 +370,58 @@ export async function deleteTasks(
   }
 
   return { success: true, data: { deleted, failed } };
+}
+
+/**
+ * Move a task within a list (reorder, set parent for subtasks) or to a different list.
+ * Use this for:
+ * - Making a task a subtask (set parent)
+ * - Reordering tasks within a list (set previous)
+ * - Moving tasks between lists (set destinationTasklist) - note: recurrent tasks cannot be moved between lists
+ */
+export async function moveTask(
+  taskListId: string,
+  taskId: string,
+  options?: {
+    parent?: string;
+    previous?: string;
+    destinationTasklist?: string;
+  }
+): Promise<TasksResult<Task>> {
+  const result = await getAuthenticatedClient();
+
+  if ("error" in result) {
+    return { success: false, error: result.error, needsReauth: result.needsReauth };
+  }
+
+  try {
+    const movedTask = await moveTaskApi(result.client, taskListId, taskId, options);
+    return { success: true, data: movedTask };
+  } catch (error) {
+    console.error("Failed to move task:", error);
+    return { success: false, error: "Failed to move task" };
+  }
+}
+
+/**
+ * Create a subtask under a parent task.
+ */
+export async function createSubtask(
+  taskListId: string,
+  parentTaskId: string,
+  task: TaskInput
+): Promise<TasksResult<Task>> {
+  const result = await getAuthenticatedClient();
+
+  if ("error" in result) {
+    return { success: false, error: result.error, needsReauth: result.needsReauth };
+  }
+
+  try {
+    const newSubtask = await createSubtaskApi(result.client, taskListId, parentTaskId, task);
+    return { success: true, data: newSubtask };
+  } catch (error) {
+    console.error("Failed to create subtask:", error);
+    return { success: false, error: "Failed to create subtask" };
+  }
 }

@@ -18,6 +18,7 @@ import {
   uncompleteTask,
   deleteTask,
   updateTask,
+  createSubtask,
   type GTDLists,
 } from "@/lib/tasks-with-refresh";
 import {
@@ -336,7 +337,7 @@ type TasksState = {
 };
 
 type TasksContextValue = TasksState & {
-  // All tasks flattened with list info
+  // All tasks flattened with list info (excludes subtasks - they show in parent drawer only)
   allTasks: TaskWithListInfo[];
   // GTD-specific task getters
   activeTasks: TaskWithListInfo[];
@@ -351,6 +352,10 @@ type TasksContextValue = TasksState & {
   getTasksForDate: (date: Date) => TaskWithListInfo[];
   getEventsForDate: (date: Date) => CalendarEventWithParsedDate[];
   getTasksWithoutDueDate: () => TaskWithListInfo[];
+  // Subtask getters
+  getSubtasks: (parentTaskId: string, listId: string) => TaskWithListInfo[];
+  hasSubtasks: (taskId: string, listId: string) => boolean;
+  getSubtaskCount: (taskId: string, listId: string) => number;
   refresh: () => void;
   refreshCalendar: () => Promise<void>;
   // Expose gtdLists for components that need to check list IDs
@@ -359,6 +364,8 @@ type TasksContextValue = TasksState & {
   optimisticToggleComplete: (task: TaskWithListInfo) => void;
   optimisticDelete: (task: TaskWithListInfo) => { undo: () => void; commit: () => Promise<void> };
   optimisticUpdate: (task: TaskWithListInfo, updates: { title?: string; notes?: string }) => void;
+  // Subtask operations
+  addSubtask: (parentTask: TaskWithListInfo, title: string) => Promise<boolean>;
   // Offline state
   isOffline: boolean;
   // Show loading overlay when authenticated but initializing
@@ -827,8 +834,8 @@ export function TasksProvider({ children }: TasksProviderProps) {
     };
   }, [settings.showCalendarEvents, settings.calendarRefreshIntervalMinutes, isAuthenticated, isOffline, refreshCalendar]);
 
-  // Convert tasks to include list info (excluding pending deletions)
-  const allTasks = useMemo<TaskWithListInfo[]>(() => {
+  // All tasks with list info (including subtasks) - used internally
+  const allTasksIncludingSubtasks = useMemo<TaskWithListInfo[]>(() => {
     return state.taskLists.flatMap(({ taskList, tasks }) =>
       tasks
         .filter((task) => !state.pendingDeletions.has(task.id))
@@ -840,6 +847,56 @@ export function TasksProvider({ children }: TasksProviderProps) {
         }))
     );
   }, [state.taskLists, state.pendingDeletions]);
+
+  // Convert tasks to include list info (excluding pending deletions and subtasks)
+  // Subtasks are only shown in the parent task's edit drawer
+  const allTasks = useMemo<TaskWithListInfo[]>(() => {
+    return allTasksIncludingSubtasks.filter((task) => !task.parent);
+  }, [allTasksIncludingSubtasks]);
+
+  // Get subtasks for a parent task
+  const getSubtasks = useCallback(
+    (parentTaskId: string, listId: string): TaskWithListInfo[] => {
+      return allTasksIncludingSubtasks.filter(
+        (task) => task.parent === parentTaskId && task.listId === listId
+      );
+    },
+    [allTasksIncludingSubtasks]
+  );
+
+  // Check if a task has subtasks
+  const hasSubtasks = useCallback(
+    (taskId: string, listId: string): boolean => {
+      return allTasksIncludingSubtasks.some(
+        (task) => task.parent === taskId && task.listId === listId
+      );
+    },
+    [allTasksIncludingSubtasks]
+  );
+
+  // Get count of subtasks for a task
+  const getSubtaskCount = useCallback(
+    (taskId: string, listId: string): number => {
+      return allTasksIncludingSubtasks.filter(
+        (task) => task.parent === taskId && task.listId === listId
+      ).length;
+    },
+    [allTasksIncludingSubtasks]
+  );
+
+  // Add a subtask to a parent task
+  const addSubtask = useCallback(
+    async (parentTask: TaskWithListInfo, title: string): Promise<boolean> => {
+      const result = await createSubtask(parentTask.listId, parentTask.id, { title });
+      if (result.success) {
+        refresh();
+        return true;
+      }
+      console.error("Failed to add subtask:", result.error);
+      return false;
+    },
+    [refresh]
+  );
 
   // GTD-specific task lists
   const activeTasks = useMemo<TaskWithListInfo[]>(() => {
@@ -975,19 +1032,39 @@ export function TasksProvider({ children }: TasksProviderProps) {
   );
 
   // Optimistic delete - hides task immediately, returns undo/commit functions
+  // Note: Google Tasks API automatically deletes subtasks when parent is deleted
   const optimisticDelete = useCallback(
     (task: TaskWithListInfo) => {
-      // Add to pending deletions (hides the task)
+      // Find all subtasks of this task (they will be deleted too)
+      const subtaskIds = new Set<string>();
+      setState((prev) => {
+        const listData = prev.taskLists.find(
+          ({ taskList }) => taskList.id === task.listId
+        );
+        if (listData) {
+          for (const t of listData.tasks) {
+            if (t.parent === task.id) {
+              subtaskIds.add(t.id);
+            }
+          }
+        }
+        return prev;
+      });
+
+      // Add task and its subtasks to pending deletions (hides them)
+      const allIdsToDelete = [task.id, ...subtaskIds];
       setState((prev) => ({
         ...prev,
-        pendingDeletions: new Set([...prev.pendingDeletions, task.id]),
+        pendingDeletions: new Set([...prev.pendingDeletions, ...allIdsToDelete]),
       }));
 
       const undo = () => {
-        // Remove from pending deletions (shows the task again)
+        // Remove task and subtasks from pending deletions (shows them again)
         setState((prev) => {
           const newPendingDeletions = new Set(prev.pendingDeletions);
-          newPendingDeletions.delete(task.id);
+          for (const id of allIdsToDelete) {
+            newPendingDeletions.delete(id);
+          }
           return { ...prev, pendingDeletions: newPendingDeletions };
         });
       };
@@ -996,16 +1073,18 @@ export function TasksProvider({ children }: TasksProviderProps) {
         const result = await deleteTask(task.listId, task.id);
         
         if (result.success) {
-          // Remove from task lists permanently
+          // Remove task and subtasks from task lists permanently
           setState((prev) => {
             const newPendingDeletions = new Set(prev.pendingDeletions);
-            newPendingDeletions.delete(task.id);
+            for (const id of allIdsToDelete) {
+              newPendingDeletions.delete(id);
+            }
             return {
               ...prev,
               pendingDeletions: newPendingDeletions,
               taskLists: prev.taskLists.map(({ taskList, tasks }) => ({
                 taskList,
-                tasks: tasks.filter((t) => t.id !== task.id),
+                tasks: tasks.filter((t) => !allIdsToDelete.includes(t.id)),
               })),
             };
           });
@@ -1122,11 +1201,15 @@ export function TasksProvider({ children }: TasksProviderProps) {
     getTasksForDate: getTasksForDateFn,
     getTasksWithoutDueDate: getTasksWithoutDateFn,
     getEventsForDate,
+    getSubtasks,
+    hasSubtasks,
+    getSubtaskCount,
     refreshCalendar,
     refresh,
     optimisticToggleComplete,
     optimisticDelete,
     optimisticUpdate,
+    addSubtask,
     isOffline,
     showLoadingOverlay,
   };

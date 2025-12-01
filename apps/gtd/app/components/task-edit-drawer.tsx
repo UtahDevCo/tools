@@ -21,9 +21,26 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Checkbox,
 } from "@repo/components";
+import { Plus, ListTree, Check } from "lucide-react";
 import { useTasks, type TaskWithListInfo } from "@/providers/tasks-provider";
-import { updateTask, createTask, deleteTask } from "@/lib/tasks-with-refresh";
+import {
+  updateTask,
+  createTask,
+  deleteTask,
+  moveTasksToList,
+  completeTask,
+  uncompleteTask,
+} from "@/lib/tasks-with-refresh";
+import {
+  parsePriorityFromNotes,
+  addPriorityToNotes,
+  PRIORITY_LABELS,
+  PRIORITY_COLORS,
+  type Priority,
+} from "@/lib/google-tasks/priority-utils";
+import { clsx } from "clsx";
 
 type TaskEditDrawerProps = {
   task: TaskWithListInfo | null;
@@ -48,7 +65,15 @@ export function TaskEditDrawer({
   defaultListId,
   defaultDueDate,
 }: TaskEditDrawerProps) {
-  const { gtdLists, otherLists, refresh } = useTasks();
+  const {
+    gtdLists,
+    otherLists,
+    refresh,
+    getSubtasks,
+    hasSubtasks: checkHasSubtasks,
+    addSubtask,
+    optimisticToggleComplete,
+  } = useTasks();
   const drawerContentRef = useRef<HTMLDivElement>(null);
 
   // Focus first autofocus input after drawer animation completes
@@ -83,13 +108,32 @@ export function TaskEditDrawer({
     return defaultDueDate ?? "";
   }, [task?.due, defaultDueDate]);
 
+  const getInitialPriorityAndNotes = useCallback(() => {
+    const { priority, cleanNotes } = parsePriorityFromNotes(task?.notes);
+    return { priority, cleanNotes };
+  }, [task?.notes]);
+
   const [title, setTitle] = useState(() => task?.title ?? "");
-  const [notes, setNotes] = useState(() => task?.notes ?? "");
+  const [notes, setNotes] = useState(
+    () => getInitialPriorityAndNotes().cleanNotes
+  );
+  const [priority, setPriority] = useState<Priority>(
+    () => getInitialPriorityAndNotes().priority
+  );
   const [dueDate, setDueDate] = useState(getInitialDueDate);
   const [selectedListId, setSelectedListId] = useState(getInitialListId);
+  const [isCompleted, setIsCompleted] = useState(
+    () => task?.status === "completed"
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Subtask state
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
+  const [isAddingSubtask, setIsAddingSubtask] = useState(false);
+  const [showSubtaskInput, setShowSubtaskInput] = useState(false);
+  const subtaskInputRef = useRef<HTMLInputElement>(null);
 
   // Reset form when drawer opens or task changes
   const [prevOpen, setPrevOpen] = useState(open);
@@ -101,11 +145,17 @@ export function TaskEditDrawer({
 
     // Reset form when drawer opens (regardless of task) or task changes
     if (open && (!prevOpen || task?.id !== prevTaskId)) {
+      const { priority: initialPriority, cleanNotes: initialNotes } =
+        parsePriorityFromNotes(task?.notes);
       setTitle(task?.title ?? "");
-      setNotes(task?.notes ?? "");
+      setNotes(initialNotes);
+      setPriority(initialPriority);
       setDueDate(getInitialDueDate());
       setSelectedListId(getInitialListId());
+      setIsCompleted(task?.status === "completed");
       setShowDeleteConfirm(false);
+      setNewSubtaskTitle("");
+      setShowSubtaskInput(false);
     }
   }
 
@@ -151,6 +201,27 @@ export function TaskEditDrawer({
     setDueDate(newDueDate);
   };
 
+  // Handle completion toggle
+  const handleCompletionToggle = async () => {
+    if (!task) return;
+
+    const newStatus = !isCompleted;
+    setIsCompleted(newStatus);
+
+    // Call server action
+    const result = newStatus
+      ? await completeTask(task.listId, task.id)
+      : await uncompleteTask(task.listId, task.id);
+
+    if (!result.success) {
+      // Rollback on error
+      setIsCompleted(!newStatus);
+      console.error("Failed to toggle completion:", result.error);
+    } else {
+      refresh();
+    }
+  };
+
   // Check if selected list is "Active"
   const isActiveList = gtdLists && selectedListId === gtdLists.active.id;
 
@@ -158,9 +229,15 @@ export function TaskEditDrawer({
   const isFormValid =
     title.trim().length > 0 && (selectedListId || defaultListId);
 
+  // Check if list changed (need to move task)
+  const listChanged = task && selectedListId !== task.listId;
+
   const handleSave = useCallback(async () => {
     if (!isFormValid) return;
     setIsSaving(true);
+
+    // Combine priority with notes
+    const notesWithPriority = addPriorityToNotes(notes, priority);
 
     try {
       if (isCreateMode) {
@@ -173,7 +250,7 @@ export function TaskEditDrawer({
 
         const result = await createTask(targetListId, {
           title,
-          notes: notes || undefined,
+          notes: notesWithPriority || undefined,
           due: dueDate ? `${dueDate}T00:00:00.000Z` : undefined,
         });
 
@@ -188,17 +265,38 @@ export function TaskEditDrawer({
         // Update existing task
         const result = await updateTask(task.listId, task.id, {
           title,
-          notes: notes || undefined,
+          notes: notesWithPriority || undefined,
           due: dueDate ? `${dueDate}T00:00:00.000Z` : undefined,
         });
 
-        if (result.success) {
-          refresh();
-          onSave?.();
-          onClose();
-        } else {
+        if (!result.success) {
           console.error("Failed to save task:", result.error);
+          return;
         }
+
+        // If list changed, move the task
+        if (listChanged && selectedListId) {
+          const moveResult = await moveTasksToList(
+            [
+              {
+                listId: task.listId,
+                taskId: task.id,
+                title,
+                notes: notesWithPriority,
+                due: dueDate,
+              },
+            ],
+            selectedListId
+          );
+
+          if (!moveResult.success) {
+            console.error("Failed to move task:", moveResult.error);
+          }
+        }
+
+        refresh();
+        onSave?.();
+        onClose();
       }
     } catch (error) {
       console.error("Error saving task:", error);
@@ -211,9 +309,11 @@ export function TaskEditDrawer({
     task,
     title,
     notes,
+    priority,
     dueDate,
     selectedListId,
     defaultListId,
+    listChanged,
     refresh,
     onSave,
     onClose,
@@ -238,6 +338,38 @@ export function TaskEditDrawer({
       setIsDeleting(false);
     }
   }, [task, refresh, onClose]);
+
+  // Handle adding a subtask
+  const handleAddSubtask = async () => {
+    if (!task || !newSubtaskTitle.trim()) return;
+
+    setIsAddingSubtask(true);
+    const success = await addSubtask(task, newSubtaskTitle.trim());
+
+    if (success) {
+      setNewSubtaskTitle("");
+      setShowSubtaskInput(false);
+    }
+    setIsAddingSubtask(false);
+  };
+
+  // Focus subtask input when shown
+  useEffect(() => {
+    if (showSubtaskInput && subtaskInputRef.current) {
+      subtaskInputRef.current.focus();
+    }
+  }, [showSubtaskInput]);
+
+  // Get subtasks for this task
+  const subtasks = task ? getSubtasks(task.id, task.listId) : [];
+  const hasSubtasksForTask = task
+    ? checkHasSubtasks(task.id, task.listId)
+    : false;
+
+  // Handle subtask completion toggle
+  const handleSubtaskToggle = (subtask: TaskWithListInfo) => {
+    optimisticToggleComplete(subtask);
+  };
 
   const gtdListOptions = gtdLists
     ? [
@@ -267,11 +399,18 @@ export function TaskEditDrawer({
 
   // Handle form submission via Enter key
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Don't submit form if we're in the subtask input - let subtask handle Enter
+    if (subtaskInputRef.current && subtaskInputRef.current === e.target) {
+      return;
+    }
     if (e.key === "Enter" && !e.shiftKey && isFormValid && !isSaving) {
       e.preventDefault();
       handleSave();
     }
   };
+
+  // Priority options
+  const priorityOptions: Priority[] = ["none", "high", "medium", "low"];
 
   return (
     <Drawer
@@ -314,7 +453,36 @@ export function TaskEditDrawer({
         </div>
       }
     >
-      <div ref={drawerContentRef} className="p-4 space-y-4" onKeyDown={handleKeyDown}>
+      <div
+        ref={drawerContentRef}
+        className="p-4 space-y-4"
+        onKeyDown={handleKeyDown}
+      >
+        {/* Completion Toggle (edit mode only) */}
+        {!isCreateMode && (
+          <div className="flex items-center gap-3 pb-2 border-b">
+            <Checkbox
+              id="task-completed"
+              checked={isCompleted}
+              onCheckedChange={handleCompletionToggle}
+            />
+            <Label
+              htmlFor="task-completed"
+              className={clsx(
+                "cursor-pointer",
+                isCompleted && "line-through text-muted-foreground"
+              )}
+            >
+              {isCompleted ? "Completed" : "Mark as complete"}
+            </Label>
+            {isCompleted && task?.completed && (
+              <span className="text-xs text-muted-foreground ml-auto">
+                {new Date(task.completed).toLocaleDateString()}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Title */}
         <div>
           <Label htmlFor="task-title">Title</Label>
@@ -324,7 +492,38 @@ export function TaskEditDrawer({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Task title"
+            className={clsx(isCompleted && "line-through text-muted-foreground")}
           />
+        </div>
+
+        {/* Priority */}
+        <div>
+          <Label>Priority</Label>
+          <Select
+            value={priority}
+            onValueChange={(value) => setPriority(value as Priority)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select priority" />
+            </SelectTrigger>
+            <SelectContent>
+              {priorityOptions.map((p) => (
+                <SelectItem key={p} value={p}>
+                  <span className="flex items-center gap-2">
+                    {p !== "none" && (
+                      <span
+                        className={clsx(
+                          "w-2 h-2 rounded-full",
+                          PRIORITY_COLORS[p].bg
+                        )}
+                      />
+                    )}
+                    {PRIORITY_LABELS[p]}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Notes */}
@@ -406,11 +605,117 @@ export function TaskEditDrawer({
               <p className="text-xs text-muted-foreground mt-1 px-1">
                 {isCreateMode
                   ? `Creating in: ${findListName(selectedListId)}`
-                  : `Current list: ${findListName(selectedListId)}`}
+                  : listChanged
+                    ? `Moving from ${task?.listDisplayName} to ${findListName(selectedListId)}`
+                    : `Current list: ${findListName(selectedListId)}`}
               </p>
             </>
           )}
         </div>
+
+        {/* Subtasks Section (edit mode only) */}
+        {!isCreateMode && (
+          <div className="pt-4 border-t">
+            <div className="flex items-center justify-between mb-2">
+              <Label className="flex items-center gap-2">
+                <ListTree className="w-4 h-4" />
+                Subtasks
+                {hasSubtasksForTask && (
+                  <span className="text-xs text-muted-foreground">
+                    ({subtasks.length})
+                  </span>
+                )}
+              </Label>
+              {!showSubtaskInput && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowSubtaskInput(true)}
+                  className="h-7 px-2"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add
+                </Button>
+              )}
+            </div>
+
+            {/* Subtask List */}
+            {subtasks.length > 0 && (
+              <div className="space-y-1 mb-2">
+                {subtasks.map((subtask) => (
+                  <div
+                    key={subtask.id}
+                    className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/50"
+                  >
+                    <Checkbox
+                      checked={subtask.status === "completed"}
+                      onCheckedChange={() => handleSubtaskToggle(subtask)}
+                    />
+                    <span
+                      className={clsx(
+                        "text-sm flex-1",
+                        subtask.status === "completed" &&
+                          "line-through text-muted-foreground"
+                      )}
+                    >
+                      {subtask.title}
+                    </span>
+                    {subtask.status === "completed" && (
+                      <Check className="w-3 h-3 text-green-500" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add Subtask Input */}
+            {showSubtaskInput && (
+              <div className="flex gap-2">
+                <Input
+                  ref={subtaskInputRef}
+                  value={newSubtaskTitle}
+                  onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                  placeholder="Subtask title"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newSubtaskTitle.trim()) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleAddSubtask();
+                    } else if (e.key === "Escape") {
+                      setShowSubtaskInput(false);
+                      setNewSubtaskTitle("");
+                    }
+                  }}
+                  disabled={isAddingSubtask}
+                />
+                <Button
+                  size="sm"
+                  onClick={handleAddSubtask}
+                  disabled={!newSubtaskTitle.trim() || isAddingSubtask}
+                >
+                  {isAddingSubtask ? "..." : "Add"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setShowSubtaskInput(false);
+                    setNewSubtaskTitle("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!hasSubtasksForTask && !showSubtaskInput && (
+              <p className="text-sm text-muted-foreground">
+                No subtasks yet. Click &quot;Add&quot; to create one.
+              </p>
+            )}
+          </div>
+        )}
       </div>
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <DialogContent>

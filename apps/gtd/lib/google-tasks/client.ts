@@ -203,6 +203,7 @@ export async function moveTask(
   options?: {
     parent?: string;
     previous?: string;
+    destinationTasklist?: string;
   }
 ): Promise<Task> {
   const response = await client.tasks.move({
@@ -210,6 +211,31 @@ export async function moveTask(
     task: taskId,
     parent: options?.parent,
     previous: options?.previous,
+    destinationTasklist: options?.destinationTasklist,
+  });
+
+  return response.data as Task;
+}
+
+/**
+ * Create a task as a subtask of another task.
+ * Uses the insert API with the parent parameter.
+ */
+export async function createSubtask(
+  client: tasks_v1.Tasks,
+  taskListId: string,
+  parentTaskId: string,
+  task: TaskInput
+): Promise<Task> {
+  const response = await client.tasks.insert({
+    tasklist: taskListId,
+    parent: parentTaskId,
+    requestBody: {
+      title: task.title,
+      notes: task.notes,
+      due: task.due,
+      status: task.status,
+    },
   });
 
   return response.data as Task;

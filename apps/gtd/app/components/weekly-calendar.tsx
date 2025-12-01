@@ -19,7 +19,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, MoreVertical, Pencil, Check, Trash2, ArrowUpDown, Move, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, MoreVertical, Pencil, Check, Trash2, ArrowUpDown, Move, X, ListTree } from "lucide-react";
 import {
   Typography,
   Button,
@@ -1406,6 +1406,8 @@ type TaskItemProps = {
   onToggleSelection?: (taskId: string) => void;
   // Show circle indicator (for calendar view alignment with events)
   showCircleIndicator?: boolean;
+  // Subtask indicator
+  subtaskCount?: number;
 };
 
 function TaskItem({ 
@@ -1419,6 +1421,7 @@ function TaskItem({
   onEnterMultiSelect,
   onToggleSelection,
   showCircleIndicator = false,
+  subtaskCount = 0,
 }: TaskItemProps) {
   const isCompleted = task.status === "completed";
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1489,16 +1492,32 @@ function TaskItem({
       )}
 
       {/* Task title - double-click opens edit drawer */}
-      <Typography
-        variant="default"
-        className={cn(
-          "truncate text-sm px-1 flex-1 cursor-pointer",
-          isCompleted && "line-through text-zinc-400"
+      <div className="flex items-center flex-1 min-w-0 gap-1">
+        <Typography
+          variant="default"
+          className={cn(
+            "truncate text-sm px-1 cursor-pointer",
+            isCompleted && "line-through text-zinc-400"
+          )}
+          onDoubleClick={handleDoubleClick}
+        >
+          {task.title}
+        </Typography>
+        {/* Subtask indicator */}
+        {subtaskCount > 0 && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex items-center gap-0.5 text-xs text-muted-foreground shrink-0 mr-1">
+                <ListTree className="size-3" />
+                {subtaskCount}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>{subtaskCount} subtask{subtaskCount !== 1 ? "s" : ""}</p>
+            </TooltipContent>
+          </Tooltip>
         )}
-        onDoubleClick={handleDoubleClick}
-      >
-        {task.title}
-      </Typography>
+      </div>
 
       {/* Action buttons overlay - appears on hover/focus, hidden in multi-select mode */}
       {!isMultiSelectMode && (
@@ -1621,7 +1640,7 @@ function ConnectedTaskItem({
   onToggleSelection,
   showCircleIndicator = false,
 }: ConnectedTaskItemProps) {
-  const { optimisticToggleComplete, optimisticDelete, isOffline } = useTasks();
+  const { optimisticToggleComplete, optimisticDelete, isOffline, getSubtaskCount } = useTasks();
   const deleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleToggleComplete = useCallback(() => {
@@ -1673,6 +1692,7 @@ function ConnectedTaskItem({
       onEnterMultiSelect={onEnterMultiSelect}
       onToggleSelection={onToggleSelection}
       showCircleIndicator={showCircleIndicator}
+      subtaskCount={getSubtaskCount(task.id, task.listId)}
     />
   );
 }
@@ -1695,7 +1715,7 @@ function OverdueTaskItem({
   onEnterMultiSelect,
   onToggleSelection,
 }: OverdueTaskItemProps) {
-  const { optimisticToggleComplete, optimisticDelete, isOffline } = useTasks();
+  const { optimisticToggleComplete, optimisticDelete, isOffline, getSubtaskCount } = useTasks();
   const completeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isPendingComplete, setIsPendingComplete] = useState(false);
@@ -1785,6 +1805,7 @@ function OverdueTaskItem({
       isSelected={isSelected}
       onEnterMultiSelect={onEnterMultiSelect}
       onToggleSelection={onToggleSelection}
+      subtaskCount={getSubtaskCount(task.id, task.listId)}
     />
   );
 }

@@ -24,6 +24,8 @@ import {
   getTaskLists as getTaskListsAction,
   getTaskListsWithMeta as getTaskListsWithMetaAction,
   getTasks as getTasksAction,
+  moveTask as moveTaskAction,
+  createSubtask as createSubtaskAction,
   type GTDLists,
   type TaskListWithMeta,
 } from "@/app/actions/tasks";
@@ -150,4 +152,30 @@ export async function getTasks(
   }
 ): Promise<TasksResult<TaskWithParsedDate[]>> {
   return withAutoRefresh(() => getTasksAction(taskListId, options));
+}
+
+/**
+ * Move a task within a list or to a different list with automatic token refresh on expiration.
+ */
+export async function moveTask(
+  taskListId: string,
+  taskId: string,
+  options?: {
+    parent?: string;
+    previous?: string;
+    destinationTasklist?: string;
+  }
+): Promise<TasksResult<Task>> {
+  return withAutoRefresh(() => moveTaskAction(taskListId, taskId, options));
+}
+
+/**
+ * Create a subtask under a parent task with automatic token refresh on expiration.
+ */
+export async function createSubtask(
+  taskListId: string,
+  parentTaskId: string,
+  task: TaskInput
+): Promise<TasksResult<Task>> {
+  return withAutoRefresh(() => createSubtaskAction(taskListId, parentTaskId, task));
 }
