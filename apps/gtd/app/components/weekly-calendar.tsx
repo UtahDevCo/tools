@@ -1449,9 +1449,32 @@ function TaskItem({
         isSelected && "bg-orange-50"
       )}
     >
-      {/* Circle indicator for calendar view alignment */}
+      {/* Circle indicator for calendar view alignment - acts as complete/incomplete toggle */}
       {showCircleIndicator && !isMultiSelectMode && (
-        <div className="size-2.5 rounded-full border border-zinc-400 bg-white ml-2 mr-2 shrink-0" />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleComplete?.();
+              }}
+              className={cn(
+                "size-2.5 rounded-full border ml-2 mr-2 shrink-0 flex items-center justify-center transition-colors",
+                isCompleted
+                  ? "border-green-500 bg-green-500 text-white hover:border-green-600 hover:bg-green-600"
+                  : "border-zinc-400 bg-white hover:border-green-500 hover:bg-green-50"
+              )}
+              disabled={isDemo}
+              aria-label={isCompleted ? "Mark incomplete" : "Mark complete"}
+            >
+              {isCompleted && <Check className="size-2" />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p>{isCompleted ? "Mark incomplete" : "Mark complete"}</p>
+          </TooltipContent>
+        </Tooltip>
       )}
 
       {/* Checkbox for multi-select mode */}
