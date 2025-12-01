@@ -6,7 +6,7 @@ export { Typography, typographyVariants } from "./src/typography";
 export { Button, buttonVariants } from "./src/ui/button";
 export { Avatar, AvatarImage, AvatarFallback } from "./src/ui/avatar";
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "./src/ui/tooltip";
-export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor } from "./src/ui/popover";
+export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor, PopoverClose } from "./src/ui/popover";
 export { Input } from "./src/ui/input";
 export { Textarea } from "./src/ui/textarea";
 export { Label } from "./src/ui/label";

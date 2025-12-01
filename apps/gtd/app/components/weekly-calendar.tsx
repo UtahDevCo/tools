@@ -58,6 +58,7 @@ import { CalendarHeader } from "./calendar/calendar-header";
 import { moveTasksToList, deleteTasks } from "@/lib/tasks-with-refresh";
 import { TIMEOUTS, UI, CACHE_KEYS } from "@/lib/constants";
 import { useSettings } from "@/providers/settings-provider";
+import { getTaskPriority, addPriorityToNotes, sortByPriority, PRIORITY_LABELS, type Priority } from "@/lib/google-tasks/priority-utils";
 
 type WeekDay = {
   date: Date;
@@ -597,7 +598,7 @@ function WeekGrid({
       <div className="hidden lg:flex lg:flex-row lg:gap-6 mb-8">
         {columns.map((column, index) => {
           if (column.type === "weekday") {
-            const tasks = getTasksForDate(column.day.date);
+            const tasks = sortByPriority(getTasksForDate(column.day.date));
             const events = showCalendarEvents ? getEventsForDate(column.day.date) : [];
             return (
               <WeekdayColumn 
@@ -644,7 +645,7 @@ function WeekGrid({
       {/* Mobile: All days in chronological order */}
       <div className="flex flex-col gap-2 lg:hidden mb-8">
         {allDaysInOrder.map((day) => {
-          const tasks = getTasksForDate(day.date);
+          const tasks = sortByPriority(getTasksForDate(day.date));
           const events = showCalendarEvents ? getEventsForDate(day.date) : [];
           return (
             <WeekdayColumn 
@@ -873,7 +874,8 @@ function ListColumn({
   onToggleTaskSelection,
   onSelectMoveTarget,
 }: ListColumnProps) {
-  const emptyRowCount = Math.max(LIST_MIN_ROWS, LIST_MIN_ROWS - list.tasks.length);
+  const sortedTasks = useMemo(() => sortByPriority(list.tasks), [list.tasks]);
+  const emptyRowCount = Math.max(LIST_MIN_ROWS, LIST_MIN_ROWS - sortedTasks.length);
 
   const handleHeaderClick = isMoveTargetingActive
     ? () => onSelectMoveTarget(list.taskList.id, list.displayName)
@@ -889,7 +891,7 @@ function ListColumn({
       />
 
       {/* Task items */}
-      {list.tasks.map((task) => (
+      {sortedTasks.map((task) => (
         <ConnectedTaskItem
           key={task.id}
           task={task}
@@ -1058,8 +1060,9 @@ function SectionColumn({
   onToggleTaskSelection: (taskId: string) => void;
   onSelectMoveTarget: (listId: string, listName: string, dueDate?: string) => void;
 }) {
-  const desktopEmptyRowCount = Math.max(0, SECTION_MIN_ROWS - tasks.length);
-  const mobileEmptyRowCount = Math.max(0, 1 - tasks.length);
+  const sortedTasks = useMemo(() => sortByPriority(tasks), [tasks]);
+  const desktopEmptyRowCount = Math.max(0, SECTION_MIN_ROWS - sortedTasks.length);
+  const mobileEmptyRowCount = Math.max(0, 1 - sortedTasks.length);
 
   const handleHeaderClick = isMoveTargetingActive && listId
     ? () => onSelectMoveTarget(listId, title)
@@ -1075,7 +1078,7 @@ function SectionColumn({
       />
 
       {/* Task items */}
-      {tasks.map((task) => (
+      {sortedTasks.map((task) => (
         <ConnectedTaskItem
           key={task.id}
           task={task}
@@ -1096,7 +1099,7 @@ function SectionColumn({
           />
         ))}
         {/* Always show at least one empty row on mobile for adding tasks */}
-        {tasks.length > 0 && (
+        {sortedTasks.length > 0 && (
           <TaskRow 
             onClick={listId ? () => onNewTaskClick(listId, title) : undefined}
           />
@@ -1131,7 +1134,8 @@ function OverdueColumn({
   onEnterMultiSelect,
   onToggleTaskSelection,
 }: OverdueColumnProps) {
-  const desktopEmptyRowCount = Math.max(0, SECTION_MIN_ROWS - tasks.length);
+  const sortedTasks = useMemo(() => sortByPriority(tasks), [tasks]);
+  const desktopEmptyRowCount = Math.max(0, SECTION_MIN_ROWS - sortedTasks.length);
 
   return (
     <div className="flex flex-col break-inside-avoid mb-6">
@@ -1143,7 +1147,7 @@ function OverdueColumn({
       </div>
 
       {/* Task items with undo toast on complete */}
-      {tasks.map((task) => (
+      {sortedTasks.map((task) => (
         <OverdueTaskItem
           key={task.id}
           task={task}
@@ -1207,7 +1211,7 @@ function WeekendColumn({
           weekday: "short",
         });
         const dateStr = day.date.toISOString().split("T")[0];
-        const tasks = getTasksForDate(day.date);
+        const tasks = sortByPriority(getTasksForDate(day.date));
         const events = showCalendarEvents ? getEventsForDate(day.date) : [];
         const emptyRowCount = Math.max(0, WEEKEND_ROWS - tasks.length - events.length);
 
@@ -1398,6 +1402,7 @@ type TaskItemProps = {
   onEdit?: () => void;
   onToggleComplete?: () => void;
   onDelete?: () => void;
+  onPriorityChange?: (priority: Priority) => void;
   isDemo?: boolean;
   // Multi-select props
   isMultiSelectMode?: boolean;
@@ -1415,6 +1420,7 @@ function TaskItem({
   onEdit,
   onToggleComplete,
   onDelete,
+  onPriorityChange,
   isDemo = false,
   isMultiSelectMode = false,
   isSelected = false,
@@ -1425,6 +1431,7 @@ function TaskItem({
 }: TaskItemProps) {
   const isCompleted = task.status === "completed";
   const containerRef = useRef<HTMLDivElement>(null);
+  const priority = getTaskPriority(task.notes);
 
   const handleDoubleClick = useCallback(() => {
     if (isDemo || isMultiSelectMode) return;
@@ -1444,8 +1451,9 @@ function TaskItem({
     <div
       ref={containerRef}
       tabIndex={0}
+      onDoubleClick={handleDoubleClick}
       className={cn(
-        "group/task relative flex min-h-9 h-9 w-full items-center border-b-2 border-zinc-100 text-left transition-colors",
+        "group/task relative flex min-h-9 h-9 w-full items-center border-b-2 border-zinc-100 text-left transition-colors cursor-pointer",
         "hover:bg-zinc-50 focus-within:bg-zinc-50",
         "focus:outline-none focus:ring-0",
         isCompleted && "opacity-60",
@@ -1491,15 +1499,14 @@ function TaskItem({
         </div>
       )}
 
-      {/* Task title - double-click opens edit drawer */}
+      {/* Task title */}
       <div className="flex items-center flex-1 min-w-0 gap-1">
         <Typography
           variant="default"
           className={cn(
-            "truncate text-sm px-1 cursor-pointer",
+            "truncate text-sm px-1",
             isCompleted && "line-through text-zinc-400"
           )}
-          onDoubleClick={handleDoubleClick}
         >
           {task.title}
         </Typography>
@@ -1519,11 +1526,20 @@ function TaskItem({
         )}
       </div>
 
+      {/* Priority indicator - clickable inline picker */}
+      {!isMultiSelectMode && (
+        <PriorityIndicator
+          priority={priority}
+          onPriorityChange={onPriorityChange}
+          isDemo={isDemo}
+        />
+      )}
+
       {/* Action buttons overlay - appears on hover/focus, hidden in multi-select mode */}
       {!isMultiSelectMode && (
         <div
           className={cn(
-            "absolute right-0 top-0 bottom-0 flex items-center gap-0.5 pr-1",
+            "absolute right-8 top-0 bottom-0 flex items-center gap-0.5 pr-1",
             "opacity-0 group-hover/task:opacity-100 group-focus-within/task:opacity-100",
             "transition-opacity duration-150",
             // Gradient background to fade over text
@@ -1618,6 +1634,89 @@ function TaskItem({
   );
 }
 
+// Priority color configuration - matches size-2.5 from calendar event dots
+const PRIORITY_DOT_COLORS: Record<Priority, string> = {
+  high: "bg-red-500",
+  medium: "bg-yellow-500",
+  low: "bg-blue-500",
+  none: "bg-transparent",
+};
+
+type PriorityIndicatorProps = {
+  priority: Priority;
+  onPriorityChange?: (priority: Priority) => void;
+  isDemo?: boolean;
+};
+
+function PriorityIndicator({ priority, onPriorityChange, isDemo = false }: PriorityIndicatorProps) {
+  const [open, setOpen] = useState(false);
+
+  if (priority === "none" && !onPriorityChange) return null;
+
+  const priorityOptions: Priority[] = ["high", "medium", "low", "none"];
+
+  // If no handler or demo mode, just show the indicator (no popover)
+  if (!onPriorityChange || isDemo) {
+    if (priority === "none") return null;
+    return (
+      <div className="flex items-center justify-center shrink-0 mr-2">
+        <div className={cn("size-2.5 rounded-full", PRIORITY_DOT_COLORS[priority])} />
+      </div>
+    );
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => e.stopPropagation()}
+          className="flex items-center justify-center shrink-0 mr-2 size-6 rounded hover:bg-zinc-200 transition-colors"
+          aria-label={`Priority: ${PRIORITY_LABELS[priority]}`}
+        >
+          <div 
+            className={cn(
+              "size-2.5 rounded-full transition-colors",
+              priority === "none" 
+                ? "border-2 border-dashed border-zinc-300 group-hover/task:border-zinc-400" 
+                : PRIORITY_DOT_COLORS[priority]
+            )} 
+          />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-32 p-1">
+        <div className="flex flex-col">
+          {priorityOptions.map((p) => (
+            <button
+              key={p}
+              onClick={(e) => {
+                e.stopPropagation();
+                // Close popover first, then schedule priority change for after close animation
+                setOpen(false);
+                // Use setTimeout to ensure the popover closes before the update triggers re-render
+                setTimeout(() => onPriorityChange(p), 0);
+              }}
+              className={cn(
+                "flex items-center gap-2 px-2 py-1.5 text-sm text-left rounded hover:bg-zinc-100 transition-colors",
+                priority === p && "bg-zinc-100 font-medium"
+              )}
+            >
+              <div 
+                className={cn(
+                  "size-2.5 rounded-full",
+                  p === "none" ? "border-2 border-dashed border-zinc-300" : PRIORITY_DOT_COLORS[p]
+                )} 
+              />
+              {PRIORITY_LABELS[p]}
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // Connected TaskItem that uses the TasksProvider for actions
 type ConnectedTaskItemProps = {
   task: TaskWithListInfo;
@@ -1640,13 +1739,19 @@ function ConnectedTaskItem({
   onToggleSelection,
   showCircleIndicator = false,
 }: ConnectedTaskItemProps) {
-  const { optimisticToggleComplete, optimisticDelete, isOffline, getSubtaskCount } = useTasks();
+  const { optimisticToggleComplete, optimisticDelete, optimisticUpdate, isOffline, getSubtaskCount } = useTasks();
   const deleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleToggleComplete = useCallback(() => {
     if (isDemo || isOffline) return;
     optimisticToggleComplete(task);
   }, [task, optimisticToggleComplete, isDemo, isOffline]);
+
+  const handlePriorityChange = useCallback((priority: Priority) => {
+    if (isDemo || isOffline) return;
+    const newNotes = addPriorityToNotes(task.notes ?? "", priority);
+    optimisticUpdate(task, { notes: newNotes });
+  }, [task, optimisticUpdate, isDemo, isOffline]);
 
   const handleDelete = useCallback(() => {
     if (isDemo || isOffline) return;
@@ -1686,6 +1791,7 @@ function ConnectedTaskItem({
       onEdit={onEdit}
       onToggleComplete={handleToggleComplete}
       onDelete={handleDelete}
+      onPriorityChange={handlePriorityChange}
       isDemo={isDemo || isOffline}
       isMultiSelectMode={isMultiSelectMode}
       isSelected={isSelected}
@@ -1715,7 +1821,7 @@ function OverdueTaskItem({
   onEnterMultiSelect,
   onToggleSelection,
 }: OverdueTaskItemProps) {
-  const { optimisticToggleComplete, optimisticDelete, isOffline, getSubtaskCount } = useTasks();
+  const { optimisticToggleComplete, optimisticDelete, optimisticUpdate, isOffline, getSubtaskCount } = useTasks();
   const completeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isPendingComplete, setIsPendingComplete] = useState(false);
@@ -1756,6 +1862,12 @@ function OverdueTaskItem({
       setIsPendingComplete(false);
     }, UNDO_TIMEOUT_MS);
   }, [task, optimisticToggleComplete, isOffline]);
+
+  const handlePriorityChange = useCallback((priority: Priority) => {
+    if (isOffline) return;
+    const newNotes = addPriorityToNotes(task.notes ?? "", priority);
+    optimisticUpdate(task, { notes: newNotes });
+  }, [task, optimisticUpdate, isOffline]);
 
   const handleDelete = useCallback(() => {
     if (isOffline) return;
@@ -1800,6 +1912,7 @@ function OverdueTaskItem({
       onEdit={onEdit}
       onToggleComplete={handleToggleComplete}
       onDelete={handleDelete}
+      onPriorityChange={handlePriorityChange}
       isDemo={isOffline}
       isMultiSelectMode={isMultiSelectMode}
       isSelected={isSelected}

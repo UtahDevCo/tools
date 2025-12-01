@@ -110,3 +110,31 @@ export function getTaskPriority(notes: string | undefined): Priority {
 export function getCleanNotes(notes: string | undefined): string {
   return parsePriorityFromNotes(notes).cleanNotes;
 }
+
+/**
+ * Priority sort order - higher priority tasks should appear first
+ */
+const PRIORITY_SORT_ORDER: Record<Priority, number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+  none: 3,
+};
+
+/**
+ * Compare two tasks by priority for sorting.
+ * Returns negative if a should come before b, positive if b should come before a.
+ */
+export function compareByPriority<T extends { notes?: string }>(a: T, b: T): number {
+  const priorityA = getTaskPriority(a.notes);
+  const priorityB = getTaskPriority(b.notes);
+  return PRIORITY_SORT_ORDER[priorityA] - PRIORITY_SORT_ORDER[priorityB];
+}
+
+/**
+ * Sort an array of tasks by priority (highest first).
+ * Returns a new sorted array, does not mutate the original.
+ */
+export function sortByPriority<T extends { notes?: string }>(tasks: T[]): T[] {
+  return [...tasks].sort(compareByPriority);
+}
