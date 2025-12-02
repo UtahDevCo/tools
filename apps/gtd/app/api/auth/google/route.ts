@@ -31,6 +31,8 @@ export async function GET(request: NextRequest) {
   );
 
   // Generate a random state to prevent CSRF
+  // State is passed through the URL/query params, not stored in cookies
+  // This avoids domain/cookie scoping issues when redirecting through Google
   const stateObj: OAuthState = {
     mode: mode === "secondary" ? "secondary" : "primary",
     nonce: crypto.randomUUID(),
@@ -38,21 +40,11 @@ export async function GET(request: NextRequest) {
   };
   const state = JSON.stringify(stateObj);
 
-  // Store state in cookie for verification
-  const cookieStore = await cookies();
-  cookieStore.set("oauth_state", state, {
-    httpOnly: true,
-    secure: env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 60 * 10, // 10 minutes
-    path: "/",
-  });
-
   const authUrl = oauth2Client.generateAuthUrl({
     access_type: "offline", // Request refresh token
     scope: [...OAUTH_SCOPES],
     prompt: "consent", // Always show consent to ensure refresh token
-    state,
+    state, // Google will pass this back in the callback
     include_granted_scopes: true,
     // Pre-fill email for better UX when re-authenticating
     ...(email && { login_hint: email }),

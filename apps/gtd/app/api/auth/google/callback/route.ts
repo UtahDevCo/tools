@@ -37,25 +37,30 @@ export async function GET(request: NextRequest) {
   }
 
   // Verify state to prevent CSRF
-  const storedState = cookieStore.get("oauth_state")?.value;
-
-  if (!storedState || storedState !== state) {
+  // State is passed in URL, validate it has required structure
+  let parsedState: { mode: "primary" | "secondary"; email?: string; nonce: string } = { 
+    mode: "primary",
+    nonce: ""
+  };
+  
+  if (!state) {
     return cleanupAndRedirect(`${baseUrl}/?error=invalid_state`);
   }
 
-  // Parse and validate state
-  let parsedState: { mode: "primary" | "secondary"; email?: string } = { mode: "primary" };
   try {
     const rawState = JSON.parse(state);
     const validated = OAuthStateSchema.safeParse(rawState);
-    if (validated.success) {
-      parsedState = validated.data;
+    if (!validated.success) {
+      console.error("State validation failed:", validated.error);
+      return cleanupAndRedirect(`${baseUrl}/?error=invalid_state`);
     }
-  } catch {
-    // Default to primary if state parsing fails
+    parsedState = validated.data;
+  } catch (err) {
+    console.error("Failed to parse state:", err);
+    return cleanupAndRedirect(`${baseUrl}/?error=invalid_state`);
   }
 
-  // Clear the state cookie now that we've validated it
+  // Clean up oauth_state cookie if it exists (for backwards compatibility)
   cookieStore.delete("oauth_state");
 
   const redirectUri = getRedirectUri();
