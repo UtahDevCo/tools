@@ -30,8 +30,9 @@ import { useAuth } from "@/components/auth-provider";
 import { useOffline } from "@/providers/offline-provider";
 import { useSettings } from "@/providers/settings-provider";
 import { useLocalforage } from "@repo/components";
-import { getCalendarEventsForMonth, getMonthKey } from "@/lib/calendar-with-refresh";
+import { getCalendarEventsMultiAccount, getMonthKey, type AccountCalendarConfig } from "@/lib/calendar-with-refresh";
 import type { CalendarEventWithParsedDate } from "@/lib/google-calendar/types";
+import { subscribeToConnectedAccounts, type ConnectedAccount } from "@/lib/firebase/accounts";
 
 // Extended task with list info
 export type TaskWithListInfo = TaskWithParsedDate & {
@@ -429,9 +430,12 @@ function deserializeCompletedTasks(cached: CachedCompletedTasks): TaskWithListIn
 }
 
 export function TasksProvider({ children }: TasksProviderProps) {
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const { isAuthenticated, isLoading: isAuthLoading, user } = useAuth();
   const { isOffline } = useOffline();
   const { settings } = useSettings();
+  
+  // Connected accounts for multi-account calendar support
+  const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([]);
   
   // LocalForage for caching tasks
   const { values: cachedValues, setItem: setCacheItem, isLoaded: isCacheLoaded } = useLocalforage<
@@ -459,6 +463,20 @@ export function TasksProvider({ children }: TasksProviderProps) {
   const hasInitializedGTDRef = useRef(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const calendarRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Subscribe to connected accounts for multi-account calendar support
+  useEffect(() => {
+    if (!isAuthenticated || !user?.uid) {
+      setConnectedAccounts([]);
+      return;
+    }
+
+    const unsubscribe = subscribeToConnectedAccounts(user.uid, (accounts) => {
+      setConnectedAccounts(accounts);
+    });
+
+    return () => unsubscribe();
+  }, [isAuthenticated, user?.uid]);
 
   // Initialize GTD lists
   const initializeGTDLists = useCallback(async () => {
@@ -536,11 +554,15 @@ export function TasksProvider({ children }: TasksProviderProps) {
   const fetchCalendarEventsForMonth = useCallback(async (year: number, month: number) => {
     if (!isAuthenticated || isOffline || !settings.showCalendarEvents) return;
 
+    // month is 1-indexed (1 = January)
     const date = new Date(year, month - 1);
     const monthKey = getMonthKey(date);
     
-    // Get selected calendar IDs from settings (empty = primary only)
-    const calendarIds = settings.selectedCalendarIds ?? [];
+    // Calculate time bounds for the month
+    const startOfMonth = new Date(year, month - 1, 1);
+    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+    const timeMin = startOfMonth.toISOString();
+    const timeMax = endOfMonth.toISOString();
     
     // Check cache first
     const cacheKey = `${CACHE_KEYS.CALENDAR_EVENTS_PREFIX}${monthKey}`;
@@ -561,8 +583,40 @@ export function TasksProvider({ children }: TasksProviderProps) {
     setState((prev) => ({ ...prev, calendarEventsLoading: true }));
 
     try {
-      // Convert from 1-indexed month to 0-indexed for the action
-      const result = await getCalendarEventsForMonth(year, month - 1, calendarIds);
+      // Build account configs for multi-account calendar fetch
+      // Primary account uses cookies (empty accessToken triggers cookie-based auth)
+      // Connected accounts use their stored access tokens
+      const accountConfigs: AccountCalendarConfig[] = [];
+      
+      // Primary account config (uses selectedCalendarIds from settings)
+      const primaryCalendarIds = settings.selectedCalendarIds ?? [];
+      accountConfigs.push({
+        accountEmail: user?.email ?? "primary",
+        calendarIds: primaryCalendarIds,
+        colorIndex: 0,
+        accessToken: "", // Empty string triggers cookie-based auth on server
+      });
+      
+      // Connected accounts configs (uses accountCalendarSelections from settings)
+      for (const account of connectedAccounts) {
+        if (account.needsReauth) continue; // Skip accounts that need re-authentication
+        
+        const accountSelection = (settings.accountCalendarSelections ?? [])
+          .find((s) => s.accountEmail === account.email);
+        const calendarIds = accountSelection?.calendarIds ?? [];
+        
+        // Only include if the account has calendars selected
+        if (calendarIds.length > 0) {
+          accountConfigs.push({
+            accountEmail: account.email,
+            calendarIds,
+            colorIndex: account.colorIndex,
+            accessToken: account.accessToken,
+          });
+        }
+      }
+
+      const result = await getCalendarEventsMultiAccount(timeMin, timeMax, accountConfigs);
 
       if (!result.success) {
         console.error("Failed to fetch calendar events:", result.error);
@@ -586,7 +640,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
       console.error("Failed to fetch calendar events:", error);
       setState((prev) => ({ ...prev, calendarEventsLoading: false }));
     }
-  }, [isAuthenticated, isOffline, settings.showCalendarEvents, settings.selectedCalendarIds]);
+  }, [isAuthenticated, isOffline, settings.showCalendarEvents, settings.selectedCalendarIds, settings.accountCalendarSelections, connectedAccounts, user?.email]);
 
   const refreshCalendar = useCallback(async () => {
     if (!settings.showCalendarEvents) return;

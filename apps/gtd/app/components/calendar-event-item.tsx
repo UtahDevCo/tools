@@ -15,6 +15,7 @@ import {
   getColorStyles,
   formatDuration,
 } from "@/lib/google-calendar/types";
+import { ACCOUNT_COLORS } from "@/lib/firebase/accounts";
 
 type CalendarEventItemProps = {
   event: CalendarEventWithParsedDate;
@@ -22,6 +23,16 @@ type CalendarEventItemProps = {
   dayNumber?: number;
   totalDays?: number;
 };
+
+/**
+ * Get the account color based on the colorIndex
+ */
+function getAccountColor(colorIndex?: number): { bg: string; hex: string } {
+  if (colorIndex === undefined || colorIndex < 0 || colorIndex >= ACCOUNT_COLORS.length) {
+    return ACCOUNT_COLORS[0]; // Default to first color (blue)
+  }
+  return ACCOUNT_COLORS[colorIndex];
+}
 
 export function CalendarEventItem({
   event,
@@ -31,6 +42,7 @@ export function CalendarEventItem({
 }: CalendarEventItemProps) {
   const [isOpen, setIsOpen] = useState(false);
   const colors = getColorStyles(event.colorId, isFirstDay);
+  const accountColor = getAccountColor(event.accountColorIndex);
   const isMultiDay = totalDays > 1;
 
   // Format time for timed events
@@ -49,7 +61,14 @@ export function CalendarEventItem({
             "flex min-h-9 h-9 items-center border-b-2 border-zinc-100 px-2 cursor-pointer transition-colors hover:bg-zinc-50"
           )}
         >
-          <div className={cn("size-2.5 rounded-full mr-2 shrink-0", colors.background)} />
+          {/* Account color indicator (outer ring) + Event color (inner) */}
+          <div
+            className="size-3 rounded-full mr-2 shrink-0 flex items-center justify-center"
+            style={{ backgroundColor: accountColor.hex }}
+            title={event.accountEmail ? `From: ${event.accountEmail}` : undefined}
+          >
+            <div className={cn("size-1.5 rounded-full", colors.background)} />
+          </div>
           <Typography
             variant="default"
             className="truncate text-sm flex-1 px-1"
@@ -88,6 +107,7 @@ type CalendarEventDetailProps = {
 
 function CalendarEventDetail({ event, onClose }: CalendarEventDetailProps) {
   const colors = getColorStyles(event.colorId);
+  const accountColor = getAccountColor(event.accountColorIndex);
 
   // Format date and time
   const formatDateTime = (date: Date | null, isAllDay: boolean) => {
@@ -126,6 +146,17 @@ function CalendarEventDetail({ event, onClose }: CalendarEventDetailProps) {
           <Typography variant="title" className="wrap-break-word">
             {event.summary || "Untitled Event"}
           </Typography>
+          {event.accountEmail && (
+            <div className="flex items-center gap-1.5 mt-1">
+              <div
+                className="size-2 rounded-full"
+                style={{ backgroundColor: accountColor.hex }}
+              />
+              <Typography variant="light" color="muted" className="text-xs">
+                {event.accountEmail}
+              </Typography>
+            </div>
+          )}
           {event.status && event.status !== "confirmed" && (
             <Typography variant="light" color="muted" className="mt-1 capitalize">
               {event.status}

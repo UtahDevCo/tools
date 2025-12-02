@@ -1,6 +1,10 @@
 /**
  * Token refresh coordinator - ensures only one refresh operation happens at a time.
  * 
+ * Supports both:
+ * 1. Silent refresh via server-side OAuth (preferred)
+ * 2. Popup-based refresh as fallback
+ * 
  * When a network call indicates an expired token (needsReauth: true), this utility
  * coordinates the refresh across all pending operations:
  * 
@@ -33,42 +37,42 @@ export function clearRefreshFunction(): void {
 }
 
 /**
- * Wait for the window to gain focus before proceeding.
- * This prevents popups from stealing focus from other applications.
- * Returns immediately if the window is already focused.
+ * Attempt silent token refresh via the server-side refresh endpoint.
+ * Returns the new tokens if successful, null if failed.
  */
-function waitForWindowFocus(): Promise<void> {
-  // Check if we're in a browser environment
-  if (typeof window === "undefined" || typeof document === "undefined") {
-    return Promise.resolve();
-  }
+export async function silentRefresh(): Promise<{
+  accessToken: string;
+  refreshToken: string | null;
+  expiresAt: number;
+} | null> {
+  try {
+    const response = await fetch("/api/auth/google/refresh", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}), // Empty body for primary account refresh
+    });
 
-  // If already focused, return immediately
-  if (document.hasFocus()) {
-    return Promise.resolve();
-  }
+    if (!response.ok) {
+      const error = await response.json();
+      console.warn("Silent refresh failed:", error);
+      return null;
+    }
 
-  // Wait for focus event
-  return new Promise((resolve) => {
-    const handleFocus = () => {
-      window.removeEventListener("focus", handleFocus);
-      resolve();
-    };
-    window.addEventListener("focus", handleFocus);
-  });
+    return await response.json();
+  } catch (error) {
+    console.warn("Silent refresh error:", error);
+    return null;
+  }
 }
 
 /**
  * Attempt to refresh the session. Only one refresh will occur at a time.
- * Waits for window focus before triggering the popup to avoid stealing focus.
+ * First tries silent refresh, then falls back to the registered refresh function.
  * Returns true if refresh succeeded, false if it failed.
  */
 async function doRefresh(): Promise<boolean> {
-  if (!refreshFunction) {
-    console.warn("Token refresh requested but no refresh function set");
-    return false;
-  }
-
   // If a refresh is already in progress, wait for it
   if (pendingRefresh) {
     try {
@@ -79,13 +83,25 @@ async function doRefresh(): Promise<boolean> {
     }
   }
 
-  // Wait for window focus before triggering the auth popup
-  // This prevents the popup from stealing focus when user is in another app
-  await waitForWindowFocus();
-
   // Start a new refresh
-  pendingRefresh = refreshFunction();
-  
+  pendingRefresh = (async () => {
+    // First, try silent refresh
+    const silentResult = await silentRefresh();
+    if (silentResult) {
+      console.log("Silent token refresh succeeded");
+      // Tokens are already updated in cookies by the refresh endpoint
+      return;
+    }
+
+    // Silent refresh failed - fall back to registered refresh function
+    if (!refreshFunction) {
+      throw new Error("Token refresh failed and no fallback function set");
+    }
+
+    console.log("Silent refresh failed, using fallback refresh function");
+    await refreshFunction();
+  })();
+
   try {
     await pendingRefresh;
     return true;

@@ -15,6 +15,9 @@ import {
   getCalendarEventsForMonth as getCalendarEventsForMonthAction,
   getCalendarEvents as getCalendarEventsAction,
   getCalendarList as getCalendarListAction,
+  getCalendarListForAccount as getCalendarListForAccountAction,
+  getCalendarEventsMultiAccount as getCalendarEventsMultiAccountAction,
+  type AccountCalendarConfig,
 } from "@/app/actions/calendar";
 import type { CalendarEventWithParsedDate, CalendarListEntry } from "@/lib/google-calendar/types";
 
@@ -40,6 +43,18 @@ export async function getCalendarList(): Promise<CalendarResult<CalendarListEntr
 }
 
 /**
+ * Get list of calendars for a specific connected account.
+ * @param accountEmail - The email of the connected account (for logging)
+ * @param accessToken - The access token for the account
+ */
+export async function getCalendarListForAccount(
+  accountEmail: string,
+  accessToken: string
+): Promise<CalendarResult<CalendarListEntry[]>> {
+  return withAutoRefresh(() => getCalendarListForAccountAction(accountEmail, accessToken));
+}
+
+/**
  * Get calendar events for a specific month with automatic token refresh on expiration.
  * @param calendarIds - Array of calendar IDs to fetch. Empty array = primary only.
  */
@@ -62,3 +77,17 @@ export async function getCalendarEvents(
 ): Promise<CalendarResult<CalendarEventWithParsedDate[]>> {
   return withAutoRefresh(() => getCalendarEventsAction(timeMin, timeMax, calendarIds));
 }
+
+/**
+ * Get calendar events from multiple accounts for a date range.
+ * This is the main function for fetching events with multi-account support.
+ */
+export async function getCalendarEventsMultiAccount(
+  timeMin: string,
+  timeMax: string,
+  accountConfigs: AccountCalendarConfig[]
+): Promise<CalendarResult<CalendarEventWithParsedDate[]>> {
+  return withAutoRefresh(() => getCalendarEventsMultiAccountAction(timeMin, timeMax, accountConfigs));
+}
+
+export type { AccountCalendarConfig };

@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ArrowLeft, Cloud, CloudOff, Loader2, RefreshCw } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { ArrowLeft, Cloud, CloudOff, Loader2, RefreshCw, Plus, Trash2, AlertTriangle } from "lucide-react";
 import {
   Typography,
   Button,
@@ -17,8 +18,17 @@ import {
 import { useSettings } from "@/providers/settings-provider";
 import { useAuth } from "@/components/auth-provider";
 import { toast } from "@repo/components";
-import { getCalendarList } from "@/lib/calendar-with-refresh";
+import { getCalendarList, getCalendarListForAccount } from "@/lib/calendar-with-refresh";
 import type { CalendarListEntry } from "@/lib/google-calendar/types";
+import {
+  getConnectedAccounts,
+  saveConnectedAccount,
+  deleteConnectedAccount,
+  getNextColorIndex,
+  ACCOUNT_COLORS,
+  MAX_CONNECTED_ACCOUNTS,
+  type ConnectedAccount,
+} from "@/lib/firebase/accounts";
 
 function SettingsSection({
   title,
@@ -128,11 +138,203 @@ function SyncStatusBadge({
 
 export default function SettingsPage() {
   const { settings, updateSetting, syncStatus, forceSync, isLoading: settingsLoading } = useSettings();
-  const { signOut, isAuthenticated } = useAuth();
+  const { user, signOut, isAuthenticated } = useAuth();
+  const searchParams = useSearchParams();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isCalendarSaving, setIsCalendarSaving] = useState(false);
   const [calendars, setCalendars] = useState<CalendarListEntry[]>([]);
   const [calendarsLoading, setCalendarsLoading] = useState(false);
+
+  // Connected accounts state
+  const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([]);
+  const [accountsLoading, setAccountsLoading] = useState(false);
+  const [canAddAccount, setCanAddAccount] = useState(true);
+  const [isAddingAccount, setIsAddingAccount] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState<string | null>(null);
+
+  // Per-account calendars
+  const [accountCalendars, setAccountCalendars] = useState<Record<string, CalendarListEntry[]>>({});
+  const [accountCalendarsLoading, setAccountCalendarsLoading] = useState<Record<string, boolean>>({});
+
+  // Load connected accounts
+  const loadConnectedAccounts = useCallback(async () => {
+    if (!isAuthenticated || !user?.uid) return;
+
+    setAccountsLoading(true);
+    try {
+      const accounts = await getConnectedAccounts(user.uid);
+      setConnectedAccounts(accounts);
+      setCanAddAccount(accounts.length < MAX_CONNECTED_ACCOUNTS);
+    } catch (error) {
+      console.error("Failed to load connected accounts:", error);
+    } finally {
+      setAccountsLoading(false);
+    }
+  }, [isAuthenticated, user?.uid]);
+
+  useEffect(() => {
+    loadConnectedAccounts();
+  }, [loadConnectedAccounts]);
+
+  // Handle new account from OAuth callback
+  useEffect(() => {
+    const newAccountParam = searchParams.get("newAccount");
+    console.log("[Settings] Checking for newAccount param:", { 
+      hasParam: !!newAccountParam, 
+      userId: user?.uid,
+      paramValue: newAccountParam 
+    });
+    
+    // Only process if we have the "pending" marker and a logged-in user
+    if (newAccountParam !== "pending" || !user?.uid) {
+      if (newAccountParam && !user?.uid) {
+        console.log("[Settings] Have newAccount but no user yet, waiting...");
+      }
+      return;
+    }
+
+    const userId = user.uid;
+
+    async function processNewAccount() {
+      try {
+        console.log("[Settings] Processing new account from cookie...");
+        
+        // Read account data from the cookie (set by process route)
+        const cookieValue = document.cookie
+          .split("; ")
+          .find((row) => row.startsWith("pending_secondary_account="))
+          ?.split("=")[1];
+        
+        if (!cookieValue) {
+          console.error("[Settings] No pending_secondary_account cookie found");
+          toast.error("Failed to connect account - no pending data");
+          window.history.replaceState({}, "", "/settings");
+          return;
+        }
+        
+        const accountData = JSON.parse(decodeURIComponent(cookieValue));
+        console.log("[Settings] Parsed account data:", { 
+          email: accountData.email,
+          hasAccessToken: !!accountData.accessToken,
+          hasRefreshToken: !!accountData.refreshToken,
+          expiresAt: accountData.expiresAt,
+          scopes: accountData.scopes
+        });
+        
+        // Clear the cookie immediately after reading
+        document.cookie = "pending_secondary_account=; path=/; max-age=0";
+        
+        // Get next available color index
+        const colorIndex = await getNextColorIndex(userId);
+        console.log("[Settings] Got color index:", colorIndex);
+
+        // Create connected account object
+        const newAccount: ConnectedAccount = {
+          email: accountData.email,
+          displayName: accountData.displayName,
+          photoURL: accountData.photoURL,
+          accessToken: accountData.accessToken,
+          refreshToken: accountData.refreshToken,
+          accessTokenExpiresAt: accountData.expiresAt,
+          scopes: accountData.scopes || [],
+          colorIndex,
+          connectedAt: Date.now(),
+          lastRefreshedAt: Date.now(),
+          needsReauth: false,
+        };
+
+        // Save to Firestore
+        console.log("[Settings] Saving to Firestore...");
+        await saveConnectedAccount(userId, newAccount);
+        console.log("[Settings] Saved successfully!");
+
+        toast.success(`Connected ${accountData.email}`);
+
+        // Reload accounts
+        await loadConnectedAccounts();
+
+        // Clear the URL parameter
+        window.history.replaceState({}, "", "/settings");
+      } catch (error) {
+        console.error("[Settings] Failed to process new account:", error);
+        toast.error("Failed to connect account");
+        // Clear URL even on error
+        window.history.replaceState({}, "", "/settings");
+      }
+    }
+
+    processNewAccount();
+  }, [searchParams, user?.uid, loadConnectedAccounts]);
+
+  // Load calendars for each connected account
+  const loadAccountCalendars = useCallback(async (email: string) => {
+    // Find the account to get its access token
+    const account = connectedAccounts.find(a => a.email === email);
+    if (!account?.accessToken) {
+      console.log(`[Settings] No access token for account: ${email}`);
+      return;
+    }
+    
+    console.log(`[Settings] loadAccountCalendars called for: ${email}`);
+    setAccountCalendarsLoading((prev) => ({ ...prev, [email]: true }));
+    try {
+      // Pass the access token directly to the server action
+      const result = await getCalendarListForAccount(email, account.accessToken);
+      console.log(`[Settings] Calendar result for ${email}:`, result);
+      if (result.success) {
+        const sorted = result.data.sort((a, b) => {
+          if (a.primary) return -1;
+          if (b.primary) return 1;
+          return (a.summary ?? "").localeCompare(b.summary ?? "");
+        });
+        console.log(`[Settings] Setting ${sorted.length} calendars for ${email}`);
+        setAccountCalendars((prev) => ({ ...prev, [email]: sorted }));
+      } else {
+        console.log(`[Settings] Calendar fetch failed for ${email}:`, result.error);
+      }
+    } catch (error) {
+      console.error(`[Settings] Failed to load calendars for ${email}:`, error);
+    } finally {
+      setAccountCalendarsLoading((prev) => ({ ...prev, [email]: false }));
+    }
+  }, [connectedAccounts]);
+
+  // Load calendars when accounts change
+  useEffect(() => {
+    for (const account of connectedAccounts) {
+      if (!accountCalendars[account.email]) {
+        loadAccountCalendars(account.email);
+      }
+    }
+  }, [connectedAccounts, accountCalendars, loadAccountCalendars]);
+
+  function handleAddAccount() {
+    setIsAddingAccount(true);
+    window.location.href = "/api/auth/google?mode=secondary";
+  }
+
+  async function handleRemoveAccount(email: string) {
+    if (!user?.uid) return;
+
+    setIsDeletingAccount(email);
+    try {
+      await deleteConnectedAccount(user.uid, email);
+      toast.success(`Disconnected ${email}`);
+      await loadConnectedAccounts();
+      
+      // Remove from accountCalendars state
+      setAccountCalendars((prev) => {
+        const newState = { ...prev };
+        delete newState[email];
+        return newState;
+      });
+    } catch (error) {
+      console.error("Failed to remove account:", error);
+      toast.error("Failed to disconnect account");
+    } finally {
+      setIsDeletingAccount(null);
+    }
+  }
 
   // Fetch available calendars on mount
   const fetchCalendars = useCallback(async () => {
@@ -198,6 +400,78 @@ export default function SettingsPage() {
     updateSetting("selectedCalendarIds", []);
     toast.success("All calendars deselected");
     setTimeout(() => setIsCalendarSaving(false), 300);
+  }
+
+  // Account-specific calendar selection handlers
+  function handleAccountCalendarToggle(accountEmail: string, calendarId: string, enabled: boolean) {
+    const currentSelections = settings.accountCalendarSelections ?? [];
+    const accountSelection = currentSelections.find((s) => s.accountEmail === accountEmail);
+    
+    let newSelections;
+    if (accountSelection) {
+      // Update existing account selection
+      const newCalendarIds = enabled
+        ? [...accountSelection.calendarIds, calendarId]
+        : accountSelection.calendarIds.filter((id) => id !== calendarId);
+      
+      newSelections = currentSelections.map((s) =>
+        s.accountEmail === accountEmail
+          ? { ...s, calendarIds: newCalendarIds }
+          : s
+      );
+    } else {
+      // Add new account selection
+      newSelections = [
+        ...currentSelections,
+        { accountEmail, calendarIds: enabled ? [calendarId] : [] },
+      ];
+    }
+
+    setIsCalendarSaving(true);
+    updateSetting("accountCalendarSelections", newSelections);
+    toast.success("Calendar updated");
+    setTimeout(() => setIsCalendarSaving(false), 300);
+  }
+
+  function handleSelectAllAccountCalendars(accountEmail: string, acctCalendars: CalendarListEntry[]) {
+    const currentSelections = settings.accountCalendarSelections ?? [];
+    const allIds = acctCalendars.map((c) => c.id);
+    
+    const existingIndex = currentSelections.findIndex((s) => s.accountEmail === accountEmail);
+    let newSelections;
+    
+    if (existingIndex >= 0) {
+      newSelections = [...currentSelections];
+      newSelections[existingIndex] = { accountEmail, calendarIds: allIds };
+    } else {
+      newSelections = [...currentSelections, { accountEmail, calendarIds: allIds }];
+    }
+
+    setIsCalendarSaving(true);
+    updateSetting("accountCalendarSelections", newSelections);
+    toast.success("All calendars selected");
+    setTimeout(() => setIsCalendarSaving(false), 300);
+  }
+
+  function handleDeselectAllAccountCalendars(accountEmail: string) {
+    const currentSelections = settings.accountCalendarSelections ?? [];
+    const newSelections = currentSelections.map((s) =>
+      s.accountEmail === accountEmail
+        ? { ...s, calendarIds: [] }
+        : s
+    );
+
+    setIsCalendarSaving(true);
+    updateSetting("accountCalendarSelections", newSelections);
+    toast.success("All calendars deselected");
+    setTimeout(() => setIsCalendarSaving(false), 300);
+  }
+
+  function getTotalSelectedCalendarsCount(): number {
+    const primaryCount = (settings.selectedCalendarIds ?? []).length || 1; // At least primary
+    const accountCounts = (settings.accountCalendarSelections ?? [])
+      .reduce((sum, s) => sum + s.calendarIds.length, 0);
+    return primaryCount + accountCounts;
   }
 
   async function handleSignOut() {
@@ -271,6 +545,108 @@ export default function SettingsPage() {
           <SyncStatusBadge status={syncStatus} onSync={forceSync} />
         </div>
 
+        {/* Connected Accounts */}
+        <SettingsSection title="Connected Google Accounts">
+          <Typography variant="default" color="muted" className="mb-4">
+            Connect additional Google accounts to view their calendars. Up to {MAX_CONNECTED_ACCOUNTS} accounts supported.
+          </Typography>
+
+          {/* Primary Account */}
+          {user && (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 p-3 mb-3">
+              <div className="flex items-center gap-3">
+                <div
+                  className="size-4 rounded-full"
+                  style={{ backgroundColor: ACCOUNT_COLORS[0].hex }}
+                />
+                <div>
+                  <Typography variant="default" className="font-medium">
+                    {user.email}
+                  </Typography>
+                  <Typography variant="light" color="muted" className="text-xs">
+                    Primary account (Tasks + Calendar)
+                  </Typography>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Connected Accounts */}
+          {accountsLoading ? (
+            <div className="flex items-center gap-2 py-4 text-zinc-500">
+              <Loader2 className="size-4 animate-spin" />
+              <span>Loading accounts...</span>
+            </div>
+          ) : (
+            <>
+              {connectedAccounts.map((account) => (
+                <div
+                  key={account.email}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 p-3 mb-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="size-4 rounded-full"
+                      style={{ backgroundColor: ACCOUNT_COLORS[account.colorIndex]?.hex || ACCOUNT_COLORS[0].hex }}
+                    />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Typography variant="default" className="font-medium">
+                          {account.email}
+                        </Typography>
+                        {account.needsReauth && (
+                          <span className="flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">
+                            <AlertTriangle className="size-3" />
+                            Reconnect required
+                          </span>
+                        )}
+                      </div>
+                      <Typography variant="light" color="muted" className="text-xs">
+                        Calendar only
+                      </Typography>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemoveAccount(account.email)}
+                    disabled={isDeletingAccount === account.email}
+                    className="text-zinc-500 hover:text-red-600"
+                  >
+                    {isDeletingAccount === account.email ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="size-4" />
+                    )}
+                  </Button>
+                </div>
+              ))}
+
+              {/* Add Account Button */}
+              {canAddAccount && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleAddAccount}
+                  disabled={isAddingAccount}
+                >
+                  {isAddingAccount ? (
+                    <>
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      Connecting...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="mr-2 size-4" />
+                      Connect another Google account
+                    </>
+                  )}
+                </Button>
+              )}
+            </>
+          )}
+        </SettingsSection>
+
         {/* Calendar Settings */}
         <SettingsSection title="Calendar">
           <div className="flex items-center justify-between gap-4 py-2">
@@ -320,65 +696,149 @@ export default function SettingsPage() {
 
           {/* Calendars to Display */}
           <div>
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <Label>Calendars to display</Label>
-                <Typography variant="default" color="muted" className="mt-1">
-                  Select which calendars to show in the weekly view
-                </Typography>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSelectAllCalendars}
-                  disabled={isCalendarSaving || calendarsLoading}
-                >
-                  All
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleDeselectAllCalendars}
-                  disabled={isCalendarSaving || calendarsLoading}
-                >
-                  None
-                </Button>
-              </div>
+            <div className="mb-3">
+              <Label>Calendars to display</Label>
+              <Typography variant="default" color="muted" className="mt-1">
+                Select which calendars to show in the weekly view
+              </Typography>
             </div>
             
-            {calendarsLoading ? (
-              <div className="flex items-center gap-2 py-4 text-zinc-500">
-                <Loader2 className="size-4 animate-spin" />
-                <span>Loading calendars...</span>
-              </div>
-            ) : calendars.length === 0 ? (
-              <div className="py-4 text-zinc-500">
-                <Typography variant="default" color="muted">
-                  No calendars found. Sign in to see your calendars.
+            {/* Primary Account Calendars */}
+            <div className="mb-4">
+              <div className="mb-2 flex items-center gap-2">
+                <div
+                  className="size-3 rounded-full"
+                  style={{ backgroundColor: ACCOUNT_COLORS[0].hex }}
+                />
+                <Typography variant="default" className="text-sm font-medium">
+                  {user?.email || "Primary Account"}
                 </Typography>
+                <div className="flex gap-1 ml-auto">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={handleSelectAllCalendars}
+                    disabled={isCalendarSaving || calendarsLoading}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={handleDeselectAllCalendars}
+                    disabled={isCalendarSaving || calendarsLoading}
+                  >
+                    None
+                  </Button>
+                </div>
               </div>
-            ) : (
-              <div className="space-y-2 rounded-lg border border-zinc-200 p-3">
-                {calendars.map((calendar) => {
-                  const isSelected = (settings.selectedCalendarIds ?? []).includes(calendar.id);
-                  return (
-                    <CalendarToggleItem
-                      key={calendar.id}
-                      calendar={calendar}
-                      isSelected={isSelected}
-                      onToggle={(enabled) => handleCalendarToggle(calendar.id, enabled)}
-                      disabled={isCalendarSaving}
+              
+              {calendarsLoading ? (
+                <div className="flex items-center gap-2 py-4 text-zinc-500">
+                  <Loader2 className="size-4 animate-spin" />
+                  <span>Loading calendars...</span>
+                </div>
+              ) : calendars.length === 0 ? (
+                <div className="py-4 text-zinc-500">
+                  <Typography variant="default" color="muted">
+                    No calendars found. Sign in to see your calendars.
+                  </Typography>
+                </div>
+              ) : (
+                <div className="space-y-2 rounded-lg border border-zinc-200 p-3">
+                  {calendars.map((calendar) => {
+                    const isSelected = (settings.selectedCalendarIds ?? []).includes(calendar.id);
+                    return (
+                      <CalendarToggleItem
+                        key={calendar.id}
+                        calendar={calendar}
+                        isSelected={isSelected}
+                        onToggle={(enabled) => handleCalendarToggle(calendar.id, enabled)}
+                        disabled={isCalendarSaving}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Connected Account Calendars */}
+            {connectedAccounts.map((account) => {
+              const acctCalendars = accountCalendars[account.email] || [];
+              const isLoading = accountCalendarsLoading[account.email];
+              const selectedIds = (settings.accountCalendarSelections || [])
+                .find((s) => s.accountEmail === account.email)?.calendarIds || [];
+
+              return (
+                <div key={account.email} className="mb-4">
+                  <div className="mb-2 flex items-center gap-2">
+                    <div
+                      className="size-3 rounded-full"
+                      style={{ backgroundColor: ACCOUNT_COLORS[account.colorIndex]?.hex || ACCOUNT_COLORS[0].hex }}
                     />
-                  );
-                })}
-              </div>
-            )}
+                    <Typography variant="default" className="text-sm font-medium">
+                      {account.email}
+                    </Typography>
+                    {account.needsReauth && (
+                      <span className="text-xs text-amber-600">(reconnect required)</span>
+                    )}
+                    <div className="flex gap-1 ml-auto">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => handleSelectAllAccountCalendars(account.email, acctCalendars)}
+                        disabled={isCalendarSaving || isLoading}
+                      >
+                        All
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => handleDeselectAllAccountCalendars(account.email)}
+                        disabled={isCalendarSaving || isLoading}
+                      >
+                        None
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {isLoading ? (
+                    <div className="flex items-center gap-2 py-4 text-zinc-500">
+                      <Loader2 className="size-4 animate-spin" />
+                      <span>Loading calendars...</span>
+                    </div>
+                  ) : acctCalendars.length === 0 ? (
+                    <div className="py-2 text-zinc-500 text-sm">
+                      {account.needsReauth
+                        ? "Reconnect account to load calendars"
+                        : "No calendars found"}
+                    </div>
+                  ) : (
+                    <div className="space-y-2 rounded-lg border border-zinc-200 p-3">
+                      {acctCalendars.map((calendar) => {
+                        const isSelected = selectedIds.includes(calendar.id);
+                        return (
+                          <CalendarToggleItem
+                            key={calendar.id}
+                            calendar={calendar}
+                            isSelected={isSelected}
+                            onToggle={(enabled) => handleAccountCalendarToggle(account.email, calendar.id, enabled)}
+                            disabled={isCalendarSaving}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             
             <Typography variant="default" color="muted" className="mt-2 text-sm">
-              {(settings.selectedCalendarIds ?? []).length === 0
-                ? "Primary calendar only"
-                : `${(settings.selectedCalendarIds ?? []).length} calendar${(settings.selectedCalendarIds ?? []).length === 1 ? "" : "s"} selected`}
+              {getTotalSelectedCalendarsCount()} calendar{getTotalSelectedCalendarsCount() === 1 ? "" : "s"} selected across all accounts
             </Typography>
           </div>
         </SettingsSection>

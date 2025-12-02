@@ -1,12 +1,23 @@
 import localforage from "localforage";
 import { z } from "zod";
 
+// Per-account calendar selection schema
+export const AccountCalendarSelectionSchema = z.object({
+  accountEmail: z.string().email(),
+  calendarIds: z.array(z.string()),
+});
+
+export type AccountCalendarSelection = z.infer<typeof AccountCalendarSelectionSchema>;
+
 // User settings schema with validation
 export const UserSettingsSchema = z.object({
   // Calendar settings
   showCalendarEvents: z.boolean().default(true),
   calendarRefreshIntervalMinutes: z.number().min(1).max(60).default(5),
-  selectedCalendarIds: z.array(z.string()).default([]), // Empty = primary only
+  selectedCalendarIds: z.array(z.string()).default([]), // Empty = primary only (legacy, for primary account)
+  
+  // Per-account calendar selections (new multi-account support)
+  accountCalendarSelections: z.array(AccountCalendarSelectionSchema).default([]),
 
   // Task settings
   defaultGtdList: z

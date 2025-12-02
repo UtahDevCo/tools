@@ -1,0 +1,73 @@
+import { NextRequest } from "next/server";
+import { z } from "zod";
+
+/**
+ * Dynamically determine the base URL from the request
+ */
+export function getBaseUrl(request: NextRequest): string {
+  const host = request.headers.get("host") || "localhost:3000";
+  const protocol = host.includes("localhost") ? "http" : "https";
+  return `${protocol}://${host}`;
+}
+
+/**
+ * Dynamically determine the OAuth redirect URI from the request
+ */
+export function getRedirectUri(request: NextRequest): string {
+  return `${getBaseUrl(request)}/api/auth/google/callback`;
+}
+
+/**
+ * OAuth scopes for Google Tasks and Calendar
+ */
+export const OAUTH_SCOPES = [
+  "https://www.googleapis.com/auth/tasks",
+  "https://www.googleapis.com/auth/calendar.readonly",
+  "https://www.googleapis.com/auth/userinfo.email",
+  "https://www.googleapis.com/auth/userinfo.profile",
+] as const;
+
+/**
+ * Schema for OAuth state parameter
+ */
+export const OAuthStateSchema = z.object({
+  mode: z.enum(["primary", "secondary"]).default("primary"),
+  nonce: z.string().uuid(),
+  email: z.string().email().optional(), // For secondary account re-auth
+});
+
+export type OAuthState = z.infer<typeof OAuthStateSchema>;
+
+/**
+ * Schema for token refresh request body
+ */
+export const RefreshTokenBodySchema = z.object({
+  refreshToken: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+});
+
+export type RefreshTokenBody = z.infer<typeof RefreshTokenBodySchema>;
+
+/**
+ * Schema for pending OAuth tokens stored in cookie
+ */
+export const PendingTokensSchema = z.object({
+  accessToken: z.string(),
+  refreshToken: z.string().nullable(),
+  idToken: z.string().nullable(),
+  expiresAt: z.number(),
+  email: z.string().email(),
+  displayName: z.string().nullable(),
+  photoURL: z.string().nullable(),
+  scopes: z.array(z.string()),
+  mode: z.enum(["primary", "secondary"]),
+});
+
+export type PendingTokens = z.infer<typeof PendingTokensSchema>;
+
+/**
+ * Validate email format
+ */
+export function isValidEmail(email: string): boolean {
+  return z.string().email().safeParse(email).success;
+}

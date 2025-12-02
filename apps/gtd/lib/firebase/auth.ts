@@ -1,5 +1,6 @@
 import {
   signInWithPopup,
+  signInWithCredential,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   type User,
@@ -45,6 +46,17 @@ export async function signInWithGoogle(): Promise<SignInResult> {
   };
 }
 
+/**
+ * Sign into Firebase Auth using a Google ID token from server-side OAuth.
+ * This is needed to authenticate with Firestore.
+ */
+export async function signInWithGoogleIdToken(idToken: string): Promise<User> {
+  const auth = getFirebaseAuth();
+  const credential = GoogleAuthProvider.credential(idToken);
+  const result = await signInWithCredential(auth, credential);
+  return result.user;
+}
+
 export async function signOut(): Promise<void> {
   const auth = getFirebaseAuth();
   await firebaseSignOut(auth);
@@ -53,6 +65,14 @@ export async function signOut(): Promise<void> {
 export function onAuthChange(callback: (user: User | null) => void): () => void {
   const auth = getFirebaseAuth();
   return onAuthStateChanged(auth, callback);
+}
+
+/**
+ * Check if Firebase Auth is currently signed in.
+ */
+export function isFirebaseAuthenticated(): boolean {
+  const auth = getFirebaseAuth();
+  return !!auth.currentUser;
 }
 
 export type SerializableUser = {

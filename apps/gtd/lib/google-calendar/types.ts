@@ -71,6 +71,9 @@ export type CalendarEventWithParsedDate = CalendarEvent & {
   isFirstDay?: boolean;
   dayNumber?: number;
   totalDays?: number;
+  // Account info for multi-account support
+  accountEmail?: string;
+  accountColorIndex?: number;
 };
 
 /**

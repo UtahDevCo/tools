@@ -10,29 +10,27 @@ import {
   type ReactNode,
 } from "react";
 import {
-  signInWithGoogle as firebaseSignIn,
   signOut as firebaseSignOut,
   onAuthChange,
   serializeUser,
+  signInWithGoogleIdToken,
+  isFirebaseAuthenticated,
   type SerializableUser,
 } from "@/lib/firebase/auth";
 import {
-  setSessionCookies,
   clearSessionCookies,
   getUserFromCookies,
   isTokenExpired,
 } from "@/app/actions/session";
 import {
   exportCookiesForMcp,
-  saveFirebaseAuthData,
 } from "@/app/actions/mcp-cookies";
 import {
   setRefreshFunction,
   clearRefreshFunction,
+  silentRefresh,
 } from "@/lib/token-refresh";
 import {
-  setAnalyticsUserId,
-  trackLoginSuccess,
   trackLogoutSuccess,
   trackTokenRefreshFailed,
 } from "@/lib/firebase/analytics";
@@ -44,75 +42,12 @@ type AuthState = {
 };
 
 type AuthContextValue = AuthState & {
-  signIn: () => Promise<void>;
+  signIn: () => void; // Changed to redirect-based
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-
-/**
- * Export Firebase Auth IndexedDB data for MCP server use.
- * This runs client-side and sends the data to a server action to save.
- */
-async function exportFirebaseAuthForMcp(): Promise<void> {
-  try {
-    // Only run in development
-    if (process.env.NODE_ENV !== "development") return;
-
-    const authData = await new Promise<Array<{ fpiKey: string; value: unknown }>>(
-      (resolve, reject) => {
-        const request = indexedDB.open("firebaseLocalStorageDb", 1);
-
-        request.onerror = () => reject(request.error);
-
-        request.onsuccess = (event) => {
-          const db = (event.target as IDBOpenDBRequest).result;
-          
-          // Check if the object store exists
-          if (!db.objectStoreNames.contains("firebaseLocalStorage")) {
-            resolve([]);
-            return;
-          }
-          
-          const transaction = db.transaction(["firebaseLocalStorage"], "readonly");
-          const store = transaction.objectStore("firebaseLocalStorage");
-          const getAllRequest = store.getAll();
-          const getAllKeysRequest = store.getAllKeys();
-
-          const results: Array<{ fpiKey: string; value: unknown }> = [];
-
-          getAllRequest.onsuccess = () => {
-            getAllKeysRequest.onsuccess = () => {
-              const values = getAllRequest.result;
-              const keys = getAllKeysRequest.result;
-              
-              for (let i = 0; i < keys.length; i++) {
-                results.push({
-                  fpiKey: String(keys[i]),
-                  value: values[i],
-                });
-              }
-              resolve(results);
-            };
-          };
-
-          getAllRequest.onerror = () => reject(getAllRequest.error);
-        };
-      }
-    );
-
-    if (authData.length > 0) {
-      const result = await saveFirebaseAuthData(authData);
-      if (result.success) {
-        console.log("[MCP] Firebase Auth data exported for MCP server");
-      }
-    }
-  } catch (error) {
-    // Silently ignore - this is just for dev convenience
-    console.debug("[MCP] Firebase Auth export failed:", error);
-  }
-}
 
 type AuthProviderProps = {
   children: ReactNode;
@@ -128,10 +63,42 @@ export function AuthProvider({ children, initialUser = null }: AuthProviderProps
 
   const isAuthenticated = !!user;
 
-  // Check for existing session on mount
+  // Check for existing session on mount and ensure Firebase Auth is signed in
   useEffect(() => {
     async function checkSession() {
       try {
+        // First, try to sign into Firebase using the ID token cookie
+        // This is needed because server-side OAuth doesn't sign into Firebase Auth
+        const idToken = document.cookie
+          .split("; ")
+          .find((row) => row.startsWith("gtd_id_token="))
+          ?.split("=")[1];
+        
+        if (idToken && !isFirebaseAuthenticated()) {
+          try {
+            console.log("[Auth] Signing into Firebase with ID token...");
+            const firebaseUser = await signInWithGoogleIdToken(decodeURIComponent(idToken));
+            console.log("[Auth] Firebase Auth signed in:", firebaseUser.email, "UID:", firebaseUser.uid);
+            
+            // Update the user data cookie with the correct Firebase UID
+            const userData = {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              displayName: firebaseUser.displayName,
+              photoURL: firebaseUser.photoURL,
+            };
+            document.cookie = `gtd_user_data=${encodeURIComponent(JSON.stringify(userData))}; path=/; max-age=${60 * 60 * 24 * 7}`;
+            
+            setUser(serializeUser(firebaseUser));
+            setIsLoading(false);
+            return;
+          } catch (error) {
+            console.error("[Auth] Failed to sign into Firebase:", error);
+            // Fall through to check cookies
+          }
+        }
+        
+        // If no ID token or Firebase sign-in failed, try to get user from cookies
         const cookieUser = await getUserFromCookies();
         if (cookieUser) {
           setUser(cookieUser);
@@ -167,9 +134,18 @@ export function AuthProvider({ children, initialUser = null }: AuthProviderProps
     const checkTokenExpiry = async () => {
       const expired = await isTokenExpired();
       if (expired) {
-        // Token expired - user needs to re-authenticate
-        // Firebase popup will handle silent re-auth if session is still valid
-        console.log("Token expired, user may need to re-authenticate");
+        // Token expired - attempt silent refresh
+        console.log("Token expired, attempting silent refresh");
+        try {
+          const result = await silentRefresh();
+          if (result) {
+            console.log("Silent refresh succeeded");
+          } else {
+            console.log("Silent refresh failed, user may need to re-authenticate");
+          }
+        } catch (error) {
+          console.error("Silent refresh error:", error);
+        }
       }
     };
 
@@ -180,40 +156,10 @@ export function AuthProvider({ children, initialUser = null }: AuthProviderProps
     return () => clearInterval(interval);
   }, [isAuthenticated]);
 
-  const signIn = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const result = await firebaseSignIn();
-      const serializedUser = serializeUser(result.user);
-
-      // Store tokens in cookies
-      await setSessionCookies({
-        accessToken: result.tokens.accessToken,
-        user: serializedUser,
-        expiresAt: result.tokens.expiresAt,
-      });
-
-      // Auto-export cookies for MCP server (localhost only)
-      exportCookiesForMcp().then((result) => {
-        if (result.success) {
-          console.log("[MCP] Cookies auto-exported for MCP server");
-        }
-      }).catch(() => {
-        // Silently ignore - this is just for dev convenience
-      });
-
-      // Also export Firebase Auth IndexedDB data for MCP server
-      exportFirebaseAuthForMcp();
-
-      setUser(serializedUser);
-      setAnalyticsUserId(serializedUser.uid);
-      trackLoginSuccess();
-    } catch (error) {
-      console.error("Sign in failed:", error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
+  // Sign in via server-side OAuth redirect
+  const signIn = useCallback(() => {
+    // Redirect to OAuth endpoint
+    window.location.href = "/api/auth/google?mode=primary";
   }, []);
 
   const signOut = useCallback(async () => {
@@ -241,8 +187,20 @@ export function AuthProvider({ children, initialUser = null }: AuthProviderProps
     }
     isRefreshingRef.current = true;
     try {
-      // Re-authenticate to get fresh tokens
-      await signIn();
+      // Attempt silent refresh
+      const result = await silentRefresh();
+      if (result) {
+        console.log("Session refreshed silently");
+        // Re-fetch user from cookies to update state
+        const cookieUser = await getUserFromCookies();
+        if (cookieUser) {
+          setUser(cookieUser);
+        }
+      } else {
+        // Silent refresh failed - redirect to OAuth
+        console.log("Silent refresh failed, redirecting to OAuth");
+        window.location.href = "/api/auth/google?mode=primary";
+      }
     } catch (error) {
       console.error('Session refresh failed:', error);
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -251,7 +209,7 @@ export function AuthProvider({ children, initialUser = null }: AuthProviderProps
     } finally {
       isRefreshingRef.current = false;
     }
-  }, [signIn]);
+  }, []);
 
   // Register the refresh function with the token coordinator
   // This allows automatic token refresh from any part of the app
@@ -265,24 +223,25 @@ export function AuthProvider({ children, initialUser = null }: AuthProviderProps
         }
         isRefreshingRef.current = true;
         try {
-          const result = await firebaseSignIn();
-          const serializedUser = serializeUser(result.user);
+          // Attempt silent refresh first
+          const result = await silentRefresh();
+          if (result) {
+            console.log("Coordinated refresh succeeded silently");
+            // Re-fetch user from cookies to update state
+            const cookieUser = await getUserFromCookies();
+            if (cookieUser) {
+              setUser(cookieUser);
+            }
 
-          await setSessionCookies({
-            accessToken: result.tokens.accessToken,
-            user: serializedUser,
-            expiresAt: result.tokens.expiresAt,
-          });
-
-          // Auto-export cookies for MCP server (localhost only)
-          exportCookiesForMcp().catch(() => {
-            // Silently ignore
-          });
-
-          // Also export Firebase Auth IndexedDB data for MCP server
-          exportFirebaseAuthForMcp();
-
-          setUser(serializedUser);
+            // Auto-export cookies for MCP server (localhost only)
+            exportCookiesForMcp().catch(() => {
+              // Silently ignore
+            });
+          } else {
+            // Silent refresh failed - redirect to OAuth
+            console.log("Silent refresh failed, redirecting to OAuth");
+            window.location.href = "/api/auth/google?mode=primary";
+          }
         } catch (error) {
           console.error('Coordinated token refresh failed:', error);
           throw error;
