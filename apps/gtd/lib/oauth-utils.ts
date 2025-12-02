@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { getServerEnv } from "./env";
 
 /**
  * Dynamically determine the base URL from the request
@@ -11,10 +12,21 @@ export function getBaseUrl(request: NextRequest): string {
 }
 
 /**
- * Dynamically determine the OAuth redirect URI from the request
+ * Get the OAuth redirect URI using the APP_URL environment variable
+ * This ensures the redirect URI matches what's registered in Google Cloud Console
  */
-export function getRedirectUri(request: NextRequest): string {
-  return `${getBaseUrl(request)}/api/auth/google/callback`;
+export function getRedirectUri(request?: NextRequest): string {
+  try {
+    const env = getServerEnv();
+    // Use APP_URL from environment, which should match the registered redirect URI
+    return `${env.APP_URL}/api/auth/google/callback`;
+  } catch {
+    // Fallback to dynamic construction if env is not available
+    if (request) {
+      return `${getBaseUrl(request)}/api/auth/google/callback`;
+    }
+    return "http://localhost:3000/api/auth/google/callback";
+  }
 }
 
 /**

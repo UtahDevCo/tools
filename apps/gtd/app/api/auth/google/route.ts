@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const redirectUri = getRedirectUri(request);
+  const redirectUri = getRedirectUri();
   const oauth2Client = new OAuth2Client(
     env.GOOGLE_CLIENT_ID,
     env.GOOGLE_CLIENT_SECRET,

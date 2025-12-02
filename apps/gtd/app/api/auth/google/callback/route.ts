@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
   // Clear the state cookie now that we've validated it
   cookieStore.delete("oauth_state");
 
-  const redirectUri = getRedirectUri(request);
+  const redirectUri = getRedirectUri();
   const oauth2Client = new OAuth2Client(
     env.GOOGLE_CLIENT_ID,
     env.GOOGLE_CLIENT_SECRET,
