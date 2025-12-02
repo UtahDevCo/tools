@@ -4,7 +4,6 @@ import { OAuth2Client } from "google-auth-library";
 import { getServerEnv } from "@/lib/env";
 import {
   getRedirectUri,
-  getBaseUrl,
   OAuthStateSchema,
   type PendingTokens,
 } from "@/lib/oauth-utils";
@@ -16,7 +15,7 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state");
   const error = searchParams.get("error");
 
-  const baseUrl = getBaseUrl(request);
+  const baseUrl = env.APP_URL;
   const cookieStore = await cookies();
 
   // Helper to clean up oauth_state cookie on any exit

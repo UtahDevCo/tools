@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getServerEnv } from "@/lib/env";
-import { getBaseUrl, PendingTokensSchema } from "@/lib/oauth-utils";
+import { PendingTokensSchema } from "@/lib/oauth-utils";
 
 export async function GET(request: NextRequest) {
   const env = getServerEnv();
-  const baseUrl = getBaseUrl(request);
+  const baseUrl = env.APP_URL;
 
   const cookieStore = await cookies();
   const pendingTokens = cookieStore.get("pending_oauth_tokens")?.value;
