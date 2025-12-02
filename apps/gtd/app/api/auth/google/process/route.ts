@@ -37,6 +37,8 @@ export async function GET(request: NextRequest) {
     const tokenData = parseResult.data;
     const mode = tokenData.mode;
 
+    console.log("[Process] Token data mode:", mode);
+
     if (mode === "primary") {
       // For primary account, set session cookies and redirect to home
       // Store access token (HTTP-only for security)
@@ -106,12 +108,12 @@ export async function GET(request: NextRequest) {
         scopes: tokenData.scopes,
       };
 
-      // Encode for URL parameter
+      // Encode for cookie storage
       const secondaryDataString = JSON.stringify(secondaryAccountData);
       const encodedSecondaryData = Buffer.from(secondaryDataString).toString("base64");
 
       // Store in a short-lived cookie (client will read and use it)
-      // This acts as a bridge between server and client
+      // URL encode to handle special characters in base64
       cookieStore.set("pending_secondary_account", encodedSecondaryData, {
         httpOnly: false, // Client needs to read this
         secure: env.NODE_ENV === "production",
@@ -119,6 +121,8 @@ export async function GET(request: NextRequest) {
         maxAge: 60, // 1 minute - just long enough for client to process
         path: "/",
       });
+
+      console.log("[Process] Set secondary account cookie, redirecting to settings");
 
       // Redirect to settings without sensitive data in URL
       return NextResponse.redirect(`${baseUrl}/settings?newAccount=pending`);

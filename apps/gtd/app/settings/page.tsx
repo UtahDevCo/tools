@@ -198,6 +198,7 @@ function SettingsPageContent() {
     async function processNewAccount() {
       try {
         console.log("[Settings] Processing new account from cookie...");
+        console.log("[Settings] All cookies:", document.cookie);
         
         // Read account data from the cookie (set by process route)
         const cookieValue = document.cookie
@@ -207,18 +208,23 @@ function SettingsPageContent() {
         
         if (!cookieValue) {
           console.error("[Settings] No pending_secondary_account cookie found");
+          console.error("[Settings] Available cookies:", document.cookie.split("; ").map(c => c.split("=")[0]));
           toast.error("Failed to connect account - no pending data");
           window.history.replaceState({}, "", "/settings");
           return;
         }
         
+        console.log("[Settings] Found cookie value (first 50 chars):", cookieValue.substring(0, 50));
+        
         // Decode from base64
         let accountData;
         try {
           const decodedString = atob(cookieValue);
+          console.log("[Settings] Decoded string (first 100 chars):", decodedString.substring(0, 100));
           accountData = JSON.parse(decodedString);
         } catch (err) {
           console.error("[Settings] Failed to decode cookie:", err);
+          console.error("[Settings] Cookie value was:", cookieValue);
           toast.error("Failed to decode account data");
           window.history.replaceState({}, "", "/settings");
           return;

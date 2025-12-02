@@ -59,6 +59,8 @@ export async function GET(request: NextRequest) {
     return cleanupAndRedirect(`${baseUrl}/?error=invalid_state`);
   }
 
+  console.log("[Callback] Parsed state:", { mode: parsedState.mode, email: parsedState.email });
+
   // Clean up oauth_state cookie if it exists (for backwards compatibility)
   cookieStore.delete("oauth_state");
 
