@@ -219,7 +219,10 @@ function SettingsPageContent() {
         // Decode from base64
         let accountData;
         try {
-          const decodedString = atob(cookieValue);
+          // URL-decode first (cookies are URL-encoded), then base64-decode
+          const urlDecodedValue = decodeURIComponent(cookieValue);
+          console.log("[Settings] URL-decoded value (first 50 chars):", urlDecodedValue.substring(0, 50));
+          const decodedString = atob(urlDecodedValue);
           console.log("[Settings] Decoded string (first 100 chars):", decodedString.substring(0, 100));
           accountData = JSON.parse(decodedString);
         } catch (err) {
