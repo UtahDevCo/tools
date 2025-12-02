@@ -7,15 +7,24 @@ export async function GET(request: NextRequest) {
   const env = getServerEnv();
   const baseUrl = env.APP_URL;
 
-  const cookieStore = await cookies();
-  const pendingTokens = cookieStore.get("pending_oauth_tokens")?.value;
+  const searchParams = request.nextUrl.searchParams;
+  const encodedTokenData = searchParams.get("tokens");
 
-  if (!pendingTokens) {
+  if (!encodedTokenData) {
     return NextResponse.redirect(`${baseUrl}/?error=no_pending_tokens`);
   }
 
-  // Clear the pending tokens cookie
-  cookieStore.delete("pending_oauth_tokens");
+  // Decode token data from URL parameter
+  let pendingTokens: string;
+  try {
+    const tokenBuffer = Buffer.from(encodedTokenData, "base64");
+    pendingTokens = tokenBuffer.toString("utf-8");
+  } catch (err) {
+    console.error("Failed to decode token data:", err);
+    return NextResponse.redirect(`${baseUrl}/?error=invalid_token_format`);
+  }
+
+  const cookieStore = await cookies();
 
   try {
     const rawTokenData = JSON.parse(pendingTokens);
@@ -86,8 +95,7 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.redirect(baseUrl);
     } else {
-      // For secondary account, store tokens in a secure cookie instead of URL
-      // The client will read this cookie and save to Firestore
+      // For secondary account, encode tokens for the client to process
       const secondaryAccountData = {
         email: tokenData.email,
         displayName: tokenData.displayName,
@@ -98,8 +106,13 @@ export async function GET(request: NextRequest) {
         scopes: tokenData.scopes,
       };
 
-      // Store in a short-lived cookie (client will read and clear it)
-      cookieStore.set("pending_secondary_account", JSON.stringify(secondaryAccountData), {
+      // Encode for URL parameter
+      const secondaryDataString = JSON.stringify(secondaryAccountData);
+      const encodedSecondaryData = Buffer.from(secondaryDataString).toString("base64");
+
+      // Store in a short-lived cookie (client will read and use it)
+      // This acts as a bridge between server and client
+      cookieStore.set("pending_secondary_account", encodedSecondaryData, {
         httpOnly: false, // Client needs to read this
         secure: env.NODE_ENV === "production",
         sameSite: "lax",

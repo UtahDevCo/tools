@@ -212,7 +212,18 @@ function SettingsPageContent() {
           return;
         }
         
-        const accountData = JSON.parse(decodeURIComponent(cookieValue));
+        // Decode from base64
+        let accountData;
+        try {
+          const decodedString = atob(cookieValue);
+          accountData = JSON.parse(decodedString);
+        } catch (err) {
+          console.error("[Settings] Failed to decode cookie:", err);
+          toast.error("Failed to decode account data");
+          window.history.replaceState({}, "", "/settings");
+          return;
+        }
+        
         console.log("[Settings] Parsed account data:", { 
           email: accountData.email,
           hasAccessToken: !!accountData.accessToken,

@@ -97,8 +97,7 @@ export async function GET(request: NextRequest) {
     // Calculate expiry time (tokens.expiry_date is Unix timestamp in ms)
     const expiresAt = tokens.expiry_date || Date.now() + 3600 * 1000;
 
-    // Store tokens temporarily in a secure cookie for the client to process
-    // The client will then save them to Firestore under the authenticated user
+    // Create token data for processing
     const tokenData: PendingTokens = {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token || null,
@@ -111,17 +110,12 @@ export async function GET(request: NextRequest) {
       mode: parsedState.mode,
     };
 
-    // Store in a secure, short-lived cookie
-    cookieStore.set("pending_oauth_tokens", JSON.stringify(tokenData), {
-      httpOnly: true,
-      secure: env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60, // 1 minute - just long enough to process
-      path: "/",
-    });
+    // Encode token data in URL to avoid cookie domain issues with Cloud Run + custom domain
+    const tokenDataString = JSON.stringify(tokenData);
+    const encodedTokenData = Buffer.from(tokenDataString).toString("base64");
 
     // Redirect to a processing page that will handle the tokens
-    return NextResponse.redirect(`${baseUrl}/api/auth/google/process`);
+    return NextResponse.redirect(`${baseUrl}/api/auth/google/process?tokens=${encodedTokenData}`);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.redirect(
