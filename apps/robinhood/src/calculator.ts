@@ -1,7 +1,11 @@
 import type { Transaction, MonthlyReport, YearlyReport } from './types';
 import { getMonthName } from './parser';
+import { MissingCriticalYearDataError } from './types';
 
 const MINIMUM_MONTHS_REQUIRED = 3;
+const CRITICAL_YEARS = [2025];
+const SUPPORTED_YEARS = [2024, 2025];
+const MONTHS_PER_YEAR = 12;
 
 function createEmptyBreakdown() {
   return {
@@ -54,9 +58,34 @@ function shouldIncludeInGainLoss(transaction: Transaction): boolean {
 
 export function calculateGainsLosses(transactions: Transaction[]): YearlyReport[] {
   // Filter to only include transactions that represent gains/losses
-  const gainLossTransactions = transactions.filter(shouldIncludeInGainLoss);
+  let gainLossTransactions = transactions.filter(shouldIncludeInGainLoss);
 
-  // Get unique year-month combinations to check data coverage
+  // Filter to only include supported years (2024 and 2025)
+  gainLossTransactions = gainLossTransactions.filter(t => {
+    const year = t.activityDate.getFullYear();
+    return SUPPORTED_YEARS.includes(year);
+  });
+
+  // Check for missing critical year data
+  const monthsByYear = new Map<number, Set<number>>();
+  for (const t of gainLossTransactions) {
+    const year = t.activityDate.getFullYear();
+    const month = t.activityDate.getMonth() + 1;
+    if (!monthsByYear.has(year)) {
+      monthsByYear.set(year, new Set());
+    }
+    monthsByYear.get(year)!.add(month);
+  }
+
+  // Validate critical years have sufficient data
+  for (const criticalYear of CRITICAL_YEARS) {
+    const monthsCovered = monthsByYear.get(criticalYear)?.size ?? 0;
+    if (monthsCovered < MONTHS_PER_YEAR) {
+      throw new MissingCriticalYearDataError(criticalYear, monthsCovered, MONTHS_PER_YEAR);
+    }
+  }
+
+  // Get unique year-month combinations for general data coverage check
   const yearMonths = new Set<string>();
   for (const t of gainLossTransactions) {
     const year = t.activityDate.getFullYear();
@@ -155,8 +184,10 @@ export class InsufficientDataError extends Error {
     public readonly monthsRequired: number
   ) {
     super(
-      `Insufficient data: found ${monthsFound} month(s) of data, but at least ${monthsRequired} months are required. ` +
-      `Please run another Robinhood report that goes farther back in time.`
+      `Insufficient data: found ${monthsFound} month(s) of data in supported years (2024-2025), ` +
+      `but at least ${monthsRequired} months are required. ` +
+      `Transactions before 2024 are ignored. ` +
+      `Please run another Robinhood report that includes the full years 2024 and 2025.`
     );
     this.name = 'InsufficientDataError';
   }

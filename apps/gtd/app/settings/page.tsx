@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Cloud, CloudOff, Loader2, RefreshCw, Plus, Trash2, AlertTriangle } from "lucide-react";
@@ -136,7 +136,7 @@ function SyncStatusBadge({
   );
 }
 
-export default function SettingsPage() {
+function SettingsPageContent() {
   const { settings, updateSetting, syncStatus, forceSync, isLoading: settingsLoading } = useSettings();
   const { user, signOut, isAuthenticated } = useAuth();
   const searchParams = useSearchParams();
@@ -1033,5 +1033,17 @@ export default function SettingsPage() {
         </SettingsSection>
       </div>
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-zinc-400" />
+      </div>
+    }>
+      <SettingsPageContent />
+    </Suspense>
   );
 }

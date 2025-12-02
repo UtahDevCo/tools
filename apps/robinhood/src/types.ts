@@ -119,6 +119,20 @@ export class InsufficientCostBasisError extends Error {
   }
 }
 
+export class MissingCriticalYearDataError extends Error {
+  constructor(
+    public readonly year: number,
+    public readonly monthsCovered: number,
+    public readonly expectedMonths: number
+  ) {
+    super(
+      `CRITICAL: Missing transactions for ${year}. Only ${monthsCovered} out of ${expectedMonths} months have data. ` +
+      `${year} is critical for tax reporting - please verify your Robinhood export includes all transactions for this year.`
+    );
+    this.name = 'MissingCriticalYearDataError';
+  }
+}
+
 // Yearly P&L report
 export type YearlyPnLReport = {
   year: number;

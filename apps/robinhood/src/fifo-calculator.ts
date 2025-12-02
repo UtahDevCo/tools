@@ -8,6 +8,7 @@ export function calculateFIFOGainsLosses(transactions: Transaction[]): {
   errors: InsufficientCostBasisError[];
 } {
   // Sort transactions by date (oldest first for FIFO)
+  // Note: Include transactions from before 2024 to provide cost basis for 2024-2025 sales
   const sorted = [...transactions]
     .filter(t => t.transCode === 'Buy' || t.transCode === 'Sell')
     .filter(t => t.cusip !== null && t.quantity !== null)
