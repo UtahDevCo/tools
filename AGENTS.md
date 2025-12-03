@@ -143,18 +143,18 @@ TypeScript (repository uses Next.js and TypeScript under `web/`). Follow standar
 
 ## DevTools MCP server
 
-- The app is hosted locally at http://localhost:3000/
+- The app is hosted locally at http://localhost:3300/
 - If the app is not available, it can be started by running `bun dev` at the project root.
 
 ### MCP Browser Authentication
 
 Google blocks login attempts from automated browsers. To authenticate the MCP browser:
 
-1. **Log into localhost:3000** in your regular browser (Chrome, Safari, etc.)
+1. **Log into localhost:3300** in your regular browser (Chrome, Safari, etc.)
 2. Cookies are **automatically exported** to `apps/gtd/scripts/mcp-cookies.json` on each login
 3. **Load cookies into MCP browser** by asking the agent to:
    - Read `apps/gtd/scripts/mcp-cookies.json`
-   - Navigate to `http://localhost:3000`
+   - Navigate to `http://localhost:3300`
    - Use `evaluate_script` to set each cookie: `document.cookie = "name=value; path=/";`
    - Reload the page
 

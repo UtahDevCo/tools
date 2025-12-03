@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "TAILWINDCSS_SKIP_BINARY=1 next dev -p 3300 --inspect=0.0.0.0",
+    "build": "TAILWINDCSS_SKIP_BINARY=1 next build",
     "start": "next start",
     "lint": "eslint",
     "generate-icons": "bun run scripts/generate-icons.ts"
@@ -19,6 +19,7 @@
     "firebase": "^12.6.0",
     "google-auth-library": "^10.5.0",
     "lightningcss": "^1.30.2",
+    "localforage": "^1.10.0",
     "lucide-react": "^0.555.0",
     "next": "16.0.5",
     "react": "19.2.0",

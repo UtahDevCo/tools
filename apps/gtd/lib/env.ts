@@ -13,7 +13,7 @@ const serverEnvSchema = z.object({
   APP_URL: z
     .string()
     .url("APP_URL must be a valid URL")
-    .default("http://localhost:3000"),
+    .default("http://localhost:3300"),
 
   // Node environment
   NODE_ENV: z
@@ -46,7 +46,7 @@ export function getServerEnv(): ServerEnv {
         `To fix this, ensure these variables are set in your .env.local file:\n` +
         `  GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com\n` +
         `  GOOGLE_CLIENT_SECRET=your-client-secret\n` +
-        `  APP_URL=http://localhost:3000 (optional, defaults to localhost)\n\n` +
+        `  APP_URL=http://localhost:3300 (optional, defaults to localhost)\n\n` +
         `Get these from: https://console.cloud.google.com/apis/credentials`
     );
   }

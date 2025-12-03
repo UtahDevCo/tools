@@ -11,7 +11,7 @@
  * mcp_chrome-devtoo_evaluate_script tool.
  * 
  * Automatic workflow:
- * 1. Log into http://localhost:3000 in your regular browser
+ * 1. Log into http://localhost:3300 in your regular browser
  * 2. Cookies are automatically saved to scripts/mcp-cookies.json
  * 3. Run this script to get the import function
  * 4. Use evaluate_script in MCP to inject the cookies
@@ -35,7 +35,7 @@ type CookieData = {
 function main() {
   if (!existsSync(COOKIES_FILE)) {
     console.error("❌ No cookies file found at:", COOKIES_FILE);
-    console.error("\nPlease log into http://localhost:3000 first.");
+    console.error("\nPlease log into http://localhost:3300 first.");
     console.error("Cookies will be automatically exported on login.");
     process.exit(1);
   }
@@ -67,7 +67,7 @@ function main() {
   console.log("─".repeat(60));
   console.log(importScript);
   console.log("─".repeat(60));
-  console.log("\nAfter importing, navigate to http://localhost:3000 or reload.");
+  console.log("\nAfter importing, navigate to http://localhost:3300 or reload.");
 
   // Also output a compact version for easy copy-paste
   console.log("\n\n📦 Compact version (single line):\n");

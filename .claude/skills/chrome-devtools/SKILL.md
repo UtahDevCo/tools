@@ -6,7 +6,7 @@ This skill provides integration with the Chrome DevTools MCP server for debuggin
 
 The Chrome DevTools MCP server allows Claude Code to:
 
-- Inspect and debug the GTD app running at `http://localhost:3000/`
+- Inspect and debug the GTD app running at `http://localhost:3300/`
 - Examine the DOM structure and element properties
 - Query and modify page content
 - Execute JavaScript in the page context
@@ -15,7 +15,7 @@ The Chrome DevTools MCP server allows Claude Code to:
 
 ## Prerequisites
 
-- The GTD development server will most likely already be running at `http://localhost:3000/`
+- The GTD development server will most likely already be running at `http://localhost:3300/`
 - Stop and ask the user to start the dev server if it's not running
 - The app should be automatically logged into a specific user account
 

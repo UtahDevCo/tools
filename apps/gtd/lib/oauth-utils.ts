@@ -6,7 +6,7 @@ import { getServerEnv } from "./env";
  * Dynamically determine the base URL from the request
  */
 export function getBaseUrl(request: NextRequest): string {
-  const host = request.headers.get("host") || "localhost:3000";
+  const host = request.headers.get("host") || "localhost:3300";
   const protocol = host.includes("localhost") ? "http" : "https";
   return `${protocol}://${host}`;
 }
@@ -25,7 +25,7 @@ export function getRedirectUri(request?: NextRequest): string {
     if (request) {
       return `${getBaseUrl(request)}/api/auth/google/callback`;
     }
-    return "http://localhost:3000/api/auth/google/callback";
+    return "http://localhost:3300/api/auth/google/callback";
   }
 }
 

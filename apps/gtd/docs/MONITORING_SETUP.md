@@ -258,7 +258,7 @@ cd apps/gtd
 bun dev
 ```
 
-2. Open http://localhost:3000 in your browser
+2. Open http://localhost:3300 in your browser
 3. Perform these actions:
    - Sign in with Google
    - Complete a task
