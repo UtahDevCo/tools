@@ -676,6 +676,11 @@ export function TasksProvider({ children }: TasksProviderProps) {
   }, [settings.showCalendarEvents, fetchCalendarEventsForMonth]);
 
   const fetchTasks = useCallback(async () => {
+    // Wait for auth to finish loading before showing demo data
+    if (isAuthLoading) {
+      return;
+    }
+    
     if (!isAuthenticated) {
       // Use demo data for signed-out users
       const demoData = createDemoData();
@@ -812,7 +817,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
         needsReauth: false,
       }));
     }
-  }, [isAuthenticated, fetchCompletedTasks, isOffline, isCacheLoaded, cachedTaskLists, cachedGtdLists, cachedCompletedTasks, setCacheItem]);
+  }, [isAuthLoading, isAuthenticated, fetchCompletedTasks, isOffline, isCacheLoaded, cachedTaskLists, cachedGtdLists, cachedCompletedTasks, setCacheItem]);
 
   // Reset refs when authentication state changes
   useEffect(() => {
@@ -832,13 +837,18 @@ export function TasksProvider({ children }: TasksProviderProps) {
 
   // Fetch tasks on mount and when authentication changes (including demo data for signed-out users)
   useEffect(() => {
+    // Don't fetch if auth is still loading
+    if (isAuthLoading) {
+      return;
+    }
+    
     if (!hasFetchedRef.current) {
       hasFetchedRef.current = true;
       startTransition(() => {
         fetchTasks();
       });
     }
-  }, [isAuthenticated, fetchTasks]);
+  }, [isAuthLoading, isAuthenticated, fetchTasks]);
 
   // Re-fetch when refresh is triggered
   // Note: fetchTasks is intentionally omitted from deps to prevent infinite loops

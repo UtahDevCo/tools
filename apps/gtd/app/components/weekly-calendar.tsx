@@ -30,10 +30,6 @@ import {
   Popover,
   PopoverTrigger,
   PopoverContent,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
   useKeydown,
   useLocalforage,
   toast,
@@ -45,13 +41,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@repo/components";
-import { UserAvatar } from "@/components/user-avatar";
 import { useAuth } from "@/components/auth-provider";
 import { useTasks, type TaskWithListInfo } from "@/providers/tasks-provider";
 import { type TaskWithParsedDate, type TaskList } from "@/lib/google-tasks/types";
 import { type CalendarEventWithParsedDate } from "@/lib/google-calendar/types";
 import { TaskEditDrawer } from "./task-edit-drawer";
 import { LoginRequiredModal } from "./login-required-modal";
+import { WelcomeModal } from "./welcome-modal";
 import { LoadingOverlay } from "./loading-overlay";
 import { CalendarEventItem } from "./calendar-event-item";
 import { CalendarHeader } from "./calendar/calendar-header";
@@ -481,6 +477,7 @@ export function WeeklyCalendar({ className }: WeeklyCalendarProps) {
         open={showLoginModal}
         onClose={() => setShowLoginModal(false)}
       />
+      <WelcomeModal />
       {showLoadingOverlay && <LoadingOverlay />}
     </div>
   );
@@ -1064,7 +1061,6 @@ function SectionColumn({
   const sortedTasks = useMemo(() => sortByPriority(tasks), [tasks]);
   // Always show at least 1 empty row, or fill up to SECTION_MIN_ROWS if tasks < SECTION_MIN_ROWS
   const desktopEmptyRowCount = Math.max(1, SECTION_MIN_ROWS - sortedTasks.length);
-  const mobileEmptyRowCount = 1; // Always show 1 empty row on mobile
 
   const handleHeaderClick = isMoveTargetingActive && listId
     ? () => onSelectMoveTarget(listId, title)
