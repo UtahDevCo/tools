@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@source "../../../packages/components/src/**/*.{ts,tsx}";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -41,7 +43,7 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  
+
   /* Workout app theme colors */
   --color-app-surface: var(--app-surface);
   --color-app-surface-raised: var(--app-surface-raised);
@@ -65,46 +67,46 @@
   /* Base colors */
   --background: oklch(1 0 0);
   --foreground: oklch(0.141 0.005 285.823);
-  
+
   /* Card colors */
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.141 0.005 285.823);
-  
+
   /* Popover colors */
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.141 0.005 285.823);
-  
+
   /* Primary/accent color (main brand color) */
   --primary: oklch(0.21 0.006 285.885);
   --primary-foreground: oklch(0.985 0 0);
-  
+
   /* Secondary colors */
   --secondary: oklch(0.967 0.001 286.375);
   --secondary-foreground: oklch(0.21 0.006 285.885);
-  
+
   /* Muted colors */
   --muted: oklch(0.967 0.001 286.375);
   --muted-foreground: oklch(0.552 0.016 285.938);
-  
+
   /* Accent color (for highlighting/CTAs) */
   --accent: oklch(0.967 0.001 286.375);
   --accent-foreground: oklch(0.21 0.006 285.885);
-  
+
   /* Destructive/error colors */
   --destructive: oklch(0.577 0.245 27.325);
-  
+
   /* Border/input colors */
   --border: oklch(0.92 0.004 286.32);
   --input: oklch(0.92 0.004 286.32);
   --ring: oklch(0.705 0.015 286.067);
-  
+
   /* Chart colors */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  
+
   /* Sidebar colors */
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.141 0.005 285.823);
@@ -114,14 +116,14 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.705 0.015 286.067);
-  
+
   /* Workout app specific colors */
   --app-surface: oklch(1 0 0); /* Pure white */
   --app-surface-raised: oklch(0.98 0 0); /* Off-white */
   --app-surface-hover: oklch(0.96 0 0); /* Light gray */
   --app-border: oklch(0.92 0.004 286.32); /* Light border */
   --app-border-subtle: oklch(0.967 0.001 286.375); /* Very light border */
-  
+
   /* Brand accent (emerald green for light theme) */
   --brand: oklch(0.7 0.18 160); /* emerald-500 */
   --brand-hover: oklch(0.65 0.18 160); /* emerald-600 */
@@ -130,10 +132,10 @@
   --brand-shadow: oklch(0.7 0.18 160 / 0.2); /* emerald shadow */
   --brand-shadow-strong: oklch(0.7 0.18 160 / 0.4); /* Strong emerald shadow */
   --brand-border: oklch(0.65 0.15 160); /* emerald border */
-  
+
   /* Mic button - purple for light theme */
   --mic-button: oklch(0.55 0.25 300); /* Purple */
-  --mic-button-hover: oklch(0.50 0.25 300); /* Darker purple */
+  --mic-button-hover: oklch(0.5 0.25 300); /* Darker purple */
   --mic-button-foreground: oklch(0.98 0 0); /* White text */
 }
 
@@ -141,46 +143,46 @@
   /* Base colors */
   --background: oklch(0.04 0 0); /* Deep black #0a0a0a */
   --foreground: oklch(0.985 0 0); /* Pure white */
-  
+
   /* Card colors */
   --card: oklch(0.2 0 0);
   --card-foreground: oklch(0.985 0 0);
-  
+
   /* Popover colors */
   --popover: oklch(0.2 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  
+
   /* Primary colors */
   --primary: oklch(0.92 0.004 286.32);
   --primary-foreground: oklch(0.21 0.006 285.885);
-  
+
   /* Secondary colors */
   --secondary: oklch(0.274 0.006 286.033);
   --secondary-foreground: oklch(0.985 0 0);
-  
+
   /* Muted colors */
   --muted: oklch(0.274 0.006 286.033);
   --muted-foreground: oklch(0.705 0.015 286.067);
-  
+
   /* Accent color */
   --accent: oklch(0.274 0.006 286.033);
   --accent-foreground: oklch(0.985 0 0);
-  
+
   /* Destructive colors */
   --destructive: oklch(0.704 0.191 22.216);
-  
+
   /* Border/input colors */
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.552 0.016 285.938);
-  
+
   /* Chart colors */
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  
+
   /* Sidebar colors */
   --sidebar: oklch(0.21 0.006 285.885);
   --sidebar-foreground: oklch(0.985 0 0);
@@ -190,23 +192,23 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.552 0.016 285.938);
-  
+
   /* Workout app specific colors */
   --app-surface: oklch(0.141 0.005 285.823); /* Dark background */
   --app-surface-raised: oklch(0.21 0.006 285.885); /* Raised surface */
   --app-surface-hover: oklch(0.274 0.006 286.033); /* Hover state */
   --app-border: oklch(1 0 0 / 10%); /* Subtle border */
   --app-border-subtle: oklch(1 0 0 / 5%); /* Very subtle border */
-  
+
   /* Brand accent (emerald green for dark theme) */
   --brand: oklch(0.7 0.18 160); /* emerald-500 */
   --brand-hover: oklch(0.75 0.18 160); /* emerald-400 */
   --brand-subtle: oklch(0.25 0.05 160); /* Dark emerald */
-  --brand-subtle-hover: oklch(0.30 0.05 160); /* Less dark emerald */
+  --brand-subtle-hover: oklch(0.3 0.05 160); /* Less dark emerald */
   --brand-shadow: oklch(0.7 0.18 160 / 0.3); /* emerald shadow */
   --brand-shadow-strong: oklch(0.7 0.18 160 / 0.5); /* Strong emerald shadow */
   --brand-border: oklch(0.75 0.15 160); /* emerald border */
-  
+
   /* Mic button - orange for dark theme */
   --mic-button: oklch(0.7 0.18 45); /* Orange */
   --mic-button-hover: oklch(0.75 0.18 45); /* Brighter orange */
@@ -217,13 +219,13 @@
   html {
     -webkit-tap-highlight-color: transparent;
   }
-  
+
   * {
     @apply border-border outline-ring/50;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-  
+
   body {
     @apply bg-background text-foreground;
     touch-action: manipulation;

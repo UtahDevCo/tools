@@ -3,10 +3,22 @@ export { cn, structuredCloneWithFallback, wait } from "./src/lib/utils";
 
 // UI components
 export { Typography, typographyVariants } from "./src/typography";
+export * from "./src/icon-button";
 export { Button, buttonVariants } from "./src/ui/button";
 export { Avatar, AvatarImage, AvatarFallback } from "./src/ui/avatar";
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "./src/ui/tooltip";
-export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor, PopoverClose } from "./src/ui/popover";
+export {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from "./src/ui/tooltip";
+export {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverAnchor,
+  PopoverClose,
+} from "./src/ui/popover";
 export { Input } from "./src/ui/input";
 export { Textarea } from "./src/ui/textarea";
 export { Label } from "./src/ui/label";
@@ -62,6 +74,13 @@ export { Toaster, toast } from "./src/ui/sonner";
 // Hooks
 export { useKeydown } from "./src/hooks/use-keydown";
 export { useLocalforage, closeChannel } from "./src/hooks/use-localforage";
-export { useDrawerState, type DrawerMode, type UseDrawerStateOptions } from "./src/hooks/use-drawer-state";
-export { useDebouncedValue, useDebouncedCallback } from "./src/hooks/use-debounced-value";
+export {
+  useDrawerState,
+  type DrawerMode,
+  type UseDrawerStateOptions,
+} from "./src/hooks/use-drawer-state";
+export {
+  useDebouncedValue,
+  useDebouncedCallback,
+} from "./src/hooks/use-debounced-value";
 export { useFreezeScroll } from "./src/hooks/use-freeze-scroll";
