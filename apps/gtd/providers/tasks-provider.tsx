@@ -25,14 +25,24 @@ import {
   type TaskList,
   type TaskWithParsedDate,
 } from "@/lib/google-tasks/types";
-import { isGTDList, getTaskListDisplayName } from "@/lib/google-tasks/gtd-utils";
+import {
+  isGTDList,
+  getTaskListDisplayName,
+} from "@/lib/google-tasks/gtd-utils";
 import { useAuth } from "@/components/auth-provider";
 import { useOffline } from "@/providers/offline-provider";
 import { useSettings } from "@/providers/settings-provider";
 import { useLocalforage } from "@repo/components";
-import { getCalendarEventsMultiAccount, getMonthKey, type AccountCalendarConfig } from "@/lib/calendar-with-refresh";
+import {
+  getCalendarEventsMultiAccount,
+  getMonthKey,
+  type AccountCalendarConfig,
+} from "@/lib/calendar-with-refresh";
 import type { CalendarEventWithParsedDate } from "@/lib/google-calendar/types";
-import { subscribeToConnectedAccounts, type ConnectedAccount } from "@/lib/firebase/accounts";
+import {
+  subscribeToConnectedAccounts,
+  type ConnectedAccount,
+} from "@/lib/firebase/accounts";
 
 // Extended task with list info
 export type TaskWithListInfo = TaskWithParsedDate & {
@@ -49,24 +59,32 @@ function createDemoData(): {
 } {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  
+
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  
+
   const dayAfterTomorrow = new Date(today);
   dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
 
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  
+
   const twoDaysAgo = new Date(today);
   twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
 
   const demoGtdLists: GTDLists = {
     active: { id: "demo-active", title: "GTD: Active", kind: "tasks#taskList" },
     next: { id: "demo-next", title: "GTD: Next", kind: "tasks#taskList" },
-    waiting: { id: "demo-waiting", title: "GTD: Waiting", kind: "tasks#taskList" },
-    someday: { id: "demo-someday", title: "GTD: Someday", kind: "tasks#taskList" },
+    waiting: {
+      id: "demo-waiting",
+      title: "GTD: Waiting",
+      kind: "tasks#taskList",
+    },
+    someday: {
+      id: "demo-someday",
+      title: "GTD: Someday",
+      kind: "tasks#taskList",
+    },
   };
 
   // Active tasks with due dates (for calendar view) - includes overdue tasks
@@ -104,7 +122,7 @@ function createDemoData(): {
       dueDate: today,
     },
     {
-      id: "demo-2", 
+      id: "demo-2",
       title: "Calibrate navicomputer for Kessel route",
       status: "needsAction",
       kind: "tasks#task",
@@ -348,7 +366,11 @@ type TasksContextValue = TasksState & {
   // Overdue tasks (incomplete tasks with due date before today)
   overdueTasks: TaskWithListInfo[];
   // Non-GTD lists with their tasks
-  otherLists: { taskList: TaskList; displayName: string; tasks: TaskWithListInfo[] }[];
+  otherLists: {
+    taskList: TaskList;
+    displayName: string;
+    tasks: TaskWithListInfo[];
+  }[];
   // Date-based getters (for calendar)
   getTasksForDate: (date: Date) => TaskWithListInfo[];
   getEventsForDate: (date: Date) => CalendarEventWithParsedDate[];
@@ -363,8 +385,14 @@ type TasksContextValue = TasksState & {
   gtdLists: GTDLists | null;
   // Optimistic updates
   optimisticToggleComplete: (task: TaskWithListInfo) => void;
-  optimisticDelete: (task: TaskWithListInfo) => { undo: () => void; commit: () => Promise<void> };
-  optimisticUpdate: (task: TaskWithListInfo, updates: { title?: string; notes?: string }) => void;
+  optimisticDelete: (task: TaskWithListInfo) => {
+    undo: () => void;
+    commit: () => Promise<void>;
+  };
+  optimisticUpdate: (
+    task: TaskWithListInfo,
+    updates: { title?: string; notes?: string }
+  ) => void;
   // Subtask operations
   addSubtask: (parentTask: TaskWithListInfo, title: string) => Promise<boolean>;
   // Offline state
@@ -385,7 +413,9 @@ type CachedTaskLists = {
   tasks: (Omit<TaskWithParsedDate, "dueDate"> & { dueDate: string | null })[];
 }[];
 
-type CachedCompletedTasks = (Omit<TaskWithListInfo, "dueDate"> & { dueDate: string | null })[];
+type CachedCompletedTasks = (Omit<TaskWithListInfo, "dueDate"> & {
+  dueDate: string | null;
+})[];
 
 // Helper to serialize task lists for caching
 function serializeTaskLists(
@@ -414,7 +444,9 @@ function deserializeTaskLists(
 }
 
 // Helper to serialize completed tasks for caching
-function serializeCompletedTasks(tasks: TaskWithListInfo[]): CachedCompletedTasks {
+function serializeCompletedTasks(
+  tasks: TaskWithListInfo[]
+): CachedCompletedTasks {
   return tasks.map((task) => ({
     ...task,
     dueDate: task.dueDate?.toISOString() ?? null,
@@ -422,7 +454,9 @@ function serializeCompletedTasks(tasks: TaskWithListInfo[]): CachedCompletedTask
 }
 
 // Helper to deserialize completed tasks from cache
-function deserializeCompletedTasks(cached: CachedCompletedTasks): TaskWithListInfo[] {
+function deserializeCompletedTasks(
+  cached: CachedCompletedTasks
+): TaskWithListInfo[] {
   return cached.map((task) => ({
     ...task,
     dueDate: task.dueDate ? new Date(task.dueDate) : null,
@@ -433,19 +467,24 @@ export function TasksProvider({ children }: TasksProviderProps) {
   const { isAuthenticated, isLoading: isAuthLoading, user } = useAuth();
   const { isOffline } = useOffline();
   const { settings } = useSettings();
-  
+
   // Connected accounts for multi-account calendar support
-  const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([]);
-  
+  const [connectedAccounts, setConnectedAccounts] = useState<
+    ConnectedAccount[]
+  >([]);
+
   // LocalForage for caching tasks
-  const { values: cachedValues, setItem: setCacheItem, isLoaded: isCacheLoaded } = useLocalforage<
+  const {
+    values: cachedValues,
+    setItem: setCacheItem,
+    isLoaded: isCacheLoaded,
+  } = useLocalforage<
     [CachedTaskLists | null, GTDLists | null, CachedCompletedTasks | null]
-  >(
-    [CACHE_KEYS.TASK_LISTS, CACHE_KEYS.GTD_LISTS, CACHE_KEYS.COMPLETED_TASKS],
-    { name: "gtd-tasks-cache" }
-  );
+  >([CACHE_KEYS.TASK_LISTS, CACHE_KEYS.GTD_LISTS, CACHE_KEYS.COMPLETED_TASKS], {
+    name: "gtd-tasks-cache",
+  });
   const [cachedTaskLists, cachedGtdLists, cachedCompletedTasks] = cachedValues;
-  
+
   const [state, setState] = useState<TasksState>({
     taskLists: [],
     gtdLists: null,
@@ -543,104 +582,127 @@ export function TasksProvider({ children }: TasksProviderProps) {
         ...prev,
         completedTasksWithDueDates: completedWithDueDates,
       }));
-      
+
       // Cache completed tasks
-      setCacheItem(CACHE_KEYS.COMPLETED_TASKS, serializeCompletedTasks(completedWithDueDates));
+      setCacheItem(
+        CACHE_KEYS.COMPLETED_TASKS,
+        serializeCompletedTasks(completedWithDueDates)
+      );
     } catch (error) {
       console.error("Failed to fetch completed tasks:", error);
     }
   }, [isAuthenticated, isOffline, setCacheItem]);
 
-  const fetchCalendarEventsForMonth = useCallback(async (year: number, month: number) => {
-    if (!isAuthenticated || isOffline || !settings.showCalendarEvents) return;
+  const fetchCalendarEventsForMonth = useCallback(
+    async (year: number, month: number) => {
+      if (!isAuthenticated || isOffline || !settings.showCalendarEvents) return;
 
-    // month is 1-indexed (1 = January)
-    const date = new Date(year, month - 1);
-    const monthKey = getMonthKey(date);
-    
-    // Calculate time bounds for the month
-    const startOfMonth = new Date(year, month - 1, 1);
-    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
-    const timeMin = startOfMonth.toISOString();
-    const timeMax = endOfMonth.toISOString();
-    
-    // Check cache first
-    const cacheKey = `${CACHE_KEYS.CALENDAR_EVENTS_PREFIX}${monthKey}`;
-    try {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        const events = JSON.parse(cached) as CalendarEventWithParsedDate[];
-        setState((prev) => {
-          const newMap = new Map(prev.calendarEventsByMonth);
-          newMap.set(monthKey, events);
-          return { ...prev, calendarEventsByMonth: newMap };
-        });
-      }
-    } catch (error) {
-      console.error("Failed to parse cached calendar events:", error);
-    }
+      // month is 1-indexed (1 = January)
+      const date = new Date(year, month - 1);
+      const monthKey = getMonthKey(date);
 
-    setState((prev) => ({ ...prev, calendarEventsLoading: true }));
+      // Calculate time bounds for the month
+      const startOfMonth = new Date(year, month - 1, 1);
+      const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+      const timeMin = startOfMonth.toISOString();
+      const timeMax = endOfMonth.toISOString();
 
-    try {
-      // Build account configs for multi-account calendar fetch
-      // Primary account uses cookies (empty accessToken triggers cookie-based auth)
-      // Connected accounts use their stored access tokens
-      const accountConfigs: AccountCalendarConfig[] = [];
-      
-      // Primary account config (uses selectedCalendarIds from settings)
-      const primaryCalendarIds = settings.selectedCalendarIds ?? [];
-      accountConfigs.push({
-        accountEmail: user?.email ?? "primary",
-        calendarIds: primaryCalendarIds,
-        colorIndex: 0,
-        accessToken: "", // Empty string triggers cookie-based auth on server
-      });
-      
-      // Connected accounts configs (uses accountCalendarSelections from settings)
-      for (const account of connectedAccounts) {
-        if (account.needsReauth) continue; // Skip accounts that need re-authentication
-        
-        const accountSelection = (settings.accountCalendarSelections ?? [])
-          .find((s) => s.accountEmail === account.email);
-        const calendarIds = accountSelection?.calendarIds ?? [];
-        
-        // Only include if the account has calendars selected
-        if (calendarIds.length > 0) {
-          accountConfigs.push({
-            accountEmail: account.email,
-            calendarIds,
-            colorIndex: account.colorIndex,
-            accessToken: account.accessToken,
+      // Check cache first
+      const cacheKey = `${CACHE_KEYS.CALENDAR_EVENTS_PREFIX}${monthKey}`;
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          const events = JSON.parse(cached) as CalendarEventWithParsedDate[];
+          setState((prev) => {
+            const newMap = new Map(prev.calendarEventsByMonth);
+            newMap.set(monthKey, events);
+            return { ...prev, calendarEventsByMonth: newMap };
           });
         }
-      }
-
-      const result = await getCalendarEventsMultiAccount(timeMin, timeMax, accountConfigs);
-
-      if (!result.success) {
-        console.error("Failed to fetch calendar events:", result.error);
-        setState((prev) => ({ ...prev, calendarEventsLoading: false }));
-        return;
-      }
-
-      setState((prev) => {
-        const newMap = new Map(prev.calendarEventsByMonth);
-        newMap.set(monthKey, result.data);
-        return { ...prev, calendarEventsByMonth: newMap, calendarEventsLoading: false };
-      });
-      
-      // Cache the events
-      try {
-        localStorage.setItem(cacheKey, JSON.stringify(result.data));
       } catch (error) {
-        console.error("Failed to cache calendar events:", error);
+        console.error("Failed to parse cached calendar events:", error);
       }
-    } catch (error) {
-      console.error("Failed to fetch calendar events:", error);
-      setState((prev) => ({ ...prev, calendarEventsLoading: false }));
-    }
-  }, [isAuthenticated, isOffline, settings.showCalendarEvents, settings.selectedCalendarIds, settings.accountCalendarSelections, connectedAccounts, user?.email]);
+
+      setState((prev) => ({ ...prev, calendarEventsLoading: true }));
+
+      try {
+        // Build account configs for multi-account calendar fetch
+        // Primary account uses cookies (empty accessToken triggers cookie-based auth)
+        // Connected accounts use their stored access tokens
+        const accountConfigs: AccountCalendarConfig[] = [];
+
+        // Primary account config (uses selectedCalendarIds from settings)
+        const primaryCalendarIds = settings.selectedCalendarIds ?? [];
+        accountConfigs.push({
+          accountEmail: user?.email ?? "primary",
+          calendarIds: primaryCalendarIds,
+          colorIndex: 0,
+          accessToken: "", // Empty string triggers cookie-based auth on server
+        });
+
+        // Connected accounts configs (uses accountCalendarSelections from settings)
+        for (const account of connectedAccounts) {
+          if (account.needsReauth) continue; // Skip accounts that need re-authentication
+
+          const accountSelection = (
+            settings.accountCalendarSelections ?? []
+          ).find((s) => s.accountEmail === account.email);
+          const calendarIds = accountSelection?.calendarIds ?? [];
+
+          // Only include if the account has calendars selected
+          if (calendarIds.length > 0) {
+            accountConfigs.push({
+              accountEmail: account.email,
+              calendarIds,
+              colorIndex: account.colorIndex,
+              accessToken: account.accessToken,
+            });
+          }
+        }
+
+        const result = await getCalendarEventsMultiAccount(
+          timeMin,
+          timeMax,
+          accountConfigs
+        );
+
+        if (!result.success) {
+          console.error("Failed to fetch calendar events:", result.error);
+          setState((prev) => ({ ...prev, calendarEventsLoading: false }));
+          return;
+        }
+
+        setState((prev) => {
+          const newMap = new Map(prev.calendarEventsByMonth);
+          newMap.set(monthKey, result.data);
+          return {
+            ...prev,
+            calendarEventsByMonth: newMap,
+            calendarEventsLoading: false,
+          };
+        });
+
+        // Cache the events
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(result.data));
+        } catch (error) {
+          console.error("Failed to cache calendar events:", error);
+        }
+      } catch (error) {
+        console.error("Failed to fetch calendar events:", error);
+        setState((prev) => ({ ...prev, calendarEventsLoading: false }));
+      }
+    },
+    [
+      isAuthenticated,
+      isOffline,
+      settings.showCalendarEvents,
+      settings.selectedCalendarIds,
+      settings.accountCalendarSelections,
+      connectedAccounts,
+      user?.email,
+    ]
+  );
 
   const refreshCalendar = useCallback(async () => {
     if (!settings.showCalendarEvents) return;
@@ -653,7 +715,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
         keysToDelete.push(key);
       }
     }
-    keysToDelete.forEach(key => localStorage.removeItem(key));
+    keysToDelete.forEach((key) => localStorage.removeItem(key));
 
     // Clear state
     setState((prev) => ({ ...prev, calendarEventsByMonth: new Map() }));
@@ -680,17 +742,18 @@ export function TasksProvider({ children }: TasksProviderProps) {
     if (isAuthLoading) {
       return;
     }
-    
+
     if (!isAuthenticated) {
       // Use demo data for signed-out users
       const demoData = createDemoData();
       // Add list info to completed demo tasks
-      const completedWithListInfo: TaskWithListInfo[] = demoData.completedTasksWithDueDates.map((task) => ({
-        ...task,
-        listId: demoData.gtdLists.active.id,
-        listDisplayName: "Active",
-        isGTDList: true,
-      }));
+      const completedWithListInfo: TaskWithListInfo[] =
+        demoData.completedTasksWithDueDates.map((task) => ({
+          ...task,
+          listId: demoData.gtdLists.active.id,
+          listDisplayName: "Active",
+          isGTDList: true,
+        }));
       setState({
         taskLists: demoData.taskLists,
         gtdLists: demoData.gtdLists,
@@ -729,7 +792,12 @@ export function TasksProvider({ children }: TasksProviderProps) {
       return;
     }
 
-    setState((prev) => ({ ...prev, isLoading: true, isInitializing: false, error: null }));
+    setState((prev) => ({
+      ...prev,
+      isLoading: true,
+      isInitializing: false,
+      error: null,
+    }));
 
     try {
       // Token refresh is handled automatically by withAutoRefresh wrapper
@@ -777,7 +845,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
         error: null,
         needsReauth: false,
       }));
-      
+
       // Cache the successful results
       setCacheItem(CACHE_KEYS.TASK_LISTS, serializeTaskLists(result.data));
 
@@ -785,7 +853,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
       fetchCompletedTasks();
     } catch (error) {
       console.error("Failed to fetch tasks:", error);
-      
+
       // If network error and we have cached data, use it
       if (isCacheLoaded && cachedTaskLists) {
         const taskLists = deserializeTaskLists(cachedTaskLists);
@@ -807,7 +875,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
         });
         return;
       }
-      
+
       setState((prev) => ({
         ...prev,
         taskLists: [],
@@ -817,7 +885,17 @@ export function TasksProvider({ children }: TasksProviderProps) {
         needsReauth: false,
       }));
     }
-  }, [isAuthLoading, isAuthenticated, fetchCompletedTasks, isOffline, isCacheLoaded, cachedTaskLists, cachedGtdLists, cachedCompletedTasks, setCacheItem]);
+  }, [
+    isAuthLoading,
+    isAuthenticated,
+    fetchCompletedTasks,
+    isOffline,
+    isCacheLoaded,
+    cachedTaskLists,
+    cachedGtdLists,
+    cachedCompletedTasks,
+    setCacheItem,
+  ]);
 
   // Reset refs when authentication state changes
   useEffect(() => {
@@ -841,7 +919,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
     if (isAuthLoading) {
       return;
     }
-    
+
     if (!hasFetchedRef.current) {
       hasFetchedRef.current = true;
       startTransition(() => {
@@ -896,7 +974,13 @@ export function TasksProvider({ children }: TasksProviderProps) {
         calendarRefreshIntervalRef.current = null;
       }
     };
-  }, [settings.showCalendarEvents, settings.calendarRefreshIntervalMinutes, isAuthenticated, isOffline, refreshCalendar]);
+  }, [
+    settings.showCalendarEvents,
+    settings.calendarRefreshIntervalMinutes,
+    isAuthenticated,
+    isOffline,
+    refreshCalendar,
+  ]);
 
   // All tasks with list info (including subtasks) - used internally
   const allTasksIncludingSubtasks = useMemo<TaskWithListInfo[]>(() => {
@@ -951,7 +1035,9 @@ export function TasksProvider({ children }: TasksProviderProps) {
   // Add a subtask to a parent task
   const addSubtask = useCallback(
     async (parentTask: TaskWithListInfo, title: string): Promise<boolean> => {
-      const result = await createSubtask(parentTask.listId, parentTask.id, { title });
+      const result = await createSubtask(parentTask.listId, parentTask.id, {
+        title,
+      });
       if (result.success) {
         refresh();
         return true;
@@ -975,19 +1061,23 @@ export function TasksProvider({ children }: TasksProviderProps) {
 
   const waitingTasks = useMemo<TaskWithListInfo[]>(() => {
     if (!state.gtdLists) return [];
-    return allTasks.filter((task) => task.listId === state.gtdLists?.waiting.id);
+    return allTasks.filter(
+      (task) => task.listId === state.gtdLists?.waiting.id
+    );
   }, [allTasks, state.gtdLists]);
 
   const somedayTasks = useMemo<TaskWithListInfo[]>(() => {
     if (!state.gtdLists) return [];
-    return allTasks.filter((task) => task.listId === state.gtdLists?.someday.id);
+    return allTasks.filter(
+      (task) => task.listId === state.gtdLists?.someday.id
+    );
   }, [allTasks, state.gtdLists]);
 
   // Overdue tasks - incomplete tasks with due date before today (not including today)
   const overdueTasks = useMemo<TaskWithListInfo[]>(() => {
     // Use ISO date string comparison to avoid timezone issues
     const todayStr = new Date().toISOString().split("T")[0];
-    
+
     return allTasks.filter((task) => {
       // Must be incomplete
       if (task.status === "completed") return false;
@@ -1002,11 +1092,19 @@ export function TasksProvider({ children }: TasksProviderProps) {
   // Non-GTD lists with their tasks
   const otherLists = useMemo(() => {
     const gtdListIds = state.gtdLists
-      ? [state.gtdLists.active.id, state.gtdLists.next.id, state.gtdLists.waiting.id, state.gtdLists.someday.id]
+      ? [
+          state.gtdLists.active.id,
+          state.gtdLists.next.id,
+          state.gtdLists.waiting.id,
+          state.gtdLists.someday.id,
+        ]
       : [];
 
     return state.taskLists
-      .filter(({ taskList }) => !isGTDList(taskList) && !gtdListIds.includes(taskList.id))
+      .filter(
+        ({ taskList }) =>
+          !isGTDList(taskList) && !gtdListIds.includes(taskList.id)
+      )
       .map(({ taskList, tasks }) => ({
         taskList,
         displayName: getTaskListDisplayName(taskList),
@@ -1023,13 +1121,13 @@ export function TasksProvider({ children }: TasksProviderProps) {
   const getTasksForDateFn = useCallback(
     (date: Date) => {
       const dateStr = date.toISOString().split("T")[0];
-      
+
       // Get Active list tasks with this due date
       const activeTasksForDate = activeTasks.filter((task) => {
         if (!task.dueDate) return false;
         return task.dueDate.toISOString().split("T")[0] === dateStr;
       });
-      
+
       // Get Other list tasks with this due date
       const otherTasksForDate = otherLists.flatMap((list) =>
         list.tasks.filter((task) => {
@@ -1037,14 +1135,20 @@ export function TasksProvider({ children }: TasksProviderProps) {
           return task.dueDate.toISOString().split("T")[0] === dateStr;
         })
       );
-      
+
       // Get completed tasks with this due date (for calendar view)
-      const completedTasksForDate = state.completedTasksWithDueDates.filter((task) => {
-        if (!task.dueDate) return false;
-        return task.dueDate.toISOString().split("T")[0] === dateStr;
-      });
-      
-      return [...activeTasksForDate, ...otherTasksForDate, ...completedTasksForDate];
+      const completedTasksForDate = state.completedTasksWithDueDates.filter(
+        (task) => {
+          if (!task.dueDate) return false;
+          return task.dueDate.toISOString().split("T")[0] === dateStr;
+        }
+      );
+
+      return [
+        ...activeTasksForDate,
+        ...otherTasksForDate,
+        ...completedTasksForDate,
+      ];
     },
     [activeTasks, otherLists, state.completedTasksWithDueDates]
   );
@@ -1055,120 +1159,115 @@ export function TasksProvider({ children }: TasksProviderProps) {
   );
 
   // Optimistic toggle complete - immediately updates UI, then syncs with server
-  const optimisticToggleComplete = useCallback(
-    (task: TaskWithListInfo) => {
-      const newStatus = task.status === "completed" ? "needsAction" : "completed";
-      
-      // Optimistically update the task status in state
-      setState((prev) => ({
-        ...prev,
-        taskLists: prev.taskLists.map(({ taskList, tasks }) => ({
-          taskList,
-          tasks: tasks.map((t) =>
-            t.id === task.id ? { ...t, status: newStatus } : t
-          ),
-        })),
-      }));
+  const optimisticToggleComplete = useCallback((task: TaskWithListInfo) => {
+    const newStatus = task.status === "completed" ? "needsAction" : "completed";
 
-      // Call server action
-      const serverAction = newStatus === "completed" 
+    // Optimistically update the task status in state
+    setState((prev) => ({
+      ...prev,
+      taskLists: prev.taskLists.map(({ taskList, tasks }) => ({
+        taskList,
+        tasks: tasks.map((t) =>
+          t.id === task.id ? { ...t, status: newStatus } : t
+        ),
+      })),
+    }));
+
+    // Call server action
+    const serverAction =
+      newStatus === "completed"
         ? completeTask(task.listId, task.id)
         : uncompleteTask(task.listId, task.id);
 
-      serverAction.then((result) => {
-        if (!result.success) {
-          // Rollback on error
-          setState((prev) => ({
-            ...prev,
-            taskLists: prev.taskLists.map(({ taskList, tasks }) => ({
-              taskList,
-              tasks: tasks.map((t) =>
-                t.id === task.id ? { ...t, status: task.status } : t
-              ),
-            })),
-          }));
-          console.error("Failed to toggle task completion:", result.error);
-        }
-      });
-    },
-    []
-  );
+    serverAction.then((result) => {
+      if (!result.success) {
+        // Rollback on error
+        setState((prev) => ({
+          ...prev,
+          taskLists: prev.taskLists.map(({ taskList, tasks }) => ({
+            taskList,
+            tasks: tasks.map((t) =>
+              t.id === task.id ? { ...t, status: task.status } : t
+            ),
+          })),
+        }));
+        console.error("Failed to toggle task completion:", result.error);
+      }
+    });
+  }, []);
 
   // Optimistic delete - hides task immediately, returns undo/commit functions
   // Note: Google Tasks API automatically deletes subtasks when parent is deleted
-  const optimisticDelete = useCallback(
-    (task: TaskWithListInfo) => {
-      // Find all subtasks of this task (they will be deleted too)
-      const subtaskIds = new Set<string>();
-      setState((prev) => {
-        const listData = prev.taskLists.find(
-          ({ taskList }) => taskList.id === task.listId
-        );
-        if (listData) {
-          for (const t of listData.tasks) {
-            if (t.parent === task.id) {
-              subtaskIds.add(t.id);
-            }
+  const optimisticDelete = useCallback((task: TaskWithListInfo) => {
+    // Find all subtasks of this task (they will be deleted too)
+    const subtaskIds = new Set<string>();
+    setState((prev) => {
+      const listData = prev.taskLists.find(
+        ({ taskList }) => taskList.id === task.listId
+      );
+      if (listData) {
+        for (const t of listData.tasks) {
+          if (t.parent === task.id) {
+            subtaskIds.add(t.id);
           }
         }
-        return prev;
+      }
+      return prev;
+    });
+
+    // Add task and its subtasks to pending deletions (hides them)
+    const allIdsToDelete = [task.id, ...subtaskIds];
+    setState((prev) => ({
+      ...prev,
+      pendingDeletions: new Set([...prev.pendingDeletions, ...allIdsToDelete]),
+    }));
+
+    const undo = () => {
+      // Remove task and subtasks from pending deletions (shows them again)
+      setState((prev) => {
+        const newPendingDeletions = new Set(prev.pendingDeletions);
+        for (const id of allIdsToDelete) {
+          newPendingDeletions.delete(id);
+        }
+        return { ...prev, pendingDeletions: newPendingDeletions };
       });
+    };
 
-      // Add task and its subtasks to pending deletions (hides them)
-      const allIdsToDelete = [task.id, ...subtaskIds];
-      setState((prev) => ({
-        ...prev,
-        pendingDeletions: new Set([...prev.pendingDeletions, ...allIdsToDelete]),
-      }));
+    const commit = async () => {
+      const result = await deleteTask(task.listId, task.id);
 
-      const undo = () => {
-        // Remove task and subtasks from pending deletions (shows them again)
+      if (result.success) {
+        // Remove task and subtasks from task lists permanently
         setState((prev) => {
           const newPendingDeletions = new Set(prev.pendingDeletions);
           for (const id of allIdsToDelete) {
             newPendingDeletions.delete(id);
           }
-          return { ...prev, pendingDeletions: newPendingDeletions };
+          return {
+            ...prev,
+            pendingDeletions: newPendingDeletions,
+            taskLists: prev.taskLists.map(({ taskList, tasks }) => ({
+              taskList,
+              tasks: tasks.filter((t) => !allIdsToDelete.includes(t.id)),
+            })),
+          };
         });
-      };
+      } else {
+        // Rollback on error - remove from pending deletions
+        undo();
+        console.error("Failed to delete task:", result.error);
+      }
+    };
 
-      const commit = async () => {
-        const result = await deleteTask(task.listId, task.id);
-        
-        if (result.success) {
-          // Remove task and subtasks from task lists permanently
-          setState((prev) => {
-            const newPendingDeletions = new Set(prev.pendingDeletions);
-            for (const id of allIdsToDelete) {
-              newPendingDeletions.delete(id);
-            }
-            return {
-              ...prev,
-              pendingDeletions: newPendingDeletions,
-              taskLists: prev.taskLists.map(({ taskList, tasks }) => ({
-                taskList,
-                tasks: tasks.filter((t) => !allIdsToDelete.includes(t.id)),
-              })),
-            };
-          });
-        } else {
-          // Rollback on error - remove from pending deletions
-          undo();
-          console.error("Failed to delete task:", result.error);
-        }
-      };
-
-      return { undo, commit };
-    },
-    []
-  );
+    return { undo, commit };
+  }, []);
 
   // Optimistic update - immediately updates UI, then syncs with server
   const optimisticUpdate = useCallback(
     (task: TaskWithListInfo, updates: { title?: string; notes?: string }) => {
       const previousTitle = task.title;
       const previousNotes = task.notes;
-      
+
       // Optimistically update the task in state
       setState((prev) => ({
         ...prev,
@@ -1189,7 +1288,9 @@ export function TasksProvider({ children }: TasksProviderProps) {
             taskLists: prev.taskLists.map(({ taskList, tasks }) => ({
               taskList,
               tasks: tasks.map((t) =>
-                t.id === task.id ? { ...t, title: previousTitle, notes: previousNotes } : t
+                t.id === task.id
+                  ? { ...t, title: previousTitle, notes: previousNotes }
+                  : t
               ),
             })),
           }));
@@ -1203,54 +1304,81 @@ export function TasksProvider({ children }: TasksProviderProps) {
   // Show loading overlay when:
   // 1. Auth is still loading (we don't know if user is authenticated yet)
   // 2. User is authenticated but tasks are still initializing (haven't loaded real data)
-  const showLoadingOverlay = isAuthLoading || (isAuthenticated && state.isInitializing);
+  const showLoadingOverlay =
+    isAuthLoading || (isAuthenticated && state.isInitializing);
 
-  const getEventsForDate = useCallback((date: Date): CalendarEventWithParsedDate[] => {
-    const monthKey = getMonthKey(date);
-    
-    const eventsForMonth = state.calendarEventsByMonth.get(monthKey) || [];
-    
-    // Filter events to those that overlap with the date
-    const dateStart = new Date(date);
-    dateStart.setHours(0, 0, 0, 0);
-    const dateEnd = new Date(date);
-    dateEnd.setHours(23, 59, 59, 999);
-    
-    return eventsForMonth
-      .filter(event => {
-        if (!event.startDate || !event.endDate) return false;
-        const eventStart = new Date(event.startDate);
-        const eventEnd = new Date(event.endDate);
-        // Event overlaps with date if: event starts before date ends AND event ends after date starts
-        return eventStart <= dateEnd && eventEnd >= dateStart;
-      })
-      .map(event => {
-        // Calculate multi-day information
-        if (!event.startDate || !event.endDate) {
-          return { ...event, isFirstDay: true, dayNumber: 1, totalDays: 1 };
-        }
-        const eventStart = new Date(event.startDate);
-        eventStart.setHours(0, 0, 0, 0);
-        const eventEnd = new Date(event.endDate);
-        eventEnd.setHours(0, 0, 0, 0);
-        
-        const daysDiff = Math.floor((eventEnd.getTime() - eventStart.getTime()) / (1000 * 60 * 60 * 24));
-        const totalDays = daysDiff + 1;
-        const isFirstDay = dateStart.getTime() === eventStart.getTime();
-        
-        let dayNumber = 1;
-        if (!isFirstDay) {
-          dayNumber = Math.floor((dateStart.getTime() - eventStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-        }
-        
-        return {
-          ...event,
-          isFirstDay,
-          dayNumber,
-          totalDays,
-        };
-      });
-  }, [state.calendarEventsByMonth]);
+  const getEventsForDate = useCallback(
+    (date: Date): CalendarEventWithParsedDate[] => {
+      const monthKey = getMonthKey(date);
+
+      const eventsForMonth = state.calendarEventsByMonth.get(monthKey) || [];
+
+      // Filter events to those that overlap with the date
+      const dateStart = new Date(date);
+      dateStart.setHours(0, 0, 0, 0);
+      const dateEnd = new Date(date);
+      dateEnd.setHours(23, 59, 59, 999);
+
+      return eventsForMonth
+        .filter((event) => {
+          if (!event.startDate || !event.endDate) return false;
+          const eventStart = new Date(event.startDate);
+          const eventEnd = new Date(event.endDate);
+          
+          // For all-day events, Google Calendar uses exclusive end dates
+          // e.g., Dec 6 all-day event has start="2025-12-06" and end="2025-12-07"
+          // So we need to check if dateStart is >= eventStart AND < eventEnd
+          if (event.isAllDay) {
+            // Normalize to midnight for date comparison
+            const normalizedEventStart = new Date(eventStart);
+            normalizedEventStart.setHours(0, 0, 0, 0);
+            const normalizedEventEnd = new Date(eventEnd);
+            normalizedEventEnd.setHours(0, 0, 0, 0);
+            const normalizedDate = new Date(dateStart);
+            normalizedDate.setHours(0, 0, 0, 0);
+            
+            return normalizedDate >= normalizedEventStart && normalizedDate < normalizedEventEnd;
+          }
+          
+          // For timed events, use the original overlap logic
+          // Event overlaps with date if: event starts before date ends AND event ends after date starts
+          return eventStart <= dateEnd && eventEnd >= dateStart;
+        })
+        .map((event) => {
+          // Calculate multi-day information
+          if (!event.startDate || !event.endDate) {
+            return { ...event, isFirstDay: true, dayNumber: 1, totalDays: 1 };
+          }
+          const eventStart = new Date(event.startDate);
+          eventStart.setHours(0, 0, 0, 0);
+          const eventEnd = new Date(event.endDate);
+          eventEnd.setHours(0, 0, 0, 0);
+
+          const daysDiff = Math.floor(
+            (eventEnd.getTime() - eventStart.getTime()) / (1000 * 60 * 60 * 24)
+          );
+          const totalDays = daysDiff + 1;
+          const isFirstDay = dateStart.getTime() === eventStart.getTime();
+
+          let dayNumber = 1;
+          if (!isFirstDay) {
+            dayNumber =
+              Math.floor(
+                (dateStart.getTime() - eventStart.getTime()) /
+                  (1000 * 60 * 60 * 24)
+              ) + 1;
+          }
+
+          return {
+            ...event,
+            isFirstDay,
+            dayNumber,
+            totalDays,
+          };
+        });
+    },
+    [state.calendarEventsByMonth]
+  );
 
   const value: TasksContextValue = {
     ...state,

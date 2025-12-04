@@ -80,17 +80,25 @@ export type CalendarEventWithParsedDate = CalendarEvent & {
  * Parse calendar event to add Date objects
  */
 export function parseCalendarEvent(event: CalendarEvent): CalendarEventWithParsedDate {
-  const startDate = event.start.dateTime
-    ? new Date(event.start.dateTime)
-    : event.start.date
-      ? new Date(event.start.date)
-      : null;
+  let startDate: Date | null = null;
+  let endDate: Date | null = null;
 
-  const endDate = event.end.dateTime
-    ? new Date(event.end.dateTime)
-    : event.end.date
-      ? new Date(event.end.date)
-      : null;
+  if (event.start.dateTime) {
+    startDate = new Date(event.start.dateTime);
+  } else if (event.start.date) {
+    // For all-day events, parse as local date (not UTC)
+    // "2025-12-06" should be Dec 6 in local timezone, not UTC
+    const [year, month, day] = event.start.date.split("-").map(Number);
+    startDate = new Date(year, month - 1, day, 0, 0, 0, 0);
+  }
+
+  if (event.end.dateTime) {
+    endDate = new Date(event.end.dateTime);
+  } else if (event.end.date) {
+    // For all-day events, parse as local date (not UTC)
+    const [year, month, day] = event.end.date.split("-").map(Number);
+    endDate = new Date(year, month - 1, day, 0, 0, 0, 0);
+  }
 
   return {
     ...event,
