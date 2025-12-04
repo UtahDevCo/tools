@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "TAILWINDCSS_SKIP_BINARY=1 next dev -p 3300 --inspect=0.0.0.0",
+    "gtd": "bun dev",
     "build": "TAILWINDCSS_SKIP_BINARY=1 next build",
     "start": "next start",
     "lint": "eslint",

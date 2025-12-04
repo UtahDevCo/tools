@@ -3,8 +3,10 @@
   "private": true,
   "scripts": {
     "build": "turbo run build",
-    "dev": "TURBO_UI=false turbo run dev",
-    "dev:worker": "TURBO_UI=false turbo run dev:worker",
+    "dev": "turbo run dev",
+    "dev:stream": "TURBO_UI=false turbo run dev",
+    "gtd": "TURBO_UI=false turbo run dev --filter=@quiver/gtd",
+    "wkt": "TURBO_UI=false turbo run dev --filter=wkt",
     "deploy": "turbo run deploy",
     "deploy:prod": "turbo run deploy:prod",
     "lint": "turbo run lint",
