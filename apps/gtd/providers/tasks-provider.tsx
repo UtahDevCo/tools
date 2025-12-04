@@ -43,6 +43,9 @@ import {
   subscribeToConnectedAccounts,
   type ConnectedAccount,
 } from "@/lib/firebase/accounts";
+import {
+  getValidAccessToken,
+} from "@/lib/firebase/account-refresh";
 
 // Extended task with list info
 export type TaskWithListInfo = TaskWithParsedDate & {
@@ -628,7 +631,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
       try {
         // Build account configs for multi-account calendar fetch
         // Primary account uses cookies (empty accessToken triggers cookie-based auth)
-        // Connected accounts use their stored access tokens
+        // Connected accounts use their stored access tokens (refreshed if expired)
         const accountConfigs: AccountCalendarConfig[] = [];
 
         // Primary account config (uses selectedCalendarIds from settings)
@@ -651,11 +654,19 @@ export function TasksProvider({ children }: TasksProviderProps) {
 
           // Only include if the account has calendars selected
           if (calendarIds.length > 0) {
+            // Get valid access token (refresh if expired)
+            const validAccessToken = await getValidAccessToken(user!.uid, account);
+            
+            if (!validAccessToken) {
+              console.error(`Failed to get valid access token for ${account.email}, skipping`);
+              continue; // Skip this account if we can't get a valid token
+            }
+
             accountConfigs.push({
               accountEmail: account.email,
               calendarIds,
               colorIndex: account.colorIndex,
-              accessToken: account.accessToken,
+              accessToken: validAccessToken,
             });
           }
         }

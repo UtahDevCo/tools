@@ -29,6 +29,9 @@ import {
   MAX_CONNECTED_ACCOUNTS,
   type ConnectedAccount,
 } from "@/lib/firebase/accounts";
+import {
+  getValidAccessToken,
+} from "@/lib/firebase/account-refresh";
 
 function SettingsSection({
   title,
@@ -288,6 +291,11 @@ function SettingsPageContent() {
 
   // Load calendars for each connected account
   const loadAccountCalendars = useCallback(async (email: string) => {
+    if (!user?.uid) {
+      console.log(`[Settings] No user for calendar loading`);
+      return;
+    }
+
     // Find the account to get its access token
     const account = connectedAccounts.find(a => a.email === email);
     if (!account?.accessToken) {
@@ -298,8 +306,18 @@ function SettingsPageContent() {
     console.log(`[Settings] loadAccountCalendars called for: ${email}`);
     setAccountCalendarsLoading((prev) => ({ ...prev, [email]: true }));
     try {
+      // Get valid access token (refresh if expired)
+      const validAccessToken = await getValidAccessToken(user.uid, account);
+      
+      if (!validAccessToken) {
+        console.error(`[Settings] Failed to get valid access token for ${email}`);
+        toast.error(`Failed to refresh token for ${email}. Please reconnect the account.`);
+        setAccountCalendarsLoading((prev) => ({ ...prev, [email]: false }));
+        return;
+      }
+
       // Pass the access token directly to the server action
-      const result = await getCalendarListForAccount(email, account.accessToken);
+      const result = await getCalendarListForAccount(email, validAccessToken);
       console.log(`[Settings] Calendar result for ${email}:`, result);
       if (result.success) {
         const sorted = result.data.sort((a, b) => {
@@ -317,7 +335,7 @@ function SettingsPageContent() {
     } finally {
       setAccountCalendarsLoading((prev) => ({ ...prev, [email]: false }));
     }
-  }, [connectedAccounts]);
+  }, [connectedAccounts, user?.uid]);
 
   // Load calendars when accounts change
   useEffect(() => {
