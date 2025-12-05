@@ -2,26 +2,26 @@
 
 import { useTheme } from "next-themes";
 import { Moon, Sun, Check } from "lucide-react";
-import { IconButton, Typography } from "@repo/components";
+import { Typography } from "@repo/components";
 import { Header } from "../components/header";
+
+const THEMES = [
+  { id: "light", name: "Light", icon: Sun },
+  { id: "dark", name: "Dark", icon: Moon },
+];
 
 export default function SettingsPage() {
   const { resolvedTheme, setTheme } = useTheme();
 
-  const themes = [
-    { id: "light", name: "Light", icon: Sun },
-    { id: "dark", name: "Dark", icon: Moon },
-  ];
-
   return (
-    <div className="min-h-screen bg-app-surface">
+    <div className="min-h-screen bg-app-surface" suppressHydrationWarning>
       <Header title="Settings" />
 
       {/* Main Content */}
       <main className="max-w-2xl mx-auto px-6">
         {/* Theme Section */}
         <section className="space-y-3">
-          {themes.map(({ id, name, icon: Icon }) => (
+          {THEMES.map(({ id, name, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setTheme(id)}
@@ -34,7 +34,7 @@ export default function SettingsPage() {
                       resolvedTheme === id ? "bg-brand" : "bg-brand-subtle"
                     } transition-colors`}
                   >
-                    <IconButton icon={<Icon />} variant="ghost" />
+                    <Icon className="w-5 h-5" />
                   </div>
 
                   <Typography variant="strong">{name}</Typography>

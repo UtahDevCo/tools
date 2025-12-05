@@ -39,7 +39,7 @@ export function BottomNav() {
         </div>
       </div>
     </nav>
-  );
+  );  
 }
 
 type BottomNavButtonProps = {
