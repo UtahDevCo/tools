@@ -215,6 +215,276 @@
   --mic-button-foreground: oklch(0.04 0 0); /* Dark text */
 }
 
+.deep-space-blue {
+  /* Base colors - #003049 */
+  --background: #003049;
+  --foreground: #ffffff;
+
+  /* Card colors */
+  --card: #004666;
+  --card-foreground: #ffffff;
+
+  /* Popover colors */
+  --popover: #004666;
+  --popover-foreground: #ffffff;
+
+  /* Primary colors */
+  --primary: #005580;
+  --primary-foreground: #ffffff;
+
+  /* Secondary colors */
+  --secondary: #004666;
+  --secondary-foreground: #ffffff;
+
+  /* Muted colors */
+  --muted: #004666;
+  --muted-foreground: #b3d1e0;
+
+  /* Accent color */
+  --accent: #004666;
+  --accent-foreground: #ffffff;
+
+  /* Destructive colors */
+  --destructive: oklch(0.704 0.191 22.216);
+
+  /* Border/input colors */
+  --border: #ffffff;
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: #a3b18a;
+
+  /* Workout app specific colors */
+  --app-surface: #003049;
+  --app-surface-raised: #004666;
+  --app-surface-hover: #005580;
+  --app-border: white;
+  --app-border-subtle: rgba(255, 255, 255, 0.2);
+
+  /* Brand accent - Dry Sage for dark background */
+  --brand: #a3b18a;
+  --brand-hover: #b3c199;
+  --brand-subtle: rgba(163, 177, 138, 0.2);
+  --brand-subtle-hover: rgba(163, 177, 138, 0.3);
+  --brand-shadow: rgba(163, 177, 138, 0.3);
+  --brand-shadow-strong: rgba(163, 177, 138, 0.5);
+  --brand-border: #a3b18a;
+}
+
+.flag-red {
+  /* Base colors - #d62828 */
+  --background: #d62828;
+  --foreground: #ffffff;
+
+  /* Card colors */
+  --card: #c11f1f;
+  --card-foreground: #ffffff;
+
+  /* Popover colors */
+  --popover: #c11f1f;
+  --popover-foreground: #ffffff;
+
+  /* Primary colors */
+  --primary: #ac1616;
+  --primary-foreground: #ffffff;
+
+  /* Secondary colors */
+  --secondary: #c11f1f;
+  --secondary-foreground: #ffffff;
+
+  /* Muted colors */
+  --muted: #c11f1f;
+  --muted-foreground: #ffcccc;
+
+  /* Accent color */
+  --accent: #c11f1f;
+  --accent-foreground: #ffffff;
+
+  /* Destructive colors */
+  --destructive: #8b0000;
+
+  /* Border/input colors */
+  --border: #ffffff;
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: #a3b18a;
+
+  /* Workout app specific colors */
+  --app-surface: #d62828;
+  --app-surface-raised: #c11f1f;
+  --app-surface-hover: #ac1616;
+  --app-border: white;
+  --app-border-subtle: rgba(255, 255, 255, 0.2);
+
+  /* Brand accent - Dry Sage for dark background */
+  --brand: #a3b18a;
+  --brand-hover: #b3c199;
+  --brand-subtle: rgba(163, 177, 138, 0.2);
+  --brand-subtle-hover: rgba(163, 177, 138, 0.3);
+  --brand-shadow: rgba(163, 177, 138, 0.3);
+  --brand-shadow-strong: rgba(163, 177, 138, 0.5);
+  --brand-border: #a3b18a;
+}
+
+.vivid-tangerine {
+  /* Base colors - #f77f00 */
+  --background: #f77f00;
+  --foreground: #ffffff;
+
+  /* Card colors */
+  --card: #e57300;
+  --card-foreground: #ffffff;
+
+  /* Popover colors */
+  --popover: #e57300;
+  --popover-foreground: #ffffff;
+
+  /* Primary colors */
+  --primary: #d36700;
+  --primary-foreground: #ffffff;
+
+  /* Secondary colors */
+  --secondary: #e57300;
+  --secondary-foreground: #ffffff;
+
+  /* Muted colors */
+  --muted: #e57300;
+  --muted-foreground: #fff5e6;
+
+  /* Accent color */
+  --accent: #e57300;
+  --accent-foreground: #ffffff;
+
+  /* Destructive colors */
+  --destructive: oklch(0.704 0.191 22.216);
+
+  /* Border/input colors */
+  --border: #ffffff;
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: #a3b18a;
+
+  /* Workout app specific colors */
+  --app-surface: #f77f00;
+  --app-surface-raised: #e57300;
+  --app-surface-hover: #d36700;
+  --app-border: white;
+  --app-border-subtle: rgba(255, 255, 255, 0.2);
+
+  /* Brand accent - Dry Sage for dark background */
+  --brand: #a3b18a;
+  --brand-hover: #b3c199;
+  --brand-subtle: rgba(163, 177, 138, 0.2);
+  --brand-subtle-hover: rgba(163, 177, 138, 0.3);
+  --brand-shadow: rgba(163, 177, 138, 0.3);
+  --brand-shadow-strong: rgba(163, 177, 138, 0.5);
+  --brand-border: #a3b18a;
+}
+
+.sunflower-gold {
+  /* Base colors - #fcbf49 */
+  --background: #fcbf49;
+  --foreground: #000000;
+
+  /* Card colors */
+  --card: #fdd066;
+  --card-foreground: #000000;
+
+  /* Popover colors */
+  --popover: #fdd066;
+  --popover-foreground: #000000;
+
+  /* Primary colors */
+  --primary: #fbae2c;
+  --primary-foreground: #000000;
+
+  /* Secondary colors */
+  --secondary: #fdd066;
+  --secondary-foreground: #000000;
+
+  /* Muted colors */
+  --muted: #fdd066;
+  --muted-foreground: #665000;
+
+  /* Accent color */
+  --accent: #fdd066;
+  --accent-foreground: #000000;
+
+  /* Destructive colors */
+  --destructive: oklch(0.577 0.245 27.325);
+
+  /* Border/input colors */
+  --border: #000000;
+  --input: rgba(0, 0, 0, 0.15);
+  --ring: #3a5a40;
+
+  /* Workout app specific colors */
+  --app-surface: #fcbf49;
+  --app-surface-raised: #fdd066;
+  --app-surface-hover: #fbae2c;
+  --app-border: black;
+  --app-border-subtle: rgba(0, 0, 0, 0.2);
+
+  /* Brand accent - Hunter Green for light background */
+  --brand: #3a5a40;
+  --brand-hover: #2d4832;
+  --brand-subtle: rgba(58, 90, 64, 0.2);
+  --brand-subtle-hover: rgba(58, 90, 64, 0.3);
+  --brand-shadow: rgba(58, 90, 64, 0.3);
+  --brand-shadow-strong: rgba(58, 90, 64, 0.5);
+  --brand-border: #3a5a40;
+}
+
+.vanilla-custard {
+  /* Base colors - #eae2b7 */
+  --background: #eae2b7;
+  --foreground: #000000;
+
+  /* Card colors */
+  --card: #f0e9c5;
+  --card-foreground: #000000;
+
+  /* Popover colors */
+  --popover: #f0e9c5;
+  --popover-foreground: #000000;
+
+  /* Primary colors */
+  --primary: #e4dba9;
+  --primary-foreground: #000000;
+
+  /* Secondary colors */
+  --secondary: #f0e9c5;
+  --secondary-foreground: #000000;
+
+  /* Muted colors */
+  --muted: #f0e9c5;
+  --muted-foreground: #5c5735;
+
+  /* Accent color */
+  --accent: #f0e9c5;
+  --accent-foreground: #000000;
+
+  /* Destructive colors */
+  --destructive: oklch(0.577 0.245 27.325);
+
+  /* Border/input colors */
+  --border: #000000;
+  --input: rgba(0, 0, 0, 0.15);
+  --ring: #344e41;
+
+  /* Workout app specific colors */
+  --app-surface: #eae2b7;
+  --app-surface-raised: #f0e9c5;
+  --app-surface-hover: #e4dba9;
+  --app-border: black;
+  --app-border-subtle: rgba(0, 0, 0, 0.2);
+
+  /* Brand accent - Pine Teal for light background */
+  --brand: #344e41;
+  --brand-hover: #283d33;
+  --brand-subtle: rgba(52, 78, 65, 0.2);
+  --brand-subtle-hover: rgba(52, 78, 65, 0.3);
+  --brand-shadow: rgba(52, 78, 65, 0.3);
+  --brand-shadow-strong: rgba(52, 78, 65, 0.5);
+  --brand-border: #344e41;
+}
+
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;

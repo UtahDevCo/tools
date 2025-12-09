@@ -29,7 +29,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-mono antialiased`}
       >
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+        <ThemeProvider 
+          attribute="class" 
+          defaultTheme="light" 
+          enableSystem={false}
+          themes={["light", "dark", "deep-space-blue", "flag-red", "vivid-tangerine", "sunflower-gold", "vanilla-custard"]}
+        >
           <LayoutClient>{children}</LayoutClient>
         </ThemeProvider>
       </body>

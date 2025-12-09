@@ -1,13 +1,18 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { Moon, Sun, Check } from "lucide-react";
+import { Moon, Sun, Check, Waves, Flame, Citrus, Sparkles, IceCream } from "lucide-react";
 import { Typography } from "@repo/components";
 import { Header } from "../components/header";
 
 const THEMES = [
   { id: "light", name: "Light", icon: Sun },
   { id: "dark", name: "Dark", icon: Moon },
+  { id: "deep-space-blue", name: "Deep Space Blue", icon: Waves },
+  { id: "flag-red", name: "Flag Red", icon: Flame },
+  { id: "vivid-tangerine", name: "Vivid Tangerine", icon: Citrus },
+  { id: "sunflower-gold", name: "Sunflower Gold", icon: Sparkles },
+  { id: "vanilla-custard", name: "Vanilla Custard", icon: IceCream },
 ];
 
 export default function SettingsPage() {
@@ -22,30 +27,31 @@ export default function SettingsPage() {
         {/* Theme Section */}
         <section className="space-y-3">
           {THEMES.map(({ id, name, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setTheme(id)}
-              className="w-full hover:bg-app-surface-hover p-6 border-8 border-app-border transition-all active:scale-[0.98] group text-left"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                      resolvedTheme === id ? "bg-brand" : "bg-brand-subtle"
-                    } transition-colors`}
-                  >
-                    <Icon className="w-5 h-5" />
-                  </div>
+            <div key={id} className={id}>
+              <button
+                onClick={() => setTheme(id)}
+                className="w-full bg-app-surface hover:bg-app-surface-hover p-6 border-8 border-app-border transition-all active:scale-[0.98] group text-left text-foreground"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div
+                      className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                        resolvedTheme === id ? "bg-brand" : "bg-brand-subtle"
+                      } transition-colors`}
+                    >
+                      <Icon className="w-5 h-5" />
+                    </div>
 
-                  <Typography variant="strong">{name}</Typography>
-                </div>
-                {resolvedTheme === id && (
-                  <div className="w-8 h-8 rounded-full bg-brand flex items-center justify-center">
-                    <Check className="w-5 h-5 text-black" strokeWidth={3} />
+                    <Typography variant="strong">{name}</Typography>
                   </div>
-                )}
-              </div>
-            </button>
+                  {resolvedTheme === id && (
+                    <div className="w-8 h-8 rounded-full bg-brand flex items-center justify-center">
+                      <Check className="w-5 h-5 text-black" strokeWidth={3} />
+                    </div>
+                  )}
+                </div>
+              </button>
+            </div>
           ))}
         </section>
       </main>

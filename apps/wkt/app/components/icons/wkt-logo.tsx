@@ -24,14 +24,14 @@ export function WktLogoIcon(props: SVGProps<SVGSVGElement>) {
 
       <path
         d="M5,12 L7,12 L10,7 L14,17 L17,12 L19,12"
-        stroke="#00aa6f"
+        stroke="var(--brand)"
         strokeWidth="2"
         fill="none"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
 
-      <circle cx="10" cy="7" r="1.5" fill="currentColor" />
+      <circle cx="10" cy="7" r="1.5" fill="var(--brand)" />
     </svg>
   );
 }

@@ -25,11 +25,11 @@ export function StopwatchIcon(props: SVGProps<SVGSVGElement>) {
           y1="12"
           x2="12"
           y2="3"
-          stroke="#00aa6f"
+          stroke="var(--brand)"
           strokeWidth="2.5"
         />
 
-        <circle cx="12" cy="12" r="1.25" fill="#00aa6f" />
+        <circle cx="12" cy="12" r="1.25" fill="var(--brand)" />
 
         <animateTransform
           attributeName="transform"

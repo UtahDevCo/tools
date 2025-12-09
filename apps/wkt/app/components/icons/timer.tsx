@@ -22,10 +22,10 @@ export function TimerIcon(props: SVGProps<SVGSVGElement>) {
           y1="14"
           x2="12"
           y2="22"
-          stroke="#00aa6f"
+          stroke="var(--brand)"
           strokeWidth="2.5"
         />
-        <circle cx="12" cy="14" r="1.25" fill="#00aa6f" />
+        <circle cx="12" cy="14" r="1.25" fill="var(--brand)" />
 
         <animateTransform
           attributeName="transform"
