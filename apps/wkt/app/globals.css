@@ -172,7 +172,7 @@
   --destructive: oklch(0.704 0.191 22.216);
 
   /* Border/input colors */
-  --border: oklch(1 0 0 / 10%);
+  --border: oklch(1 0 0 / 100%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.552 0.016 285.938);
 

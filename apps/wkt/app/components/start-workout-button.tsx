@@ -5,7 +5,7 @@ import { Typography } from "@repo/components";
 
 export function StartWorkoutButton() {
   return (
-    <button className="w-full text-color-foreground hover:bg-brand-hover hover:border-brand-hover transition-all p-8 active:scale-[0.98] border-8 rounded-full border-brand-border group">
+    <button className="w-full text-color-foreground hover:bg-app-surface-hover transition-all p-8 active:scale-[0.98] border-8 rounded-full border-brand-border group">
       <div className="flex items-center justify-between">
         <div className="text-left">
           <Typography variant="title">

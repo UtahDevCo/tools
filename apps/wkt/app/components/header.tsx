@@ -15,7 +15,7 @@ export function Header({ title }: HeaderProps) {
         <div className="flex items-center gap-4">
           <Link
             href="/"
-            className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-app-surface-hover transition-all border-2 border-app-border-subtle"
+            className="w-10 h-10 rounded-md flex items-center justify-center hover:bg-app-surface-hover transition-all"
             aria-label="Home"
           >
             <WktLogoIcon className="w-6 h-6" />
