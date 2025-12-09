@@ -121,12 +121,12 @@
   --app-surface: oklch(1 0 0); /* Pure white */
   --app-surface-raised: oklch(0.98 0 0); /* Off-white */
   --app-surface-hover: oklch(0.96 0 0); /* Light gray */
-  --app-border: oklch(0.92 0.004 286.32); /* Light border */
+  --app-border: black; /* Light border */
   --app-border-subtle: oklch(0.967 0.001 286.375); /* Very light border */
 
   /* Brand accent (emerald green for light theme) */
   --brand: oklch(0.7 0.18 160); /* emerald-500 */
-  --brand-hover: oklch(0.65 0.18 160); /* emerald-600 */
+  --brand-hover: oklch(0.7 0.18 160 / 0.2); /* emerald-600 */
   --brand-subtle: oklch(0.95 0.05 160); /* Very light emerald */
   --brand-subtle-hover: oklch(0.92 0.05 160); /* Light emerald */
   --brand-shadow: oklch(0.7 0.18 160 / 0.2); /* emerald shadow */
@@ -197,8 +197,8 @@
   --app-surface: oklch(0.141 0.005 285.823); /* Dark background */
   --app-surface-raised: oklch(0.21 0.006 285.885); /* Raised surface */
   --app-surface-hover: oklch(0.274 0.006 286.033); /* Hover state */
-  --app-border: oklch(1 0 0 / 10%); /* Subtle border */
-  --app-border-subtle: oklch(1 0 0 / 5%); /* Very subtle border */
+  --app-border: white; /* Subtle border */
+  --app-border-subtle: white; /* Very subtle border */
 
   /* Brand accent (emerald green for dark theme) */
   --brand: oklch(0.7 0.18 160); /* emerald-500 */

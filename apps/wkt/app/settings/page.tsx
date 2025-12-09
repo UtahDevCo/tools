@@ -25,7 +25,7 @@ export default function SettingsPage() {
             <button
               key={id}
               onClick={() => setTheme(id)}
-              className="w-full bg-app-surface-raised hover:bg-app-surface-hover rounded-2xl p-6 border-2 border-app-border-subtle transition-all active:scale-[0.98] group text-left"
+              className="w-full hover:bg-app-surface-hover p-6 border-8 border-app-border transition-all active:scale-[0.98] group text-left"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">

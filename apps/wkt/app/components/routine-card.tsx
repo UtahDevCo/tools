@@ -18,10 +18,7 @@ export function RoutineCard({
   const isRepeatLast = variant === "repeat-last";
 
   return (
-    <button
-      className={`w-full bg-app-surface-raised hover:bg-app-surface-hover transition-all rounded-2xl p-5 border-2 active:scale-[0.98] group text-left ${
-        isRepeatLast ? "border-app-border" : "border-app-border-subtle"
-      }`}
+    <button      className={`w-full bg-app-surface-raised hover:bg-app-surface-hover transition-all p-5 border-8 border-app-border active:scale-[0.98] group text-left`}
     >
       <div className="flex items-center justify-between">
         <div>

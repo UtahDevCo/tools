@@ -1,7 +1,7 @@
 "use client";
 
 import { IconButton } from "@repo/components";
-import NextImage from "next/image";
+import { StopwatchIcon, TimerIcon } from "./icons";
 
 export function QuickTools() {
   return (
@@ -9,32 +9,18 @@ export function QuickTools() {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <IconButton
-            icon={
-              <NextImage
-                src="/icons/stopwatch.svg"
-                alt="Stopwatch"
-                width={64}
-                height={64}
-              />
-            }
+            icon={<StopwatchIcon className="w-16 h-16" />}
             size="fill"
-            variant="secondary"
+            variant="ghost"
             aria-label="Stopwatch"
           />
         </div>
 
         <div>
           <IconButton
-            icon={
-              <NextImage
-                src="/icons/timer.svg"
-                alt="Timer"
-                width={64}
-                height={64}
-              />
-            }
+            icon={<TimerIcon className="w-16 h-16" />}
             size="fill"
-            variant="secondary"
+            variant="ghost"
             aria-label="Timer"
           />
         </div>

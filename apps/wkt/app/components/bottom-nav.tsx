@@ -56,7 +56,7 @@ function BottomNavButton({
   isActive,
 }: BottomNavButtonProps) {
   const className = `flex flex-col items-center gap-1.5 py-2 rounded-xl transition-all ${
-    isActive ? "text-brand" : "text-muted-foreground hover:text-foreground"
+    isActive ? "text-brand" : "text-color-foreground hover:text-foreground"
   }`;
 
   return (

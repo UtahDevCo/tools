@@ -1,13 +1,13 @@
 <svg width="24px" height="24px" viewBox="0 0 24 24" version="1.1" xmlns="http://www.w3.org/2000/svg">
-    <g stroke="black" stroke-width="2" fill="white" stroke-linecap="round">
+    <g stroke="currentColor" stroke-width="2" fill="none">
         <circle cx="12" cy="14" r="8" />
         <line x1="12" x2="12" y1="2" y2="6" />
         <line x1="9" x2="15" y1="2" y2="2" stroke-width="2.5"/>
     </g>
 
     <g>
-        <line x1="12" y1="14" x2="12" y2="21" stroke="#00aa6f" stroke-width="2.5" stroke-linecap="round"/>
-        <circle cx="12" cy="14" r="1.5" fill="#00aa6f"/>
+        <line x1="12" y1="14" x2="12" y2="22" stroke="#00aa6f" stroke-width="2.5"/>
+        <circle cx="12" cy="14" r="1.25" fill="#00aa6f"/>
 
         <animateTransform
             attributeName="transform"
