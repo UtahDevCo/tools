@@ -28,6 +28,14 @@ export function UserAvatar() {
     return (
       <div className="flex items-center gap-4">
         <Link
+          href="/what-is-gtd"
+          className="text-sm text-zinc-600 hover:text-zinc-900 hover:underline"
+        >
+          <Button variant="ghost" size="sm" className="h-10 gap-2 rounded-full px-4">
+            What is GTD?
+          </Button>
+        </Link>
+        <Link
           href="/policies"
           className="text-sm text-zinc-600 hover:text-zinc-900 hover:underline"
         >

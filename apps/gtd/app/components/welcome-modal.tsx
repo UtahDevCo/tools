@@ -10,6 +10,7 @@ import {
 } from "@repo/components";
 import { useAuth } from "@/components/auth-provider";
 import { AnimatedCalendar } from "./animated-calendar";
+import Link from "next/link";
 
 export function WelcomeModal() {
   const { isAuthenticated, signIn, isLoading } = useAuth();
@@ -51,7 +52,20 @@ export function WelcomeModal() {
             calendar items.
           </DialogDescription>
 
+          <DialogDescription className="mb-8 text-zinc-600 text-lg leading-relaxed">
+            GTD, or Getting Things Done, is a time management method that helps
+            you organize and prioritize tasks effectively. By integrating with
+            Google Tasks and Google Calendar, you can seamlessly manage your
+            to-dos alongside your calendar events, ensuring nothing falls
+            through the cracks.
+          </DialogDescription>
+
           <div className="flex gap-3 w-full">
+            <Link href="/what-is-gtd" className="flex-1">
+              <Button className="w-full h-12 text-xl" variant="outline">
+                What is GTD?
+              </Button>
+            </Link>
             <Button className="flex-1 h-12 text-xl" onClick={handleLogin}>
               Log in
             </Button>
