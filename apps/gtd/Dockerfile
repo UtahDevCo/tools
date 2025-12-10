@@ -8,8 +8,7 @@ WORKDIR /app
 FROM base AS deps
 
 # Copy root workspace files
-COPY package.json bun.lock* ./
-COPY turbo.json ./
+COPY package.json bun.lock turbo.json ./
 
 # Copy all package.json files to preserve workspace structure
 COPY apps/gtd/package.json ./apps/gtd/
@@ -42,7 +41,7 @@ ENV NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$NEXT_PUBLIC_FIREBASE_MESSAGING_SEN
 ENV NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID
 
 # Copy source code first
-COPY package.json bun.lock* turbo.json ./
+COPY package.json bun.lock turbo.json ./
 COPY apps/gtd ./apps/gtd
 COPY packages ./packages
 
