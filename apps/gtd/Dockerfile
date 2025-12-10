@@ -13,6 +13,7 @@ COPY package.json bun.lock turbo.json ./
 # Copy all package.json files to preserve workspace structure
 COPY apps/gtd/package.json ./apps/gtd/
 COPY apps/robinhood/package.json ./apps/robinhood/
+COPY apps/wkt/package.json ./apps/wkt/
 COPY packages/components/package.json ./packages/components/
 COPY packages/eslint-config/package.json ./packages/eslint-config/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
