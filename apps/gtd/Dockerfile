@@ -1,8 +1,9 @@
 # syntax=docker/dockerfile:1
 
 # ---- Base ----
-FROM oven/bun:1.3.4 AS base
+FROM node:20-slim AS base
 WORKDIR /app
+RUN npm install -g bun
 
 # ---- Dependencies ----
 FROM base AS deps
@@ -19,7 +20,8 @@ COPY packages/eslint-config/package.json ./packages/eslint-config/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
 
 # Install all dependencies (bun hoists to root but keeps workspace symlinks)
-RUN bun install --frozen-lockfile
+RUN rm bun.lock
+RUN bun install
 
 # ---- Builder ----
 FROM base AS builder
@@ -46,11 +48,17 @@ COPY package.json bun.lock turbo.json ./
 COPY apps/gtd ./apps/gtd
 COPY packages ./packages
 
+# Copy bun cache to ensure symlinks work
+COPY --from=deps /root/.bun /root/.bun
 # Copy the entire node_modules structure from deps (bun hoists to root)
 COPY --from=deps /app/node_modules ./node_modules
+# Copy the app's node_modules (bun installs some deps here)
+COPY --from=deps /app/apps/gtd/node_modules ./apps/gtd/node_modules
+# Copy the component package's node_modules (bun installs some deps here)
+COPY --from=deps /app/packages/components/node_modules ./packages/components/node_modules
 
-# Build the app using bun x to run next (finds binary in node_modules)
-RUN cd apps/gtd && TAILWINDCSS_SKIP_BINARY=1 bunx next build
+# Build the app using bun run build
+RUN cd apps/gtd && bun run build
 
 # ---- Runner ----
 FROM node:20-slim AS runner
