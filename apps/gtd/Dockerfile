@@ -49,8 +49,8 @@ COPY packages ./packages
 # Copy the entire node_modules structure from deps (bun hoists to root)
 COPY --from=deps /app/node_modules ./node_modules
 
-# Build the app using node to run next (bun has issues with next build)
-RUN cd apps/gtd && node ../../node_modules/next/dist/bin/next build
+# Build the app using next build
+RUN cd apps/gtd && ../../node_modules/.bin/next build
 
 # ---- Runner ----
 FROM node:20-slim AS runner
