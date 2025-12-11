@@ -49,11 +49,6 @@ COPY packages ./packages
 # Copy the entire node_modules structure from deps (bun hoists to root)
 COPY --from=deps /app/node_modules ./node_modules
 
-# Ensure Tailwind CSS native bindings are installed for the correct platform (Linux x64)
-# This fixes the @tailwindcss/oxide native binding issue that can occur when 
-# node_modules are copied between build stages or platforms
-RUN bun add -d @tailwindcss/oxide-linux-x64-gnu lightningcss-linux-x64-gnu --ignore-scripts
-
 # Build the app using node to run next (bun has issues with next build)
 RUN cd apps/gtd && node ../../node_modules/next/dist/bin/next build
 
