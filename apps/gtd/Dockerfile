@@ -50,7 +50,7 @@ COPY packages ./packages
 COPY --from=deps /app/node_modules ./node_modules
 
 # Build the app using bun x to run next (finds binary in node_modules)
-RUN cd apps/gtd && TAILWINDCSS_SKIP_BINARY=1 bun x next build
+RUN cd apps/gtd && TAILWINDCSS_SKIP_BINARY=1 bunx next build
 
 # ---- Runner ----
 FROM node:20-slim AS runner
