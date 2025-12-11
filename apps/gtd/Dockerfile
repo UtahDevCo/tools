@@ -49,8 +49,8 @@ COPY packages ./packages
 # Copy the entire node_modules structure from deps (bun hoists to root)
 COPY --from=deps /app/node_modules ./node_modules
 
-# Build the app using bun to run next build
-RUN cd apps/gtd && bun run build
+# Build the app using bun x to run next (finds binary in node_modules)
+RUN cd apps/gtd && TAILWINDCSS_SKIP_BINARY=1 bun x next build
 
 # ---- Runner ----
 FROM node:20-slim AS runner
