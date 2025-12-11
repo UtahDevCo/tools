@@ -50,7 +50,7 @@ COPY packages ./packages
 COPY --from=deps /app/node_modules ./node_modules
 
 # Build the app using next build
-RUN cd apps/gtd && ../../node_modules/.bin/next build
+RUN /app/node_modules/.bin/next build apps/gtd
 
 # ---- Runner ----
 FROM node:20-slim AS runner
