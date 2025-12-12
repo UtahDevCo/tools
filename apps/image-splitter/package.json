@@ -1,0 +1,23 @@
+{
+  "name": "image-splitter",
+  "version": "1.0.0",
+  "private": false,
+  "type": "module",
+  "bin": {
+    "image-splitter": "./src/index.ts",
+    "split-image": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outdir=dist --target=bun",
+    "start": "bun run dist/index.js",
+    "split": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "sharp": "^0.33.5"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "5.9.2"
+  }
+}
