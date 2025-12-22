@@ -24,7 +24,10 @@ split-image
 # Split with default settings (4x2 grid, border removal, 50px padding)
 split-image --crop
 
-# That's it! Your 8 pages are in the output/ directory
+# Split and create a PDF
+split-image --crop --pdf
+
+# That's it! Your 8 pages and PDF are in the output/ directory
 ```
 
 ## Usage
@@ -32,7 +35,11 @@ split-image --crop
 ### Recommended Command
 
 ```bash
+# Individual images only
 split-image --crop
+
+# Individual images + PDF
+split-image --crop --pdf
 ```
 
 This uses sensible defaults:
@@ -41,34 +48,40 @@ This uses sensible defaults:
 - **Grid**: 4 rows × 2 columns = 8 pages
 - **Border removal**: Enabled (removes light and dark borders)
 - **Padding**: 50px around content
+- **PDF**: Optional (add `--pdf` flag)
 
 ### Custom Options
 
 ```bash
-# Different grid size
-split-image --rows 2 --cols 3 --crop
+# Different grid size with PDF
+split-image --rows 2 --cols 3 --crop --pdf
 
-# Custom input file
-split-image --input my-scan.png --crop
+# Custom input file with PDF
+split-image --input my-scan.png --crop --pdf
+
+# Custom PDF name
+split-image --crop --pdf --pdf-output my-book.pdf
 
 # More padding around content  
-split-image --crop --padding 100
+split-image --crop --padding 100 --pdf
 
 # Custom output directory
-split-image --output ./my-pages --crop
+split-image --output ./my-pages --crop --pdf
 
 # Change multiple options
-split-image --input scan.png --rows 3 --cols 2 --crop --padding 75
+split-image --input scan.png --rows 3 --cols 2 --crop --padding 75 --pdf
 ```
 
 ## All Options
 
 - `--crop` - **Enable border trimming (recommended!)**
+- `--pdf` - **Create a PDF from the extracted pages**
 - `-i, --input <path>` - Input image path (default: yellow-ledbetter-high-quality.png)
 - `-o, --output <dir>` - Output directory (default: output)
 - `-r, --rows <num>` - Number of rows (default: 4)
 - `-c, --cols <num>` - Number of columns (default: 2)
 - `--padding <pixels>` - Padding around content when cropping (default: 50)
+- `--pdf-output <path>` - Custom PDF output path (default: output/output.pdf)
 - `-m, --mode <mode>` - Split mode: auto or manual (default: manual)
 - `-t, --threshold <0-255>` - White threshold for auto mode (default: 250)
 - `--help` - Show help
@@ -76,6 +89,7 @@ split-image --input scan.png --rows 3 --cols 2 --crop --padding 75
 ## Features
 
 - ✅ **Smart Border Removal** - Automatically removes both light and dark borders
+- ✅ **PDF Generation** - Optionally create a PDF from extracted pages
 - ✅ **Manual Grid Mode** - Split into exact rows × columns  
 - ✅ **Auto Detection Mode** - Experimental auto-detection of page boundaries
 - ✅ **Configurable Padding** - Keep a safe margin around content (default 50px)
@@ -104,20 +118,23 @@ Example output for 4×2 grid:
 ## Examples
 
 ```bash
-# Most common use case - just use defaults
+# Most common use case - images + PDF
+split-image --crop --pdf
+
+# Just images, no PDF
 split-image --crop
 
-# 2x2 grid (4 pages)
-split-image --rows 2 --cols 2 --crop
+# 2x2 grid (4 pages) with PDF
+split-image --rows 2 --cols 2 --crop --pdf
 
-# Different input file
-split-image --input my-sheet-music.png --crop
+# Different input file with custom PDF name
+split-image --input my-sheet-music.png --crop --pdf --pdf-output sheet-music.pdf
 
 # Lots of padding for printing
-split-image --crop --padding 100
+split-image --crop --padding 100 --pdf
 
 # Experimental auto-detect mode
-split-image --mode auto --crop
+split-image --mode auto --crop --pdf
 ```
 
 ## Development

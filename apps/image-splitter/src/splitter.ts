@@ -1,4 +1,6 @@
 import sharp from 'sharp';
+import { PDFDocument } from 'pdf-lib';
+import { readFile, writeFile } from 'fs/promises';
 import type { SplitOptions, PageRegion } from './types';
 
 export class ImageSplitter {
@@ -24,7 +26,11 @@ export class ImageSplitter {
     
     console.log(`✂️  Found ${regions.length} page(s) in grid layout`);
 
-    await this.extractPages(image, regions);
+    const pageFiles = await this.extractPages(image, regions);
+    
+    if (this.options.pdf) {
+      await this.createPDF(pageFiles);
+    }
     
     console.log(`✅ Complete! Pages saved to ${this.options.outputDir}/`);
   }
@@ -198,7 +204,9 @@ export class ImageSplitter {
   private async extractPages(
     image: sharp.Sharp,
     regions: PageRegion[]
-  ): Promise<void> {
+  ): Promise<string[]> {
+    const pageFiles: string[] = [];
+    
     for (const region of regions) {
       const outputPath = `${this.options.outputDir}/page-${region.pageNumber}_r${region.row}c${region.col}.png`;
       
@@ -216,12 +224,20 @@ export class ImageSplitter {
         pageImage = await this.trimPage(pageImage);
       }
 
+      // Whiten background if enabled
+      if (this.options.whiten) {
+        pageImage = await this.whitenBackground(pageImage);
+      }
+
       await pageImage.toFile(outputPath);
+      pageFiles.push(outputPath);
     }
+    
+    return pageFiles;
   }
 
   private async trimPage(pageImage: sharp.Sharp): Promise<sharp.Sharp> {
-    const padding = this.options.cropPadding || 50;
+    const padding = this.options.cropPadding || 0;
 
     const { data, info } = await pageImage
       .clone()
@@ -232,58 +248,57 @@ export class ImageSplitter {
     const width = info.width;
     const height = info.height;
 
-    // Check if a line is uniform (border-like) by sampling every Nth pixel
-    const isUniformLine = (lineData: number[]): boolean => {
+    // Check if a line is dark (part of the border/background)
+    // For scans of white paper, borders will be significantly darker
+    const isDarkLine = (lineData: number[]): boolean => {
       const sampleStep = 10;
       const samples: number[] = [];
       for (let i = 0; i < lineData.length; i += sampleStep) {
         samples.push(lineData[i]);
       }
       const avg = samples.reduce((sum, val) => sum + val, 0) / samples.length;
-      const variance = samples.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / samples.length;
-      const stdDev = Math.sqrt(variance);
-      // A border line should have low variance (uniform color)
-      // Increased threshold to 20 to account for compression artifacts
-      return stdDev < 20;
+      // Dark border threshold: anything below 128 (mid-gray) is considered dark
+      // This works well for white paper scans with dark backgrounds
+      return avg < 128;
     };
 
-    // Find content bounds by removing uniform border lines
+    // Find content bounds by removing dark border lines
     let minX = 0;
     let maxX = width - 1;
     let minY = 0;
     let maxY = height - 1;
 
-    // Scan from left: remove uniform columns
+    // Scan from left: remove dark columns
     for (let x = 0; x < width / 2; x++) {
       const colData = Array.from({ length: height }, (_, y) => data[y * width + x]);
-      if (!isUniformLine(colData)) {
+      if (!isDarkLine(colData)) {
         minX = x;
         break;
       }
     }
 
-    // Scan from right: remove uniform columns
+    // Scan from right: remove dark columns
     for (let x = width - 1; x >= width / 2; x--) {
       const colData = Array.from({ length: height }, (_, y) => data[y * width + x]);
-      if (!isUniformLine(colData)) {
+      if (!isDarkLine(colData)) {
         maxX = x;
         break;
       }
     }
 
-    // Scan from top: remove uniform rows
+    // Scan from top: remove dark rows
     for (let y = 0; y < height / 2; y++) {
       const rowData = Array.from({ length: width }, (_, x) => data[y * width + x]);
-      if (!isUniformLine(rowData)) {
+      if (!isDarkLine(rowData)) {
         minY = y;
         break;
       }
     }
 
-    // Scan from bottom: remove uniform rows
+    // Scan from bottom: remove dark rows
     for (let y = height - 1; y >= height / 2; y--) {
       const rowData = Array.from({ length: width }, (_, x) => data[y * width + x]);
-      if (!isUniformLine(rowData)) {
+      if (!isDarkLine(rowData)) {
         maxY = y;
         break;
       }
@@ -309,5 +324,69 @@ export class ImageSplitter {
     }
 
     return pageImage;
+  }
+
+  private async whitenBackground(pageImage: sharp.Sharp): Promise<sharp.Sharp> {
+    const whitenThreshold = this.options.whitenThreshold || 240;
+    
+    // Get the image data
+    const { data, info } = await pageImage
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    
+    const channels = info.channels;
+    
+    // Process each pixel
+    for (let i = 0; i < data.length; i += channels) {
+      // For RGB/RGBA, check if all color channels are above threshold
+      const isLight = channels === 1 
+        ? data[i] >= whitenThreshold  // Grayscale
+        : (data[i] >= whitenThreshold && data[i + 1] >= whitenThreshold && data[i + 2] >= whitenThreshold); // RGB/RGBA
+      
+      if (isLight) {
+        // Make it pure white
+        data[i] = 255;     // R or Gray
+        if (channels > 1) {
+          data[i + 1] = 255; // G
+          data[i + 2] = 255; // B
+        }
+        // Keep alpha channel unchanged if present
+      }
+    }
+    
+    // Create new image from modified buffer
+    return sharp(data, {
+      raw: {
+        width: info.width,
+        height: info.height,
+        channels: info.channels
+      }
+    });
+  }
+
+  private async createPDF(pageFiles: string[]): Promise<void> {
+    const pdfOutput = this.options.pdfOutput || `${this.options.outputDir}/output.pdf`;
+    
+    console.log(`📄 Creating PDF with ${pageFiles.length} page(s)...`);
+    
+    const pdfDoc = await PDFDocument.create();
+    
+    for (const pageFile of pageFiles) {
+      const imageBytes = await readFile(pageFile);
+      const image = await pdfDoc.embedPng(imageBytes);
+      
+      const page = pdfDoc.addPage([image.width, image.height]);
+      page.drawImage(image, {
+        x: 0,
+        y: 0,
+        width: image.width,
+        height: image.height,
+      });
+    }
+    
+    const pdfBytes = await pdfDoc.save();
+    await writeFile(pdfOutput, pdfBytes);
+    
+    console.log(`📄 PDF created: ${pdfOutput}`);
   }
 }

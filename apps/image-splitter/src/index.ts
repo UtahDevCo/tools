@@ -14,16 +14,27 @@ function parseArgs(): SplitOptions {
   }
   
   const options: SplitOptions = {
-    inputPath: 'yellow-ledbetter-high-quality.png',
+    inputPath: '',
     outputDir: 'output',
     mode: 'manual',
     rows: 4,
     cols: 2,
     crop: true,
-    cropPadding: 50
+    cropPadding: 0,
+    whiten: true,
+    whitenThreshold: 240,
+    pdf: true,
+    threshold: 50
   };
 
-  for (let i = 0; i < args.length; i++) {
+  // First positional argument is the input file (if it doesn't start with --)
+  let argIndex = 0;
+  if (args[0] && !args[0].startsWith('-')) {
+    options.inputPath = args[0];
+    argIndex = 1;
+  }
+
+  for (let i = argIndex; i < args.length; i++) {
     switch (args[i]) {
       case '--input':
       case '-i':
@@ -53,11 +64,23 @@ function parseArgs(): SplitOptions {
       case '-t':
         options.threshold = parseInt(args[++i], 10);
         break;
-      case '--crop':
-        options.crop = true;
+      case '--no-crop':
+        options.crop = false;
         break;
       case '--padding':
         options.cropPadding = parseInt(args[++i], 10);
+        break;
+      case '--no-pdf':
+        options.pdf = false;
+        break;
+      case '--pdf-output':
+        options.pdfOutput = args[++i];
+        break;
+      case '--no-whiten':
+        options.whiten = false;
+        break;
+      case '--whiten-threshold':
+        options.whitenThreshold = parseInt(args[++i], 10);
         break;
       case '--help':
         printHelp();
@@ -69,6 +92,13 @@ function parseArgs(): SplitOptions {
     }
   }
 
+  // Validate that input path was provided
+  if (!options.inputPath) {
+    console.error('Error: Input file is required');
+    printHelp();
+    process.exit(1);
+  }
+
   return options;
 }
 
@@ -77,44 +107,55 @@ function printHelp(): void {
 🎨 Image Splitter - Split large images into a grid of pages
 
 QUICK START:
-  split-image                  # Show this help
-  split-image --crop           # Split 4x2 grid with border removal (recommended)
+  split-image <filename>              # Split with defaults (4x2 grid, crop, PDF)
+  split-image scan.png --rows 2 --cols 2  # Custom grid size
 
 USAGE:
-  split-image [OPTIONS]
+  split-image <filename> [OPTIONS]
 
 COMMON OPTIONS:
-  --crop                   Enable border trimming (recommended!)
-  -i, --input <path>       Input image path (default: yellow-ledbetter-high-quality.png)
+  -i, --input <path>       Input image path (or use first positional argument)
   -o, --output <dir>       Output directory (default: output)
+  -r, --rows <num>         Number of rows (default: 4)
+  -c, --cols <num>         Number of columns (default: 2)
   
 GRID OPTIONS:
   -m, --mode <mode>        Split mode: auto|manual (default: manual)
-  -r, --rows <num>         Number of rows (default: 4)
-  -c, --cols <num>         Number of columns (default: 2)
-  -t, --threshold <0-255>  White threshold for auto mode (default: 250)
+  -t, --threshold <0-255>  Darkness threshold for border removal (default: 50)
 
-BORDER REMOVAL:
-  --padding <pixels>       Padding around content when cropping (default: 50)
+BORDER REMOVAL (enabled by default):
+  --no-crop                Disable border trimming
+  --padding <pixels>       Padding around content when cropping (default: 0)
+
+BACKGROUND WHITENING (enabled by default):
+  --no-whiten              Disable background whitening
+  --whiten-threshold <num> Brightness threshold for whitening (default: 240)
+
+PDF OPTIONS (enabled by default):
+  --no-pdf                 Don't create a PDF file
+  --pdf-output <path>      Custom PDF output path (default: output/output.pdf)
 
 OTHER:
   --help                   Show this help
 
 EXAMPLES:
-  # Recommended: 4x2 grid with border removal
-  split-image --crop
+  # Simple 2x2 grid split
+  split-image scan.png --rows 2 --cols 2
 
-  # Custom grid size
-  split-image --rows 2 --cols 3 --crop
+  # 4x2 grid (default)
+  split-image sheet-music.png
   
-  # Custom input file
-  split-image --input scan.png --crop
+  # Custom PDF output path
+  split-image scan.png --pdf-output my-book.pdf
 
   # More padding around content
-  split-image --crop --padding 100
+  split-image scan.png --padding 10
+
+  # Disable cropping and PDF generation
+  split-image scan.png --no-crop --no-pdf
 
   # Auto-detect mode (experimental)
-  split-image --mode auto --crop
+  split-image scan.png --mode auto
   `);
 }
 

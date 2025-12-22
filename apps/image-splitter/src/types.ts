@@ -7,6 +7,10 @@ export interface SplitOptions {
   threshold?: number;
   crop?: boolean;
   cropPadding?: number;
+  pdf?: boolean;
+  pdfOutput?: string;
+  whiten?: boolean;
+  whitenThreshold?: number;
 }
 
 export interface PageRegion {
