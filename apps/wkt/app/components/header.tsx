@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { IconButton, Typography } from "@repo/components";
-import { WktLogoIcon, SparkleChatIcon } from "./icons";
+import { Typography } from "@repo/components";
+import { WktLogoIcon } from "./icons";
+import { UserAvatar } from "@/components/user-avatar";
 
 type HeaderProps = {
   title?: string;
@@ -24,12 +25,7 @@ export function Header({ title }: HeaderProps) {
             <Typography variant="title">{title || "WKT"}</Typography>
           </div>
         </div>
-        <IconButton
-          icon={<SparkleChatIcon className="w-6 h-6" />}
-          size="lg"
-          variant="ghost"
-          aria-label="AI assistant"
-        />
+        <UserAvatar />
       </div>
     </header>
   );
