@@ -105,6 +105,38 @@ export async function fetchAllCalendarEvents(
 }
 
 /**
+ * Create a new calendar event
+ */
+export async function createCalendarEvent(
+  client: calendar_v3.Calendar,
+  calendarId: string,
+  event: Partial<calendar_v3.Schema$Event>
+): Promise<calendar_v3.Schema$Event> {
+  const response = await client.events.insert({
+    calendarId,
+    requestBody: event,
+  });
+  return response.data;
+}
+
+/**
+ * Update an existing calendar event
+ */
+export async function updateCalendarEvent(
+  client: calendar_v3.Calendar,
+  calendarId: string,
+  eventId: string,
+  event: Partial<calendar_v3.Schema$Event>
+): Promise<calendar_v3.Schema$Event> {
+  const response = await client.events.patch({
+    calendarId,
+    eventId,
+    requestBody: event,
+  });
+  return response.data;
+}
+
+/**
  * Get month key for caching (YYYY-MM format)
  */
 export function getMonthKey(date: Date): string {

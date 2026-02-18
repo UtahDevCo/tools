@@ -14,6 +14,7 @@ import {
   SelectContent,
   SelectItem,
   Switch,
+  Input,
 } from "@repo/components";
 import { useSettings } from "@/providers/settings-provider";
 import { useAuth } from "@/components/auth-provider";
@@ -32,6 +33,11 @@ import {
 import {
   getValidAccessToken,
 } from "@/lib/firebase/account-refresh";
+import {
+  generateMcpApiKey,
+  revokeMcpApiKey,
+  getMcpApiKeyMetadata,
+} from "@/app/actions/mcp";
 
 function SettingsSection({
   title,
@@ -47,6 +53,283 @@ function SettingsSection({
       </Typography>
       <div className="space-y-4">{children}</div>
     </section>
+  );
+}
+
+function McpSettingsSection() {
+  const [metadata, setMetadata] = useState<{
+    createdAt: number;
+    updatedAt: number;
+    lastUsedAt?: number;
+  } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isActionLoading, setIsActionLoading] = useState(false);
+  const [newApiKey, setNewApiKey] = useState<string | null>(null);
+  const [manualApiKey, setManualApiKey] = useState("");
+  const [showInstructions, setShowInstructions] = useState(false);
+
+  const loadMetadata = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await getMcpApiKeyMetadata();
+      if (result.success) {
+        setMetadata(result.data);
+      }
+    } catch (error) {
+      console.error("Failed to load MCP metadata:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadMetadata();
+  }, [loadMetadata]);
+
+  // Sync manualApiKey with newApiKey when it's generated
+  useEffect(() => {
+    if (newApiKey) {
+      setManualApiKey(newApiKey);
+    }
+  }, [newApiKey]);
+
+  async function handleGenerate() {
+    setIsActionLoading(true);
+    try {
+      const result = await generateMcpApiKey();
+      if (result.success) {
+        setNewApiKey(result.data);
+        await loadMetadata();
+        toast.success("API key generated");
+      } else {
+        toast.error(result.error);
+      }
+    } catch (error) {
+      toast.error("Failed to generate API key");
+    } finally {
+      setIsActionLoading(false);
+    }
+  }
+
+  async function handleRevoke() {
+    if (!confirm("Are you sure you want to revoke your MCP API key? External tools will lose access.")) {
+      return;
+    }
+    setIsActionLoading(true);
+    try {
+      const result = await revokeMcpApiKey();
+      if (result.success) {
+        setMetadata(null);
+        setNewApiKey(null);
+        setManualApiKey("");
+        toast.success("API key revoked");
+      } else {
+        toast.error(result.error);
+      }
+    } catch (error) {
+      toast.error("Failed to revoke API key");
+    } finally {
+      setIsActionLoading(false);
+    }
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copied to clipboard");
+  };
+
+  if (isLoading) {
+    return (
+      <SettingsSection title="MCP Server">
+        <div className="flex items-center gap-2 py-4 text-zinc-500">
+          <Loader2 className="size-4 animate-spin" />
+          <span>Loading MCP settings...</span>
+        </div>
+      </SettingsSection>
+    );
+  }
+
+  const appUrl = typeof window !== "undefined" ? window.location.origin : "https://gtd.chrisesplin.com";
+  const mcpUrl = `${appUrl}/api/mcp/sse`;
+  const displayApiKey = manualApiKey || "YOUR_API_KEY";
+
+  const geminiCmd = `gemini mcp add gtd ${mcpUrl} -t http --header "Authorization: Bearer ${displayApiKey}"`;
+  const claudeConfig = `{
+  "mcpServers": {
+    "gtd": {
+      "url": "${mcpUrl}",
+      "headers": {
+        "Authorization": "Bearer ${displayApiKey}"
+      }
+    }
+  }
+}`;
+
+  return (
+    <SettingsSection title="MCP Server">
+      <Typography variant="default" color="muted" className="mb-4">
+        Connect external tools like Gemini CLI to your GTD data using the Model Context Protocol (MCP).
+      </Typography>
+
+      {newApiKey && (
+        <div className="rounded-lg border border-green-200 bg-green-50 p-4 mb-4">
+          <Typography variant="default" className="font-medium text-green-800 mb-2">
+            New API Key Generated
+          </Typography>
+          <Typography variant="light" className="text-xs text-green-700 mb-3">
+            Copy this key now. It will not be shown again for security reasons.
+          </Typography>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 rounded bg-white px-2 py-1 text-sm font-mono border border-green-200 break-all">
+              {newApiKey}
+            </code>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => copyToClipboard(newApiKey)}
+            >
+              Copy
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {metadata && (
+        <div className="rounded-lg border border-zinc-200 p-4 mb-4">
+          <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+            <div>
+              <Typography variant="light" color="muted">Created</Typography>
+              <Typography variant="default">{new Date(metadata.createdAt).toLocaleString()}</Typography>
+            </div>
+            <div>
+              <Typography variant="light" color="muted">Last Used</Typography>
+              <Typography variant="default">
+                {metadata.lastUsedAt ? new Date(metadata.lastUsedAt).toLocaleString() : "Never"}
+              </Typography>
+            </div>
+          </div>
+          
+          <div className="space-y-2 pt-2 border-t border-zinc-100">
+            <Label htmlFor="manual-api-key" className="text-xs">API Key for Instructions</Label>
+            <Input
+              id="manual-api-key"
+              placeholder="Enter your API key to populate examples"
+              value={manualApiKey}
+              onChange={(e) => setManualApiKey(e.target.value)}
+              className="h-8 text-sm"
+            />
+          </div>
+        </div>
+      )}
+
+      {!metadata && (
+        <Typography variant="default" color="muted" className="italic mb-4">
+          No API key active.
+        </Typography>
+      )}
+
+      <div className="flex flex-col gap-2">
+        <div className="flex gap-2">
+          {!metadata ? (
+            <Button
+              className="flex-1"
+              onClick={handleGenerate}
+              disabled={isActionLoading}
+            >
+              {isActionLoading ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Plus className="mr-2 size-4" />}
+              Generate API Key
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={handleGenerate}
+                disabled={isActionLoading}
+              >
+                Rotate Key
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={handleRevoke}
+                disabled={isActionLoading}
+              >
+                Revoke Key
+              </Button>
+            </>
+          )}
+        </div>
+        
+        {metadata && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowInstructions(!showInstructions)}
+            className="text-xs text-zinc-500"
+          >
+            {showInstructions ? "Hide Instructions" : "Show Installation Instructions"}
+          </Button>
+        )}
+      </div>
+
+      {showInstructions && metadata && (
+        <div className="mt-6 space-y-6 border-t border-zinc-100 pt-6">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Typography variant="default" className="font-medium text-sm">Gemini CLI</Typography>
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => copyToClipboard(geminiCmd)}>Copy Command</Button>
+              </div>
+              <code className="block rounded bg-zinc-900 p-2 text-[10px] text-zinc-100 font-mono break-all">
+                {geminiCmd}
+              </code>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Typography variant="default" className="font-medium text-sm">Claude Code</Typography>
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => copyToClipboard(claudeConfig)}>Copy Config</Button>
+              </div>
+              <Typography variant="light" color="muted" className="text-[10px]">
+                Add to <span className="font-mono">~/.claude/config.json</span>:
+              </Typography>
+              <code className="block rounded bg-zinc-900 p-2 text-[10px] text-zinc-100 font-mono whitespace-pre">
+                {claudeConfig}
+              </code>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Typography variant="default" className="font-medium text-sm">GitHub Copilot (CLI)</Typography>
+              </div>
+              <Typography variant="light" color="muted" className="text-xs">
+                Copilot CLI uses an interactive setup:
+              </Typography>
+              <ol className="list-decimal list-inside text-[11px] text-zinc-600 space-y-1 ml-1">
+                <li>Start Copilot CLI: <span className="font-mono bg-zinc-100 px-1 rounded">copilot</span></li>
+                <li>Run command: <span className="font-mono bg-zinc-100 px-1 rounded">/mcp add</span></li>
+                <li>URL: <span className="font-mono bg-zinc-100 px-1 rounded break-all">{mcpUrl}</span></li>
+                <li>Header: <span className="font-mono bg-zinc-100 px-1 rounded">Authorization: Bearer {displayApiKey}</span></li>
+                <li>Press <span className="font-semibold">Ctrl+S</span> to save</li>
+              </ol>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Typography variant="default" className="font-medium text-sm">GitHub Copilot & VS Code</Typography>
+              </div>
+              <Typography variant="light" color="muted" className="text-[11px]">
+                1. Install the <strong>Model Context Protocol</strong> extension.<br />
+                2. Add a new server with transport type <strong>HTTP</strong>.<br />
+                3. URL: <span className="font-mono text-[10px] bg-zinc-100 px-1 rounded break-all">{mcpUrl}</span><br />
+                4. Header: <span className="font-mono text-[10px] bg-zinc-100 px-1 rounded">Authorization: Bearer {displayApiKey}</span>
+              </Typography>
+            </div>
+          </div>
+        </div>
+      )}
+    </SettingsSection>
   );
 }
 
@@ -1031,6 +1314,9 @@ function SettingsPageContent() {
             </Select>
           </div>
         </SettingsSection>
+
+        {/* MCP Server Settings */}
+        <McpSettingsSection />
 
         {/* Data Management */}
         <SettingsSection title="Data Management">

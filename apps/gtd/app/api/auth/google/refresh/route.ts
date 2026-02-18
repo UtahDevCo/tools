@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { OAuth2Client } from "google-auth-library";
 import { getServerEnv } from "@/lib/env";
 import { RefreshTokenBodySchema } from "@/lib/oauth-utils";
+import { refreshAccessToken } from "@/lib/oauth-server";
 
 /**
  * Silent token refresh endpoint
@@ -44,30 +44,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const oauth2Client = new OAuth2Client(
-      env.GOOGLE_CLIENT_ID,
-      env.GOOGLE_CLIENT_SECRET
-    );
+    // Use shared server utility to refresh token
+    const credentials = await refreshAccessToken(refreshToken);
 
-    oauth2Client.setCredentials({
-      refresh_token: refreshToken,
-    });
-
-    // Get new access token
-    const { credentials } = await oauth2Client.refreshAccessToken();
-
-    if (!credentials.access_token) {
-      return NextResponse.json(
-        { error: "Failed to refresh access token" },
-        { status: 401 }
-      );
-    }
-
-    const expiresAt = credentials.expiry_date || Date.now() + 3600 * 1000;
+    const expiresAt = credentials.expiresAt;
 
     // If this is the primary account (no email in body), update cookies
     if (!email) {
-      cookieStore.set("gtd_access_token", credentials.access_token, {
+      cookieStore.set("gtd_access_token", credentials.accessToken, {
         httpOnly: true,
         secure: env.NODE_ENV === "production",
         sameSite: "lax",
@@ -84,8 +68,8 @@ export async function POST(request: NextRequest) {
       });
 
       // Update refresh token if a new one was provided
-      if (credentials.refresh_token) {
-        cookieStore.set("gtd_refresh_token", credentials.refresh_token, {
+      if (credentials.refreshToken) {
+        cookieStore.set("gtd_refresh_token", credentials.refreshToken, {
           httpOnly: true,
           secure: env.NODE_ENV === "production",
           sameSite: "lax",
@@ -96,8 +80,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      accessToken: credentials.access_token,
-      refreshToken: credentials.refresh_token || null, // May be null if not rotated
+      accessToken: credentials.accessToken,
+      refreshToken: credentials.refreshToken || null,
       expiresAt,
     });
   } catch (error) {

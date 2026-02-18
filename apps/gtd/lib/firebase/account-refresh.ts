@@ -1,13 +1,11 @@
 /**
- * Utilities for refreshing secondary account tokens
+ * Utilities for refreshing secondary account tokens (Client-safe)
  */
 
 import {
-  getConnectedAccount,
-  updateAccountTokens,
-  markAccountNeedsReauth,
   type ConnectedAccount,
 } from "./accounts";
+import { refreshSecondaryAccount } from "@/app/actions/accounts-sync";
 
 /**
  * Check if an access token is expired or about to expire (within 5 minutes)
@@ -20,60 +18,28 @@ export function isAccountTokenExpired(account: ConnectedAccount): boolean {
 }
 
 /**
- * Refresh an account's access token using its refresh token
+ * Refresh an account's access token using a server action
  * Returns the updated account on success, or null on failure
  */
 export async function refreshAccountToken(
-  userId: string,
+  userId: string, // Kept for API compatibility, but unused as user is determined from session on server
   account: ConnectedAccount
 ): Promise<ConnectedAccount | null> {
   try {
-    console.log(`[AccountRefresh] Refreshing token for ${account.email}`);
+    console.log(`[AccountRefresh] Requesting refresh for ${account.email}`);
 
-    const response = await fetch("/api/auth/google/refresh", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        refreshToken: account.refreshToken,
-        email: account.email,
-      }),
-    });
+    const result = await refreshSecondaryAccount(account.email);
 
-    if (!response.ok) {
-      const error = await response.json();
-      console.error(
-        `[AccountRefresh] Failed to refresh token for ${account.email}:`,
-        error
-      );
-
-      // If the token is invalid/revoked, mark account as needing reauth
-      if (error.needsReauth) {
-        await markAccountNeedsReauth(userId, account.email);
-      }
-
+    if (result.success && result.account) {
+      console.log(`[AccountRefresh] Successfully refreshed token for ${account.email}`);
+      return result.account;
+    } else {
+      console.error(`[AccountRefresh] Failed to refresh token for ${account.email}:`, result.error);
       return null;
     }
-
-    const data = await response.json();
-
-    // Update Firestore with new tokens
-    await updateAccountTokens(userId, account.email, {
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken || account.refreshToken, // Use new token if provided
-      accessTokenExpiresAt: data.expiresAt,
-    });
-
-    console.log(
-      `[AccountRefresh] Successfully refreshed token for ${account.email}`
-    );
-
-    // Fetch and return the updated account
-    return await getConnectedAccount(userId, account.email);
   } catch (error) {
     console.error(
-      `[AccountRefresh] Error refreshing token for ${account.email}:`,
+      `[AccountRefresh] Error requesting refresh for ${account.email}:`,
       error
     );
     return null;

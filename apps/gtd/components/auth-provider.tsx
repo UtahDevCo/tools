@@ -26,6 +26,9 @@ import {
   exportCookiesForMcp,
 } from "@/app/actions/mcp-cookies";
 import {
+  syncPrimaryAccountToFirestore,
+} from "@/app/actions/accounts-sync";
+import {
   setRefreshFunction,
   clearRefreshFunction,
   silentRefresh,
@@ -91,6 +94,12 @@ export function AuthProvider({ children, initialUser = null }: AuthProviderProps
             
             setUser(serializeUser(firebaseUser));
             setIsLoading(false);
+
+            // Sync primary account tokens to Firestore for MCP server use
+            syncPrimaryAccountToFirestore().catch(err => 
+              console.error("[Auth] Failed to sync primary account:", err)
+            );
+            
             return;
           } catch (error) {
             console.error("[Auth] Failed to sign into Firebase:", error);
@@ -232,6 +241,11 @@ export function AuthProvider({ children, initialUser = null }: AuthProviderProps
             if (cookieUser) {
               setUser(cookieUser);
             }
+
+            // Sync primary account tokens to Firestore for MCP server use
+            syncPrimaryAccountToFirestore().catch(err => 
+              console.error("[Auth] Failed to sync primary account:", err)
+            );
 
             // Auto-export cookies for MCP server (localhost only)
             exportCookiesForMcp().catch(() => {

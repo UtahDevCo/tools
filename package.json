@@ -9,6 +9,7 @@
     "wkt": "TURBO_UI=false turbo run dev --filter=wkt",
     "deploy": "turbo run deploy",
     "deploy:prod": "turbo run deploy:prod",
+    "deploy:firestore": "firebase deploy --only firestore:rules",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types"

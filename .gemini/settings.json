@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "gtd": {
+      "url": "http://localhost:3300/api/mcp/sse",
+      "type": "http",
+      "headers": {
+        "Authorization": "Bearer b61a1ba20b67b606ecdb2132157fbf13889428641db2fd5a5b8ec4884d399d92"
+      },
+      "trust": true
+    }
+  }
+}
