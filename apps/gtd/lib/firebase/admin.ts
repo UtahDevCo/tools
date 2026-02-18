@@ -15,11 +15,11 @@ export function getFirebaseAdmin() {
 
   const env = getServerEnv();
   
-  // Initialize with project ID. 
-  // On Cloud Run/Functions, it will automatically use the service account.
-  return initializeApp({
-    projectId: env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  });
+  // Use provided project ID or fallback to standard GCP environment variables.
+  // initializeApp() can also auto-infer it on Cloud Run/Functions.
+  const projectId = env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCP_PROJECT;
+
+  return initializeApp(projectId ? { projectId } : {});
 }
 
 /**

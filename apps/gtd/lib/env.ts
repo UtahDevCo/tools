@@ -21,7 +21,7 @@ const serverEnvSchema = z.object({
     .default("development"),
 
   // Firebase configuration (needed for server-side admin SDK)
-  NEXT_PUBLIC_FIREBASE_PROJECT_ID: z.string().min(1, "NEXT_PUBLIC_FIREBASE_PROJECT_ID is required"),
+  NEXT_PUBLIC_FIREBASE_PROJECT_ID: z.string().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
