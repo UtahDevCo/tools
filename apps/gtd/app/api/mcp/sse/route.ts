@@ -144,6 +144,12 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Fallback to query parameters
+  if (!apiKey) {
+    const { searchParams } = new URL(request.url);
+    apiKey = searchParams.get("apiKey") || searchParams.get("token");
+  }
+
   try {
     const body = await request.json();
     const { method, params, id } = body;

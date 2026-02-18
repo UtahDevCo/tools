@@ -1,12 +1,11 @@
 {
   "mcpServers": {
     "gtd": {
-      "url": "http://localhost:3300/api/mcp/sse",
+      "url": "https://gtd.chrisesplin.com/api/mcp/sse",
       "type": "http",
       "headers": {
-        "Authorization": "Bearer b61a1ba20b67b606ecdb2132157fbf13889428641db2fd5a5b8ec4884d399d92"
-      },
-      "trust": true
+        "Authorization": "Bearer 4a1c8c248de04fbd80d8579e993fa25fe14cb5a2f6ffe13904bcff915861dc75"
+      }
     }
   }
 }

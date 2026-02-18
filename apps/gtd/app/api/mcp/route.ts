@@ -18,7 +18,14 @@ function hashApiKey(apiKey: string): string {
  * Authenticates using X-MCP-API-Key and executes GTD operations.
  */
 export async function POST(request: NextRequest) {
-  const apiKey = request.headers.get("X-MCP-API-Key");
+  let apiKey = request.headers.get("X-MCP-API-Key");
+  
+  // Fallback to query parameters
+  if (!apiKey) {
+    const { searchParams } = new URL(request.url);
+    apiKey = searchParams.get("apiKey") || searchParams.get("token");
+  }
+
   if (!apiKey) {
     return NextResponse.json({ error: "Missing API Key" }, { status: 401 });
   }

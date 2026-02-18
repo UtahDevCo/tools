@@ -67,6 +67,7 @@ function McpSettingsSection() {
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [manualApiKey, setManualApiKey] = useState("");
   const [showInstructions, setShowInstructions] = useState(false);
+  const [authMethod, setAuthMethod] = useState<"header" | "query">("header");
 
   const loadMetadata = useCallback(async () => {
     setIsLoading(true);
@@ -150,11 +151,24 @@ function McpSettingsSection() {
   }
 
   const appUrl = typeof window !== "undefined" ? window.location.origin : "https://gtd.chrisesplin.com";
-  const mcpUrl = `${appUrl}/api/mcp/sse`;
   const displayApiKey = manualApiKey || "YOUR_API_KEY";
+  const mcpUrl = authMethod === "query"
+    ? `${appUrl}/api/mcp/sse?token=${displayApiKey}`
+    : `${appUrl}/api/mcp/sse`;
 
-  const geminiCmd = `gemini mcp add gtd ${mcpUrl} -t http --header "Authorization: Bearer ${displayApiKey}"`;
-  const claudeConfig = `{
+  const geminiCmd = authMethod === "query"
+    ? `gemini mcp add gtd "${mcpUrl}" -t http`
+    : `gemini mcp add gtd ${mcpUrl} -t http --header "Authorization: Bearer ${displayApiKey}"`;
+  
+  const claudeConfig = authMethod === "query"
+    ? `{
+  "mcpServers": {
+    "gtd": {
+      "url": "${mcpUrl}"
+    }
+  }
+}`
+    : `{
   "mcpServers": {
     "gtd": {
       "url": "${mcpUrl}",
@@ -262,6 +276,30 @@ function McpSettingsSection() {
         </div>
         
         {metadata && (
+          <div className="flex items-center justify-between px-1 py-2">
+            <Typography variant="light" className="text-xs text-zinc-500">Authentication Method</Typography>
+            <div className="flex bg-zinc-100 rounded p-0.5">
+              <button
+                onClick={() => setAuthMethod("header")}
+                className={`px-2 py-0.5 text-[10px] rounded transition-colors ${
+                  authMethod === "header" ? "bg-white shadow-sm font-medium" : "text-zinc-500 hover:text-zinc-900"
+                }`}
+              >
+                Header
+              </button>
+              <button
+                onClick={() => setAuthMethod("query")}
+                className={`px-2 py-0.5 text-[10px] rounded transition-colors ${
+                  authMethod === "query" ? "bg-white shadow-sm font-medium" : "text-zinc-500 hover:text-zinc-900"
+                }`}
+              >
+                Query Param
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {metadata && (
           <Button
             variant="ghost"
             size="sm"
@@ -310,7 +348,9 @@ function McpSettingsSection() {
                 <li>Start Copilot CLI: <span className="font-mono bg-zinc-100 px-1 rounded">copilot</span></li>
                 <li>Run command: <span className="font-mono bg-zinc-100 px-1 rounded">/mcp add</span></li>
                 <li>URL: <span className="font-mono bg-zinc-100 px-1 rounded break-all">{mcpUrl}</span></li>
-                <li>Header: <span className="font-mono bg-zinc-100 px-1 rounded">Authorization: Bearer {displayApiKey}</span></li>
+                {authMethod === "header" && (
+                  <li>Header: <span className="font-mono bg-zinc-100 px-1 rounded">Authorization: Bearer {displayApiKey}</span></li>
+                )}
                 <li>Press <span className="font-semibold">Ctrl+S</span> to save</li>
               </ol>
             </div>
@@ -319,12 +359,14 @@ function McpSettingsSection() {
               <div className="flex items-center justify-between">
                 <Typography variant="default" className="font-medium text-sm">GitHub Copilot & VS Code</Typography>
               </div>
-              <Typography variant="light" color="muted" className="text-[11px]">
-                1. Install the <strong>Model Context Protocol</strong> extension.<br />
-                2. Add a new server with transport type <strong>HTTP</strong>.<br />
-                3. URL: <span className="font-mono text-[10px] bg-zinc-100 px-1 rounded break-all">{mcpUrl}</span><br />
-                4. Header: <span className="font-mono text-[10px] bg-zinc-100 px-1 rounded">Authorization: Bearer {displayApiKey}</span>
-              </Typography>
+              <div className="text-[11px] text-zinc-600 space-y-1">
+                <p>1. Install the <strong>Model Context Protocol</strong> extension.</p>
+                <p>2. Add a new server with transport type <strong>HTTP</strong>.</p>
+                <p>3. URL: <span className="font-mono text-[10px] bg-zinc-100 px-1 rounded break-all">{mcpUrl}</span></p>
+                {authMethod === "header" && (
+                  <p>4. Header: <span className="font-mono text-[10px] bg-zinc-100 px-1 rounded">Authorization: Bearer {displayApiKey}</span></p>
+                )}
+              </div>
             </div>
           </div>
         </div>
