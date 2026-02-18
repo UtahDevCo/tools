@@ -1,6 +1,8 @@
 import { getFirestoreAdmin } from "./admin";
 import { McpConfigSchema, type McpConfig } from "./mcp-types";
 
+export type { McpConfig };
+
 /**
  * Get MCP configuration for a user (Server-side using Admin SDK)
  */
