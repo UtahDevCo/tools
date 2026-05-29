@@ -17,16 +17,6 @@ const colors = {
 };
 
 /**
- * Helper to clear all children from an OpenTUI Box.
- */
-function clearBox(box: any) {
-  const ids = box.getChildren().map((c: any) => c.id);
-  for (const id of ids) {
-    box.remove(id);
-  }
-}
-
-/**
  * Launches the interactive OpenTUI Stock & Options Screener Dashboard.
  */
 export async function launchTUI() {
@@ -37,6 +27,22 @@ export async function launchTUI() {
   const renderer = await createCliRenderer({
     exitOnCtrlC: true
   });
+
+  // Helper to clear all children from an OpenTUI Box VNode
+  function clearBox(boxVNode: any) {
+    if (boxVNode && boxVNode.children) {
+      boxVNode.children = [];
+    }
+    if (boxVNode && boxVNode.props && boxVNode.props.id) {
+      const instance = renderer.root.findDescendantById(boxVNode.props.id);
+      if (instance) {
+        const ids = instance.getChildren().map((c: any) => c.id);
+        for (const childId of ids) {
+          instance.remove(childId);
+        }
+      }
+    }
+  }
 
   // Main Dashboard Box layout
   const dashboard = Box({
@@ -75,6 +81,7 @@ export async function launchTUI() {
 
   // Console output log panel
   const resultsBox = Box({
+    id: "resultsBox",
     width: 116,
     height: 25,
     borderStyle: "single",
