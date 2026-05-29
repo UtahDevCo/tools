@@ -17,6 +17,16 @@ const colors = {
 };
 
 /**
+ * Helper to clear all children from an OpenTUI Box.
+ */
+function clearBox(box: any) {
+  const ids = box.getChildren().map((c: any) => c.id);
+  for (const id of ids) {
+    box.remove(id);
+  }
+}
+
+/**
  * Launches the interactive OpenTUI Stock & Options Screener Dashboard.
  */
 export async function launchTUI() {
@@ -97,7 +107,7 @@ export async function launchTUI() {
     }
 
     if (keyName === "s") {
-      resultsBox.clear();
+      clearBox(resultsBox);
       resultsBox.add(Text({ content: "🔄 Fetching market data and running indicators screen... please wait.", fg: "#FFFF00" }));
       
       // Temporarily intercept console logs to display inside the TUI console Box
@@ -113,7 +123,7 @@ export async function launchTUI() {
         console.log = origLog;
       }
 
-      resultsBox.clear();
+      clearBox(resultsBox);
       for (const line of lines) {
         resultsBox.add(Text({ content: line }));
       }
@@ -123,7 +133,7 @@ export async function launchTUI() {
       const strategy = keyName === "c" ? "csp" : "leaps";
       const stratName = strategy === "csp" ? "CASH-SECURED PUTS" : "LEAPS CALLS";
 
-      resultsBox.clear();
+      clearBox(resultsBox);
       resultsBox.add(
         Text({
           content: `🔍 ENTER STOCK TICKER SYMBOL FOR ${stratName} (e.g. INTU, ZS, SOXL):`,
@@ -149,12 +159,12 @@ export async function launchTUI() {
       tickerInput.on("enter", async (value) => {
         const ticker = value.trim().toUpperCase();
         if (!ticker) {
-          resultsBox.clear();
+          clearBox(resultsBox);
           resultsBox.add(Text({ content: "⚠️ Error: Ticker cannot be empty. Press [C] or [L] to try again.", fg: "#FF0000" }));
           return;
         }
 
-        resultsBox.clear();
+        clearBox(resultsBox);
         resultsBox.add(Text({ content: `🔄 Querying ${ticker} option chain via Alpaca... please wait.`, fg: "#FFFF00" }));
 
         // Capture options screener logs
@@ -173,7 +183,7 @@ export async function launchTUI() {
           console.error = origErr;
         }
 
-        resultsBox.clear();
+        clearBox(resultsBox);
         for (const line of lines) {
           resultsBox.add(Text({ content: line }));
         }
