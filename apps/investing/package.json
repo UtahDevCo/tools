@@ -1,0 +1,19 @@
+{
+  "name": "investing",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "screen": "bun run src/index.ts screen",
+    "options": "bun run src/index.ts options"
+  },
+  "dependencies": {
+    "@opentui/core": "^0.1.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
