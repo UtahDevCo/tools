@@ -151,7 +151,7 @@ export async function launchTUI() {
       // Intercept console.log to display output line-by-line in real-time
       const origLog = console.log;
       console.log = (...args) => {
-        const line = stripAnsi(args.join(' '));
+        const line = args.join(' ');
         addChild(resultsBox, Text({ content: line }));
         renderer.root.requestRender();
       };
@@ -215,12 +215,12 @@ export async function launchTUI() {
         const origLog = console.log;
         const origErr = console.error;
         console.log = (...args) => {
-          const line = stripAnsi(args.join(' '));
+          const line = args.join(' ');
           addChild(resultsBox, Text({ content: line }));
           renderer.root.requestRender();
         };
         console.error = (...args) => {
-          const line = stripAnsi(args.join(' '));
+          const line = args.join(' ');
           addChild(resultsBox, Text({ content: line, fg: "#FF0000" }));
           renderer.root.requestRender();
         };

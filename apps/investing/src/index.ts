@@ -23,6 +23,22 @@ const colors = {
 };
 
 /**
+ * Helper to determine the visible character length of a string (excluding ANSI escape codes).
+ */
+function getVisibleLength(str: string): number {
+  return str.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '').length;
+}
+
+/**
+ * Pads the end of a string to a target visible length (ignoring ANSI escape codes).
+ */
+function padEndVisible(str: string, targetLength: number): string {
+  const visibleLen = getVisibleLength(str);
+  if (visibleLen >= targetLength) return str;
+  return str + ' '.repeat(targetLength - visibleLen);
+}
+
+/**
  * Parses an option symbol (e.g. AAPL260529C00110000)
  */
 function parseOptionSymbol(symbol: string) {
@@ -229,7 +245,7 @@ export async function runStockScreener(customSymbols?: string[]) {
     const bbPos = `$${r.lowerBand.toFixed(1)} - $${r.middleBand.toFixed(1)} - $${r.upperBand.toFixed(1)}`;
     const priceText = isPass ? `${colors.green}$${r.close.toFixed(2)}${colors.reset}` : `$${r.close.toFixed(2)}`;
 
-    console.log(`${colors.bright}${r.symbol.padEnd(8)}${colors.reset} | ${priceText.padEnd(19)} | ${wCloudText.padEnd(18)} | ${dCloudText.padEnd(18)} | ${rsiText.padEnd(17)} | ${bbPos.padEnd(35)} | ${passText.padEnd(15)} | ${r.reason}`);
+    console.log(`${colors.bright}${padEndVisible(r.symbol, 8)}${colors.reset} | ${padEndVisible(priceText, 10)} | ${padEndVisible(wCloudText, 9)} | ${padEndVisible(dCloudText, 9)} | ${padEndVisible(rsiText, 8)} | ${padEndVisible(bbPos, 35)} | ${padEndVisible(passText, 6)} | ${r.reason}`);
   }
   console.log(`${colors.bright}--------------------------------------------------------------------------------------------------------------------------------${colors.reset}\n`);
 
@@ -417,17 +433,17 @@ export async function runOptionScreener(symbol: string, strategy: 'csp' | 'leaps
       const safetyMargin = ((stockPrice - c.strike) / stockPrice) * 100;
 
       console.log(
-        `${colors.bright}${c.symbol.padEnd(20)}${colors.reset} | ` +
+        `${colors.bright}${padEndVisible(c.symbol, 20)}${colors.reset} | ` +
         `${c.expiry} | ` +
-        `${c.expiry ? getDTE(c.expiry).toString().padEnd(5) : "".padEnd(5)} | ` +
-        `$${c.strike.toFixed(2).padEnd(7)} | ` +
-        `${deltaColor}${c.delta.toFixed(3).padEnd(6)}${colors.reset} | ` +
-        `$${c.mid.toFixed(2).padEnd(6)} | ` +
-        `$${c.bid.toFixed(2)} / $${c.ask.toFixed(2)}`.padEnd(15) + ` | ` +
-        `${spreadColor}${(c.spreadPercent * 100).toFixed(1)}%${colors.reset}`.padEnd(16) + ` | ` +
-        `${ivColor}${(c.iv * 100).toFixed(1)}%${colors.reset}`.padEnd(15) + ` | ` +
-        `${c.theta.toFixed(3).padEnd(9)} | ` +
-        `${colors.bright}${colors.green}${(c.monthlyReturnPercent || 0).toFixed(2)}%${colors.reset}`.padEnd(21) + ` | ` +
+        `${c.expiry ? padEndVisible(getDTE(c.expiry).toString(), 5) : padEndVisible("", 5)} | ` +
+        `$${padEndVisible(c.strike.toFixed(2), 7)} | ` +
+        `${deltaColor}${padEndVisible(c.delta.toFixed(3), 6)}${colors.reset} | ` +
+        `$${padEndVisible(c.mid.toFixed(2), 6)} | ` +
+        `padEndVisible("$" + c.bid.toFixed(2) + " / $" + c.ask.toFixed(2), 15)` + ` | ` +
+        `${padEndVisible(spreadColor + (c.spreadPercent * 100).toFixed(1) + "%" + colors.reset, 7)} | ` +
+        `${padEndVisible(ivColor + (c.iv * 100).toFixed(1) + "%" + colors.reset, 6)} | ` +
+        `${padEndVisible(c.theta.toFixed(3), 9)} | ` +
+        `${padEndVisible(colors.bright + colors.green + (c.monthlyReturnPercent || 0).toFixed(2) + "%" + colors.reset, 12)} | ` +
         `${safetyMargin.toFixed(1)}% below`
       );
     }
@@ -441,17 +457,17 @@ export async function runOptionScreener(symbol: string, strategy: 'csp' | 'leaps
       const deltaColor = deltaDev <= 0.02 ? colors.green : colors.bright;
 
       console.log(
-        `${colors.bright}${c.symbol.padEnd(20)}${colors.reset} | ` +
+        `${colors.bright}${padEndVisible(c.symbol, 20)}${colors.reset} | ` +
         `${c.expiry} | ` +
-        `${c.expiry ? getDTE(c.expiry).toString().padEnd(5) : "".padEnd(5)} | ` +
-        `$${c.strike.toFixed(2).padEnd(7)} | ` +
-        `${deltaColor}${c.delta.toFixed(3).padEnd(6)}${colors.reset} | ` +
-        `$${c.mid.toFixed(2).padEnd(6)} | ` +
-        `$${c.bid.toFixed(2)} / $${c.ask.toFixed(2)}`.padEnd(15) + ` | ` +
-        `${spreadColor}${(c.spreadPercent * 100).toFixed(1)}%${colors.reset}`.padEnd(16) + ` | ` +
-        `${(c.iv * 100).toFixed(1)}%`.padEnd(6) + ` | ` +
-        `${c.theta.toFixed(3).padEnd(9)} | ` +
-        `$${c.intrinsic.toFixed(2).padEnd(8)} | ` +
+        `${c.expiry ? padEndVisible(getDTE(c.expiry).toString(), 5) : padEndVisible("", 5)} | ` +
+        `$${padEndVisible(c.strike.toFixed(2), 7)} | ` +
+        `${deltaColor}${padEndVisible(c.delta.toFixed(3), 6)}${colors.reset} | ` +
+        `$${padEndVisible(c.mid.toFixed(2), 6)} | ` +
+        `padEndVisible("$" + c.bid.toFixed(2) + " / $" + c.ask.toFixed(2), 15)` + ` | ` +
+        `${padEndVisible(spreadColor + (c.spreadPercent * 100).toFixed(1) + "%" + colors.reset, 7)} | ` +
+        `${padEndVisible((c.iv * 100).toFixed(1) + "%", 6)} | ` +
+        `${padEndVisible(c.theta.toFixed(3), 9)} | ` +
+        `$${padEndVisible(c.intrinsic.toFixed(2), 8)} | ` +
         `$${c.timeValue.toFixed(2)}`
       );
     }
