@@ -17,6 +17,13 @@ const colors = {
 };
 
 /**
+ * Helper to strip ANSI escape codes (terminal colors) from logs to prevent wrapping and alignment issues.
+ */
+function stripAnsi(str: string): string {
+  return str.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
+}
+
+/**
  * Launches the interactive OpenTUI Stock & Options Screener Dashboard.
  */
 export async function launchTUI() {
@@ -59,8 +66,8 @@ export async function launchTUI() {
 
   // Main Dashboard Box layout
   const dashboard = Box({
-    width: 120,
-    height: 35,
+    width: 150,
+    height: 38,
     borderStyle: "rounded",
     title: " INVESTING SCREENER INTERACTIVE DASHBOARD ",
     borderColor: "#00FFFF",
@@ -95,8 +102,8 @@ export async function launchTUI() {
   // Console output log panel
   const resultsBox = Box({
     id: "resultsBox",
-    width: 116,
-    height: 25,
+    width: 146,
+    height: 28,
     borderStyle: "single",
     borderColor: "#444444",
     title: " Screening Console Output ",
@@ -144,7 +151,7 @@ export async function launchTUI() {
       // Intercept console.log to display output line-by-line in real-time
       const origLog = console.log;
       console.log = (...args) => {
-        const line = args.join(' ');
+        const line = stripAnsi(args.join(' '));
         addChild(resultsBox, Text({ content: line }));
         renderer.root.requestRender();
       };
@@ -208,12 +215,12 @@ export async function launchTUI() {
         const origLog = console.log;
         const origErr = console.error;
         console.log = (...args) => {
-          const line = args.join(' ');
+          const line = stripAnsi(args.join(' '));
           addChild(resultsBox, Text({ content: line }));
           renderer.root.requestRender();
         };
         console.error = (...args) => {
-          const line = args.join(' ');
+          const line = stripAnsi(args.join(' '));
           addChild(resultsBox, Text({ content: line, fg: "#FF0000" }));
           renderer.root.requestRender();
         };
