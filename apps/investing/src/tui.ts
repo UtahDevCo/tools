@@ -102,10 +102,14 @@ export async function launchTUI() {
   // Add the dashboard root to OpenTUI renderer
   renderer.root.add(dashboard);
 
+  // State variable to disable concurrent operations
+  let isBusy = false;
+
   // Global key listener
   renderer.keyInput.on("keypress", async (key) => {
     const keyName = key.name.toLowerCase();
 
+    // Standard Exit shortcut
     if (keyName === "q") {
       renderer.destroy();
       console.clear();
@@ -113,30 +117,38 @@ export async function launchTUI() {
       process.exit(0);
     }
 
+    // Ignore other commands if currently processing an action
+    if (isBusy) {
+      return;
+    }
+
     if (keyName === "s") {
+      isBusy = true;
       clearBox(resultsBox);
-      resultsBox.add(Text({ content: "🔄 Fetching market data and running indicators screen... please wait.", fg: "#FFFF00" }));
-      
-      // Temporarily intercept console logs to display inside the TUI console Box
-      const lines: string[] = [];
+      resultsBox.add(Text({ content: "🔄 Initializing stock trend clouds screener...", fg: "#FFFF00", style: "bold" }));
+      renderer.root.requestRender();
+
+      // Intercept console.log to display output line-by-line in real-time
       const origLog = console.log;
-      console.log = (...args) => lines.push(args.join(' '));
-      
+      console.log = (...args) => {
+        const line = args.join(' ');
+        resultsBox.add(Text({ content: line }));
+        renderer.root.requestRender();
+      };
+
       try {
         await runStockScreener();
       } catch (err: any) {
-        lines.push(`Error: ${err.message}`);
+        resultsBox.add(Text({ content: `⚠️ Error: ${err.message}`, fg: "#FF0000", style: "bold" }));
       } finally {
         console.log = origLog;
-      }
-
-      clearBox(resultsBox);
-      for (const line of lines) {
-        resultsBox.add(Text({ content: line }));
+        isBusy = false;
+        renderer.root.requestRender();
       }
     }
 
     if (keyName === "c" || keyName === "l") {
+      isBusy = true;
       const strategy = keyName === "c" ? "csp" : "leaps";
       const stratName = strategy === "csp" ? "CASH-SECURED PUTS" : "LEAPS CALLS";
 
@@ -161,6 +173,7 @@ export async function launchTUI() {
 
       resultsBox.add(tickerInput);
       tickerInput.focus();
+      renderer.root.requestRender();
 
       // Handle the form submit ENTER event inside the TUI
       tickerInput.on("enter", async (value) => {
@@ -168,31 +181,38 @@ export async function launchTUI() {
         if (!ticker) {
           clearBox(resultsBox);
           resultsBox.add(Text({ content: "⚠️ Error: Ticker cannot be empty. Press [C] or [L] to try again.", fg: "#FF0000" }));
+          isBusy = false;
+          renderer.root.requestRender();
           return;
         }
 
         clearBox(resultsBox);
-        resultsBox.add(Text({ content: `🔄 Querying ${ticker} option chain via Alpaca... please wait.`, fg: "#FFFF00" }));
+        resultsBox.add(Text({ content: `🔄 Querying ${ticker} options chain via Alpaca... please wait.`, fg: "#FFFF00" }));
+        renderer.root.requestRender();
 
-        // Capture options screener logs
-        const lines: string[] = [];
+        // Intercept console.log and console.error in real-time
         const origLog = console.log;
         const origErr = console.error;
-        console.log = (...args) => lines.push(args.join(' '));
-        console.error = (...args) => lines.push(args.join(' '));
+        console.log = (...args) => {
+          const line = args.join(' ');
+          resultsBox.add(Text({ content: line }));
+          renderer.root.requestRender();
+        };
+        console.error = (...args) => {
+          const line = args.join(' ');
+          resultsBox.add(Text({ content: line, fg: "#FF0000" }));
+          renderer.root.requestRender();
+        };
 
         try {
           await runOptionScreener(ticker, strategy);
         } catch (err: any) {
-          lines.push(`Error: ${err.message}`);
+          resultsBox.add(Text({ content: `⚠️ Error: ${err.message}`, fg: "#FF0000", style: "bold" }));
         } finally {
           console.log = origLog;
           console.error = origErr;
-        }
-
-        clearBox(resultsBox);
-        for (const line of lines) {
-          resultsBox.add(Text({ content: line }));
+          isBusy = false;
+          renderer.root.requestRender();
         }
       });
     }
