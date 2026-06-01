@@ -28,7 +28,7 @@ export async function launchTUI() {
     exitOnCtrlC: true
   });
 
-  // Helper to clear all children from an OpenTUI Box VNode
+  // Helper to clear all children from an OpenTUI Box VNode and its materialized instance
   function clearBox(boxVNode: any) {
     if (boxVNode && boxVNode.children) {
       boxVNode.children = [];
@@ -40,6 +40,19 @@ export async function launchTUI() {
         for (const childId of ids) {
           instance.remove(childId);
         }
+      }
+    }
+  }
+
+  // Helper to add a child dynamically to an OpenTUI Box (VNode + materialized instance)
+  function addChild(boxVNode: any, childVNode: any) {
+    if (boxVNode && boxVNode.children) {
+      boxVNode.children.push(childVNode);
+    }
+    if (boxVNode && boxVNode.props && boxVNode.props.id) {
+      const instance = renderer.root.findDescendantById(boxVNode.props.id);
+      if (instance) {
+        instance.add(childVNode);
       }
     }
   }
@@ -125,21 +138,21 @@ export async function launchTUI() {
     if (keyName === "s") {
       isBusy = true;
       clearBox(resultsBox);
-      resultsBox.add(Text({ content: "🔄 Initializing stock trend clouds screener...", fg: "#FFFF00", style: "bold" }));
+      addChild(resultsBox, Text({ content: "🔄 Initializing stock trend clouds screener...", fg: "#FFFF00", style: "bold" }));
       renderer.root.requestRender();
 
       // Intercept console.log to display output line-by-line in real-time
       const origLog = console.log;
       console.log = (...args) => {
         const line = args.join(' ');
-        resultsBox.add(Text({ content: line }));
+        addChild(resultsBox, Text({ content: line }));
         renderer.root.requestRender();
       };
 
       try {
         await runStockScreener();
       } catch (err: any) {
-        resultsBox.add(Text({ content: `⚠️ Error: ${err.message}`, fg: "#FF0000", style: "bold" }));
+        addChild(resultsBox, Text({ content: `⚠️ Error: ${err.message}`, fg: "#FF0000", style: "bold" }));
       } finally {
         console.log = origLog;
         isBusy = false;
@@ -153,7 +166,8 @@ export async function launchTUI() {
       const stratName = strategy === "csp" ? "CASH-SECURED PUTS" : "LEAPS CALLS";
 
       clearBox(resultsBox);
-      resultsBox.add(
+      addChild(
+        resultsBox,
         Text({
           content: `🔍 ENTER STOCK TICKER SYMBOL FOR ${stratName} (e.g. INTU, ZS, SOXL):`,
           fg: "#00FFFF",
@@ -171,7 +185,7 @@ export async function launchTUI() {
         cursorColor: "#00FF00"
       });
 
-      resultsBox.add(tickerInput);
+      addChild(resultsBox, tickerInput);
       tickerInput.focus();
       renderer.root.requestRender();
 
@@ -180,14 +194,14 @@ export async function launchTUI() {
         const ticker = value.trim().toUpperCase();
         if (!ticker) {
           clearBox(resultsBox);
-          resultsBox.add(Text({ content: "⚠️ Error: Ticker cannot be empty. Press [C] or [L] to try again.", fg: "#FF0000" }));
+          addChild(resultsBox, Text({ content: "⚠️ Error: Ticker cannot be empty. Press [C] or [L] to try again.", fg: "#FF0000" }));
           isBusy = false;
           renderer.root.requestRender();
           return;
         }
 
         clearBox(resultsBox);
-        resultsBox.add(Text({ content: `🔄 Querying ${ticker} options chain via Alpaca... please wait.`, fg: "#FFFF00" }));
+        addChild(resultsBox, Text({ content: `🔄 Querying ${ticker} options chain via Alpaca... please wait.`, fg: "#FFFF00" }));
         renderer.root.requestRender();
 
         // Intercept console.log and console.error in real-time
@@ -195,19 +209,19 @@ export async function launchTUI() {
         const origErr = console.error;
         console.log = (...args) => {
           const line = args.join(' ');
-          resultsBox.add(Text({ content: line }));
+          addChild(resultsBox, Text({ content: line }));
           renderer.root.requestRender();
         };
         console.error = (...args) => {
           const line = args.join(' ');
-          resultsBox.add(Text({ content: line, fg: "#FF0000" }));
+          addChild(resultsBox, Text({ content: line, fg: "#FF0000" }));
           renderer.root.requestRender();
         };
 
         try {
           await runOptionScreener(ticker, strategy);
         } catch (err: any) {
-          resultsBox.add(Text({ content: `⚠️ Error: ${err.message}`, fg: "#FF0000", style: "bold" }));
+          addChild(resultsBox, Text({ content: `⚠️ Error: ${err.message}`, fg: "#FF0000", style: "bold" }));
         } finally {
           console.log = origLog;
           console.error = origErr;
