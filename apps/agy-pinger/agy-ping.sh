@@ -16,10 +16,14 @@ mkdir -p "$(dirname "$LOG_FILE")"
 # Navigate to the workspace
 cd "$WORKSPACE_DIR"
 
-# Back up original settings so we always restore, even on error
-SETTINGS_BACKUP="$(cat "$SETTINGS_FILE")"
+# Always restore to Gemini 3.5 Flash on exit, even on error
 restore_settings() {
-  echo "$SETTINGS_BACKUP" > "$SETTINGS_FILE"
+  "$NODE_PATH" -e "
+    const fs = require('fs');
+    const s = JSON.parse(fs.readFileSync('$SETTINGS_FILE', 'utf8'));
+    s.model = 'Gemini 3.5 Flash (Medium)';
+    fs.writeFileSync('$SETTINGS_FILE', JSON.stringify(s, null, 2));
+  "
 }
 trap restore_settings EXIT
 
