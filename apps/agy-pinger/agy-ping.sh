@@ -52,5 +52,37 @@ ping_model() {
   echo "" >> "$LOG_FILE"
 }
 
+ping_codex() {
+  local CODEX_PATH="/home/chris/.npm-global/bin/codex"
+  echo "=== [$(date)] Pinging: Codex CLI ===" >> "$LOG_FILE"
+
+  if [ -x "$CODEX_PATH" ]; then
+    "$CODEX_PATH" exec --dangerously-bypass-approvals-and-sandbox --ephemeral "System ping" >> "$LOG_FILE" 2>&1
+  else
+    echo "Warning: $CODEX_PATH not executable. Falling back to PATH." >> "$LOG_FILE"
+    codex exec --dangerously-bypass-approvals-and-sandbox --ephemeral "System ping" >> "$LOG_FILE" 2>&1
+  fi
+
+  echo "=== [$(date)] Finished: Codex CLI ===" >> "$LOG_FILE"
+  echo "" >> "$LOG_FILE"
+}
+
+ping_claude_cli() {
+  local CLAUDE_PATH="/etc/profiles/per-user/chris/bin/claude"
+  echo "=== [$(date)] Pinging: Claude CLI ===" >> "$LOG_FILE"
+
+  if [ -x "$CLAUDE_PATH" ]; then
+    "$CLAUDE_PATH" --print "System ping" --dangerously-skip-permissions --no-session-persistence >> "$LOG_FILE" 2>&1
+  else
+    echo "Warning: $CLAUDE_PATH not executable. Falling back to PATH." >> "$LOG_FILE"
+    claude --print "System ping" --dangerously-skip-permissions --no-session-persistence >> "$LOG_FILE" 2>&1
+  fi
+
+  echo "=== [$(date)] Finished: Claude CLI ===" >> "$LOG_FILE"
+  echo "" >> "$LOG_FILE"
+}
+
 ping_model "Gemini 3.5 Flash (Medium)"
 ping_model "Claude Sonnet 4.6 (Thinking)"
+ping_codex
+ping_claude_cli
