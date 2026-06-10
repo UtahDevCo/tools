@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Design Overlay</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <h2>Design Overlay</h2>
+    
+    <div class="section">
+      <h3>Grid Overlay</h3>
+      <label class="toggle">
+        <input type="checkbox" id="gridEnable"> Enable Grid
+      </label>
+      
+      <div class="control-group">
+        <label for="gridSpacing">Spacing (e.g. 1rem, 20px)</label>
+        <input type="text" id="gridSpacing" value="1rem">
+      </div>
+      
+      <div class="control-row">
+        <div class="control-group">
+          <label for="gridColor">Color</label>
+          <input type="color" id="gridColor" value="#00ff00">
+        </div>
+        <div class="control-group">
+          <label for="gridStyle">Style</label>
+          <select id="gridStyle">
+            <option value="solid">Solid</option>
+            <option value="dashed">Dashed</option>
+            <option value="dotted">Dotted</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="control-row">
+        <div class="control-group">
+          <label for="gridOffsetX">Offset X (px)</label>
+          <input type="number" id="gridOffsetX" value="0">
+        </div>
+        <div class="control-group">
+          <label for="gridOffsetY">Offset Y (px)</label>
+          <input type="number" id="gridOffsetY" value="0">
+        </div>
+      </div>
+    </div>
+    
+    <hr>
+    
+    <div class="section">
+      <h3>Guide Lines</h3>
+      <div class="control-row">
+        <button id="addHGuideBtn" class="btn primary small">+ Horiz Guide</button>
+        <button id="addVGuideBtn" class="btn primary small">+ Vert Guide</button>
+      </div>
+      <div class="control-row" style="margin-top: -4px;">
+        <button id="activateAllGuidesBtn" class="btn secondary small">Activate All</button>
+        <button id="deactivateAllGuidesBtn" class="btn secondary small">Deactivate All</button>
+        <button id="deleteAllGuidesBtn" class="btn danger small">Delete All</button>
+      </div>
+      <div id="guidesList" class="guides-list">
+        <!-- Guides listed dynamically -->
+      </div>
+    </div>
+    
+    <hr>
+    
+    <div class="section">
+      <h3>Image Overlay</h3>
+      <label class="toggle">
+        <input type="checkbox" id="imageEnable"> Enable Image Overlay
+      </label>
+      
+      <div class="control-group">
+        <label for="imageUpload">Upload Figma Screenshot</label>
+        <input type="file" id="imageUpload" accept="image/*">
+      </div>
+      
+      <div class="control-group">
+        <label for="imageOpacity">Opacity: <span id="opacityVal">0.5</span></label>
+        <input type="range" id="imageOpacity" min="0" max="1" step="0.05" value="0.5">
+      </div>
+      
+      <div class="control-group">
+        <label for="imageScale">Scale: <span id="scaleVal">1</span></label>
+        <input type="range" id="imageScale" min="0.1" max="3" step="0.05" value="1">
+      </div>
+    </div>
+    
+    <hr>
+    
+    <div class="actions">
+      <button id="savePresetBtn" class="btn primary">Save for this Website</button>
+      <button id="clearPresetBtn" class="btn danger">Clear</button>
+      <div id="statusMessage"></div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
