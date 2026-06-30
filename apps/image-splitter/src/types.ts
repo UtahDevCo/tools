@@ -1,7 +1,7 @@
 export interface SplitOptions {
   inputPath: string;
   outputDir: string;
-  mode: 'auto' | 'manual' | 'fixed';
+  mode: 'auto' | 'manual' | 'fixed' | 'stacked-pages';
   rows?: number;
   cols?: number;
   threshold?: number;

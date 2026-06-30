@@ -70,6 +70,9 @@ split-image --output ./my-pages --crop --pdf
 
 # Change multiple options
 split-image --input scan.png --rows 3 --cols 2 --crop --padding 75 --pdf
+
+# Tall image with vertically stacked pages
+split-image --input tall-scan.png --mode stacked-pages --rows 7 --cols 1 --crop --pdf
 ```
 
 ## All Options
@@ -82,7 +85,7 @@ split-image --input scan.png --rows 3 --cols 2 --crop --padding 75 --pdf
 - `-c, --cols <num>` - Number of columns (default: 2)
 - `--padding <pixels>` - Padding around content when cropping (default: 50)
 - `--pdf-output <path>` - Custom PDF output path (default: output/output.pdf)
-- `-m, --mode <mode>` - Split mode: auto or manual (default: manual)
+- `-m, --mode <mode>` - Split mode: auto, manual, or stacked-pages (default: manual)
 - `-t, --threshold <0-255>` - White threshold for auto mode (default: 250)
 - `--help` - Show help
 
@@ -92,6 +95,7 @@ split-image --input scan.png --rows 3 --cols 2 --crop --padding 75 --pdf
 - ✅ **PDF Generation** - Optionally create a PDF from extracted pages
 - ✅ **Manual Grid Mode** - Split into exact rows × columns  
 - ✅ **Auto Detection Mode** - Experimental auto-detection of page boundaries
+- ✅ **Stacked Page Mode** - Detect full-width separator bands in tall page stacks
 - ✅ **Configurable Padding** - Keep a safe margin around content (default 50px)
 - ✅ **Global Installation** - Use from anywhere on your system
 - ✅ **Clean Output** - Files named `page-N_rRcC.png` (e.g., `page-1_r1c1.png`)
@@ -104,6 +108,18 @@ When `--crop` is enabled:
 3. Removes solid-color borders (both dark ~72 and light ~243)
 4. Adds configurable padding around the actual content
 5. Result: Clean pages without distracting borders!
+
+## Stacked Page Mode
+
+Use `--mode stacked-pages` for very tall images created by stitching or screenshotting multiple pages vertically. This mode looks for full-width horizontal separator bands first, then splits on those bands before normal trimming runs.
+
+```bash
+split-image --input more-than-words-top.png --mode stacked-pages --rows 7 --cols 1 --crop --pdf
+```
+
+- Set `--rows` to the number of pages you expect in that tall image.
+- If the source image only contains part of the last page, the last output image will also be partial.
+- If no strong separator bands are found, the splitter falls back to the snapped manual boundary logic.
 
 ## Output
 
@@ -135,6 +151,9 @@ split-image --crop --padding 100 --pdf
 
 # Experimental auto-detect mode
 split-image --mode auto --crop --pdf
+
+# Tall stacked screenshot of 7 pages
+split-image --input tall-scan.png --mode stacked-pages --rows 7 --cols 1 --crop --pdf
 ```
 
 ## Development

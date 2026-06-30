@@ -20,11 +20,11 @@ function parseArgs(): SplitOptions {
     rows: 4,
     cols: 2,
     crop: true,
-    cropPadding: 0,
+    cropPadding: 50,
     whiten: true,
     whitenThreshold: 240,
     pdf: true,
-    threshold: 50
+    threshold: 250
   };
 
   // First positional argument is the input file (if it doesn't start with --)
@@ -47,8 +47,8 @@ function parseArgs(): SplitOptions {
       case '--mode':
       case '-m':
         const mode = args[++i];
-        if (mode !== 'auto' && mode !== 'manual') {
-          throw new Error(`Invalid mode: ${mode}. Use auto or manual`);
+        if (mode !== 'auto' && mode !== 'manual' && mode !== 'stacked-pages') {
+          throw new Error(`Invalid mode: ${mode}. Use auto, manual, or stacked-pages`);
         }
         options.mode = mode;
         break;
@@ -120,12 +120,12 @@ COMMON OPTIONS:
   -c, --cols <num>         Number of columns (default: 2)
   
 GRID OPTIONS:
-  -m, --mode <mode>        Split mode: auto|manual (default: manual)
-  -t, --threshold <0-255>  Darkness threshold for border removal (default: 50)
+  -m, --mode <mode>        Split mode: auto|manual|stacked-pages (default: manual)
+  -t, --threshold <0-255>  Whitespace threshold for auto mode (default: 250)
 
 BORDER REMOVAL (enabled by default):
   --no-crop                Disable border trimming
-  --padding <pixels>       Padding around content when cropping (default: 0)
+  --padding <pixels>       Padding around content when cropping (default: 50)
 
 BACKGROUND WHITENING (enabled by default):
   --no-whiten              Disable background whitening
@@ -141,6 +141,9 @@ OTHER:
 EXAMPLES:
   # Simple 2x2 grid split
   split-image scan.png --rows 2 --cols 2
+
+  # Tall image made from vertically stacked pages
+  split-image tall-scan.png --mode stacked-pages --rows 7 --cols 1
 
   # 4x2 grid (default)
   split-image sheet-music.png
